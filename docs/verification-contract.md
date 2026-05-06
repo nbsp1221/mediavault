@@ -39,6 +39,10 @@ appropriate Docker gate.
 - `build` verifies the production build succeeds.
 - `bun run verify:e2e-smoke` is the required browser smoke layer for browser-visible changes. It currently covers the home owner path, the add-videos owner upload flow, the playlist owner flow, player layout, and protected playback compatibility.
   This required smoke command is the stability boundary and may use stricter worker settings than ad hoc `bun run test:e2e` runs. Parallel browser stress runs are diagnostic, not the default required gate, until the harness owns per-worker runtime isolation.
+- `bun run verify:docker-compose-smoke` is the Docker Compose production readiness
+  gate for app-owned production preflight behavior. It builds the production image and
+  checks configured, missing-secret, unusable-storage, and missing-media-tool scenarios
+  without reading the developer's real `.env` or binding a fixed host port.
 
 ## Parity rules
 
@@ -63,14 +67,19 @@ The authoritative commands for the current repo state are:
 - `bun run verify:ci-faithful:docker`
 - `bun run verify:ci-clean-export`
 - `bun run verify:ci-worktree:docker`
+- `bun run verify:docker-compose-smoke`
 - `bun run lint`
 - `bun run typecheck`
 - `bun run test`
 - `bun run build`
 
-The authoritative Docker verification surfaces are `bun run verify:ci-faithful:docker` and `bun run verify:ci-worktree:docker`.
+The authoritative Docker verification surfaces are `bun run verify:ci-faithful:docker`,
+`bun run verify:ci-worktree:docker`, and `bun run verify:docker-compose-smoke`.
 `bun run verify:ci-clean-export` is an authoritative clean-export parity command, but it is not Docker-backed.
 Use `bun run verify:ci-worktree:docker` only when you must prove the current dirty worktree in a CI-like container without leaving root-owned artifacts in the host repository.
+Use `bun run verify:docker-compose-smoke` when startup/readiness, production
+configuration, Docker healthcheck, storage preflight, or media-tool readiness behavior
+changes.
 
 Diagnostic reference only:
 
@@ -93,11 +102,14 @@ GitHub Actions should run dedicated jobs for:
 - `test`
 - `build`
 - `e2e-smoke`
+- `Docker Compose Smoke` for production runtime-sensitive paths
 
 CI and local base verification should use `bun run verify:base` so the hermetic input
 guard cannot be skipped.
 
 `e2e-smoke` should run `bun run verify:e2e-smoke`. If broader browser suites are added later, they can remain non-required under `bun run test:e2e` until they are deterministic.
+`Docker Compose Smoke` should run `bun run verify:docker-compose-smoke`
+as a separate path-scoped Docker workflow, not as part of `verify:base`.
 
 ## Broader browser suite
 

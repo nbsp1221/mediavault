@@ -46,16 +46,17 @@ describe('video tools config', () => {
     }
   });
 
-  test('ignores a stale FFMPEG_PATH and falls back to system ffmpeg when no local binary exists', async () => {
+  test('uses an explicit FFMPEG_PATH even when the path is stale', async () => {
     rootDir = await mkdtemp(path.join(tmpdir(), 'local-streamer-video-tools-'));
     previousCwd = process.cwd();
     process.chdir(rootDir);
-    process.env.FFMPEG_PATH = '/tmp/does-not-exist';
+    const explicitPath = '/tmp/does-not-exist';
+    process.env.FFMPEG_PATH = explicitPath;
     vi.resetModules();
 
     const { getFFmpegPath } = await import('../../../app/shared/config/video-tools.server');
 
-    expect(getFFmpegPath()).toBe('ffmpeg');
+    expect(getFFmpegPath()).toBe(explicitPath);
   });
 
   test('prefers an existing project-local binaries/ffmpeg over system ffmpeg', async () => {
@@ -79,16 +80,17 @@ describe('video tools config', () => {
     }
   });
 
-  test('ignores a stale FFPROBE_PATH and falls back to system ffprobe when no local binary exists', async () => {
+  test('uses an explicit FFPROBE_PATH even when the path is stale', async () => {
     rootDir = await mkdtemp(path.join(tmpdir(), 'local-streamer-video-tools-'));
     previousCwd = process.cwd();
     process.chdir(rootDir);
-    process.env.FFPROBE_PATH = '/tmp/does-not-exist';
+    const explicitPath = '/tmp/does-not-exist';
+    process.env.FFPROBE_PATH = explicitPath;
     vi.resetModules();
 
     const { getFFprobePath } = await import('../../../app/shared/config/video-tools.server');
 
-    expect(getFFprobePath()).toBe('ffprobe');
+    expect(getFFprobePath()).toBe(explicitPath);
   });
 
   test('prefers an existing project-local binaries/ffprobe over system ffprobe', async () => {
@@ -112,16 +114,17 @@ describe('video tools config', () => {
     }
   });
 
-  test('ignores a stale SHAKA_PACKAGER_PATH and falls back to system packager when no local binary exists', async () => {
+  test('uses an explicit SHAKA_PACKAGER_PATH even when the path is stale', async () => {
     rootDir = await mkdtemp(path.join(tmpdir(), 'local-streamer-video-tools-'));
     previousCwd = process.cwd();
     process.chdir(rootDir);
-    process.env.SHAKA_PACKAGER_PATH = '/tmp/does-not-exist';
+    const explicitPath = '/tmp/does-not-exist';
+    process.env.SHAKA_PACKAGER_PATH = explicitPath;
     vi.resetModules();
 
     const { getShakaPackagerPath } = await import('../../../app/shared/config/video-tools.server');
 
-    expect(getShakaPackagerPath()).toBe('packager');
+    expect(getShakaPackagerPath()).toBe(explicitPath);
   });
 
   test('prefers an existing SHAKA_PACKAGER_PATH over local binaries and the system fallback', async () => {

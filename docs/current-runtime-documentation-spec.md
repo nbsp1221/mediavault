@@ -240,6 +240,18 @@ The production image must not rely on ignored local binaries or repo-local gener
 
 Required deployment alignment:
 
+- `NODE_ENV=production` enables the production full-vault preflight contract.
+- Production startup must fail before listening when `AUTH_SHARED_PASSWORD`,
+  `VIDEO_JWT_SECRET`, or `VIDEO_MASTER_ENCRYPTION_SEED` is absent or blank.
+- Production startup must fail before listening when the configured `STORAGE_DIR` or
+  primary SQLite database path cannot support app-owned writes.
+- Production readiness must fail when FFmpeg, ffprobe, or Shaka Packager is missing,
+  non-executable, or cannot complete a bounded version check.
+- Dockerfile and Docker Compose healthchecks must use `GET /health/ready`, not `/` or an
+  auth/home route.
+- `GET /health/ready` must return only `204 No Content` when ready and `503 Service
+  Unavailable` when not ready. Public readiness responses must not expose secret names,
+  secret values, local paths, or diagnostic categories.
 - Build or install FFmpeg, ffprobe, and Shaka Packager through reproducible image steps.
   A production image that runs browser upload commit must not depend on ignored local
   `binaries/*`.
@@ -258,6 +270,14 @@ Required deployment alignment:
 - Bind mount examples must mention ownership and write-permission risks, because host
   filesystem permissions can prevent the non-root runtime user from writing media and the
   SQLite database.
+- Docker examples may keep the simple default `3000:3000` binding for first-run
+  reachability, but production documentation must explain that remote browser use needs an
+  HTTPS reverse proxy or equivalent TLS termination. The app does not bundle or enforce
+  Caddy, Nginx, Traefik, ACME, firewall rules, or proxy-network topology.
+- `VIDEO_MASTER_ENCRYPTION_SEED` must be documented as durable vault configuration that
+  should be backed up with the storage volume and primary SQLite database.
+- `KEY_SALT_PREFIX` remains optional. If customized, documentation should tell operators to
+  preserve it with `VIDEO_MASTER_ENCRYPTION_SEED` and storage backups.
 - GPU/NVENC settings must not be required or implied by the default Docker quick start.
   Current runtime media preparation is CPU-first. Hardware acceleration can be reintroduced
   later as an explicit optional profile only when it is restored as a product/runtime

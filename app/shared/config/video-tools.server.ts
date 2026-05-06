@@ -1,9 +1,16 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
+function readExplicitPath(value: string | undefined): string | null {
+  const normalized = value?.trim();
+
+  return normalized || null;
+}
+
 export function getFFmpegPath(): string {
-  if (process.env.FFMPEG_PATH && existsSync(process.env.FFMPEG_PATH)) {
-    return process.env.FFMPEG_PATH;
+  const explicitPath = readExplicitPath(process.env.FFMPEG_PATH);
+  if (explicitPath) {
+    return explicitPath;
   }
 
   const localFFmpeg = path.join(process.cwd(), 'binaries', 'ffmpeg');
@@ -15,8 +22,9 @@ export function getFFmpegPath(): string {
 }
 
 export function getFFprobePath(): string {
-  if (process.env.FFPROBE_PATH && existsSync(process.env.FFPROBE_PATH)) {
-    return process.env.FFPROBE_PATH;
+  const explicitPath = readExplicitPath(process.env.FFPROBE_PATH);
+  if (explicitPath) {
+    return explicitPath;
   }
 
   const localFFprobe = path.join(process.cwd(), 'binaries', 'ffprobe');
@@ -28,8 +36,9 @@ export function getFFprobePath(): string {
 }
 
 export function getShakaPackagerPath(): string {
-  if (process.env.SHAKA_PACKAGER_PATH && existsSync(process.env.SHAKA_PACKAGER_PATH)) {
-    return process.env.SHAKA_PACKAGER_PATH;
+  const explicitPath = readExplicitPath(process.env.SHAKA_PACKAGER_PATH);
+  if (explicitPath) {
+    return explicitPath;
   }
 
   const localPackager = path.join(process.cwd(), 'binaries', 'packager');

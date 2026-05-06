@@ -1,0 +1,78 @@
+name: Docker Compose Smoke
+
+env:
+  LANG: C.UTF-8
+  LC_ALL: C.UTF-8
+  TZ: Etc/UTC
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/server.ts"
+      - "app/routes/health.ready.ts"
+      - "app/composition/server/runtime-readiness.ts"
+      - "app/modules/runtime/**"
+      - "app/shared/config/auth.server.ts"
+      - "app/shared/config/playback.server.ts"
+      - "app/shared/config/video-tools.server.ts"
+      - "app/modules/storage/**"
+      - "Dockerfile"
+      - "docker-compose.yaml"
+      - ".dockerignore"
+      - "scripts/download-ffmpeg.sh"
+      - "scripts/download-shaka-packager.sh"
+      - "scripts/verify-docker-compose-smoke.ts"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/docker-compose-smoke.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/server.ts"
+      - "app/routes/health.ready.ts"
+      - "app/composition/server/runtime-readiness.ts"
+      - "app/modules/runtime/**"
+      - "app/shared/config/auth.server.ts"
+      - "app/shared/config/playback.server.ts"
+      - "app/shared/config/video-tools.server.ts"
+      - "app/modules/storage/**"
+      - "Dockerfile"
+      - "docker-compose.yaml"
+      - ".dockerignore"
+      - "scripts/download-ffmpeg.sh"
+      - "scripts/download-shaka-packager.sh"
+      - "scripts/verify-docker-compose-smoke.ts"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/docker-compose-smoke.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  docker-compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Cache dependencies
+        uses: actions/cache@v5.0.5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Docker Compose smoke
+        run: bun run verify:docker-compose-smoke

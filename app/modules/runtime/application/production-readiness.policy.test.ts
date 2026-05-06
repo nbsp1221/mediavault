@@ -1,0 +1,126 @@
+import { describe, expect, test } from 'vitest';
+import {
+  type MediaToolProbeResult,
+  type StorageProbeResult,
+  classifyMediaToolProbeResults,
+  classifyStorageProbeResults,
+  collectCriticalProductionSecretIssues,
+  createProductionReadinessReport,
+  CRITICAL_PRODUCTION_SECRET_KEYS,
+  isProductionRuntime,
+} from './production-readiness.policy';
+
+describe('production readiness policy', () => {
+  test('uses NODE_ENV=production as the strict production trigger', () => {
+    expect(isProductionRuntime({ NODE_ENV: 'production' })).toBe(true);
+    expect(isProductionRuntime({ NODE_ENV: 'development' })).toBe(false);
+    expect(isProductionRuntime({ NODE_ENV: 'test' })).toBe(false);
+    expect(isProductionRuntime({})).toBe(false);
+  });
+
+  test('reports all missing or blank critical production secrets without leaking values', () => {
+    const issues = collectCriticalProductionSecretIssues({
+      AUTH_SHARED_PASSWORD: '   ',
+      NODE_ENV: 'production',
+      VIDEO_JWT_SECRET: '\n\t',
+    });
+
+    expect(issues).toHaveLength(3);
+    expect(issues.map(issue => issue.code)).toEqual([
+      'missing-critical-secret',
+      'missing-critical-secret',
+      'missing-critical-secret',
+    ]);
+    expect(issues.map(issue => issue.severity)).toEqual([
+      'startup-blocking',
+      'startup-blocking',
+      'startup-blocking',
+    ]);
+    expect(issues.map(issue => issue.subject)).toEqual(CRITICAL_PRODUCTION_SECRET_KEYS);
+    expect(issues.map(issue => issue.message).join('\n')).not.toContain('   ');
+    expect(issues.map(issue => issue.message).join('\n')).not.toContain('\n\t');
+  });
+
+  test('does not enforce secret strength, length, format, or placeholder-like content at runtime', () => {
+    const issues = collectCriticalProductionSecretIssues({
+      AUTH_SHARED_PASSWORD: 'password',
+      NODE_ENV: 'production',
+      VIDEO_JWT_SECRET: 'short',
+      VIDEO_MASTER_ENCRYPTION_SEED: 'example',
+    });
+
+    expect(issues).toEqual([]);
+  });
+
+  test('does not apply production startup secret failures outside production', () => {
+    const issues = collectCriticalProductionSecretIssues({
+      AUTH_SHARED_PASSWORD: 'auth-only-development',
+      NODE_ENV: 'development',
+    });
+
+    expect(issues).toEqual([]);
+  });
+
+  test('classifies storage and database probe failures as startup-blocking production issues', () => {
+    const results: StorageProbeResult[] = [
+      { ok: true, target: 'storage-root' },
+      { ok: false, reason: 'blocked regular file', target: 'database-path' },
+    ];
+
+    const issues = classifyStorageProbeResults(results);
+
+    expect(issues).toEqual([
+      {
+        code: 'database-unavailable',
+        message: 'Production startup preflight failed: DATABASE_SQLITE_PATH is not usable',
+        severity: 'startup-blocking',
+        subject: 'DATABASE_SQLITE_PATH',
+      },
+    ]);
+  });
+
+  test('classifies media probe failures as readiness-only production issues', () => {
+    const results: MediaToolProbeResult[] = [
+      { ok: true, tool: 'ffmpeg' },
+      { ok: false, reason: 'ENOENT', tool: 'ffprobe' },
+      { ok: false, reason: 'timed out', tool: 'packager' },
+    ];
+
+    const issues = classifyMediaToolProbeResults(results);
+
+    expect(issues).toEqual([
+      {
+        code: 'media-tool-unavailable',
+        message: 'Production readiness failed: media tool ffprobe is unavailable',
+        severity: 'readiness-only',
+        subject: 'ffprobe',
+      },
+      {
+        code: 'media-tool-unavailable',
+        message: 'Production readiness failed: media tool packager is unavailable',
+        severity: 'readiness-only',
+        subject: 'packager',
+      },
+    ]);
+  });
+
+  test('production readiness is ready only when there are no issues', () => {
+    expect(createProductionReadinessReport({ issues: [] })).toEqual({
+      issues: [],
+      ready: true,
+      startupBlocked: false,
+    });
+
+    expect(createProductionReadinessReport({
+      issues: [{
+        code: 'media-tool-unavailable',
+        message: 'Production readiness failed: media tool ffmpeg is unavailable',
+        severity: 'readiness-only',
+        subject: 'ffmpeg',
+      }],
+    })).toMatchObject({
+      ready: false,
+      startupBlocked: false,
+    });
+  });
+});

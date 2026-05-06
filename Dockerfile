@@ -72,8 +72,8 @@ ENV PORT=3000
 ENV STORAGE_DIR=/app/storage
 
 # Health check using bun
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD bun -e "fetch('http://localhost:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD bun -e "fetch('http://localhost:3000/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 # Run server with react-router-serve (same as local)
 CMD ["bun", "run", "start"]
