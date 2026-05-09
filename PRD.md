@@ -1,4 +1,4 @@
-# Local Streamer PRD
+# Mediavault PRD
 
 Status: Historical requirements snapshot
 Last reviewed: 2026-04-19
@@ -16,10 +16,10 @@ Important note:
 - use the documents above for current architecture, refactor state, and ownership boundaries
 - quoted historical statements below are preserved for context and are not authoritative for current development
 
-# 최종 PRD (Product Requirements Document) - Local Streamer
+# 최종 PRD (Product Requirements Document) - Mediavault
 
 **버전: 2.0**  
-**프로젝트명: Local Streamer**  
+**프로젝트명: Mediavault**
 **최종 업데이트: 2025-01-12**
 
 > Historical note: at the time this PRD was written, it was intended as the MVP blueprint. It is no longer the current source of truth for the live project.

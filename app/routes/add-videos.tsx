@@ -16,7 +16,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export const meta: MetaFunction = () => ([
-  { title: 'Add Videos - Local Streamer' },
+  { title: 'Add Videos - Mediavault' },
   { name: 'description', content: 'Add new videos to your library' },
 ]);
 

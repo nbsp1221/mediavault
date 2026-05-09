@@ -65,7 +65,7 @@ describe('PlaylistsPage', () => {
       <RouterProvider router={router} />,
     );
 
-    expect(screen.getByText('Local Streamer')).toBeInTheDocument();
+    expect(screen.getByText('Mediavault')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'My Playlists' })).toBeInTheDocument();
     expect(screen.getByText('Vault')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /new playlist/i }));

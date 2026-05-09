@@ -25,8 +25,8 @@ export async function loader(_args: LoaderFunctionArgs) {
 }
 
 export const meta: MetaFunction = () => ([
-  { title: 'Login - Local Streamer' },
-  { name: 'description', content: 'Sign in to your Local Streamer account' },
+  { title: 'Login - Mediavault' },
+  { name: 'description', content: 'Sign in to your Mediavault account' },
 ]);
 
 export default function LoginRoute() {

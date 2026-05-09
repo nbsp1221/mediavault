@@ -25,7 +25,7 @@ describe('production readiness route', () => {
 
   test('returns 503 with an empty non-diagnostic body when production readiness fails', async () => {
     const secretValue = 'do-not-leak-secret-value';
-    const localStoragePath = '/srv/local-streamer/storage';
+    const localStoragePath = '/srv/mediavault/storage';
     const binaryPath = '/usr/local/bin/ffmpeg';
     const loader = createHealthReadyLoader({
       checkProductionReadiness: async () => createReport({

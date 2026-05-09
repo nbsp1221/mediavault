@@ -1,4 +1,4 @@
-# Local Streamer Architecture Guide
+# Mediavault Architecture Guide
 
 Status: Historical reference only  
 Last reviewed: 2026-04-02  
@@ -31,7 +31,7 @@ The current source of truth is:
 
 ## 🎯 **Executive Summary**
 
-This guide consolidates architectural decisions for Local Streamer, a personal video streaming server. After analyzing various patterns (DDD, Clean Architecture, Hexagonal Architecture), we've concluded that **MVC + UseCase + Repository** provides the optimal balance of maintainability and simplicity for this project's scope.
+This guide consolidates architectural decisions for Mediavault, a personal media streaming vault. After analyzing various patterns (DDD, Clean Architecture, Hexagonal Architecture), we've concluded that **MVC + UseCase + Repository** provides the optimal balance of maintainability and simplicity for this project's scope.
 
 ### Key Principles
 - **Pragmatic over Perfect**: Choose appropriate complexity for project scale
@@ -454,7 +454,7 @@ describe('addVideoUseCase', () => {
 
 ---
 
-## 🎯 **Why This Architecture Works for Local Streamer**
+## 🎯 **Why This Architecture Works for Mediavault**
 
 ### **Right-Sized Complexity**
 - **Not too simple**: Plain MVC would mix business logic in controllers
@@ -477,7 +477,7 @@ describe('addVideoUseCase', () => {
 
 ### **Current System Architecture (HLS-Based)**
 
-Local Streamer has fully migrated to HLS (HTTP Live Streaming) with AES-128 encryption to meet security requirements. All performance optimizations must work within this HLS framework.
+Mediavault has fully migrated to HLS (HTTP Live Streaming) with AES-128 encryption to meet security requirements. All performance optimizations must work within this HLS framework.
 
 ### **Static File Serving Performance**
 
@@ -616,7 +616,7 @@ This architecture guide provides a **pragmatic, maintainable solution** that:
 4. ✅ **Developer friendly**: Easy to understand and modify
 5. ✅ **Battle tested**: MVC + UseCase + Repository is proven pattern
 
-**Remember**: The best architecture is the one that solves your problems without creating new ones. For Local Streamer, this balanced approach provides clean code organization without enterprise-level complexity.
+**Remember**: The best architecture is the one that solves your problems without creating new ones. For Mediavault, this balanced approach provides clean code organization without enterprise-level complexity.
 
 ---
 

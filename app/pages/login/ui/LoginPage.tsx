@@ -72,7 +72,7 @@ export function LoginPage({
             <h1 className="text-inherit font-inherit">Unlock your vault</h1>
           </CardTitle>
           <CardDescription>
-            <p>Enter the shared password to access Local Streamer.</p>
+            <p>Enter the shared password to access Mediavault.</p>
           </CardDescription>
         </CardHeader>
 

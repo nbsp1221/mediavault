@@ -9,7 +9,7 @@ interface PlaybackConfig {
 
 const DEFAULT_PLAYBACK_JWT_AUDIENCE = 'video-streaming';
 const DEFAULT_PLAYBACK_JWT_EXPIRY = '15m';
-const DEFAULT_PLAYBACK_JWT_ISSUER = 'local-streamer';
+const DEFAULT_PLAYBACK_JWT_ISSUER = 'mediavault';
 
 export function getPlaybackConfig(): PlaybackConfig {
   const jwtSecret = process.env.VIDEO_JWT_SECRET?.trim();

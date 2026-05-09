@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "local-streamer",
+      "name": "mediavault",
       "dependencies": {
         "@hookform/resolvers": "^5.2.2",
         "@libsql/client": "^0.17.2",

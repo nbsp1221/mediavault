@@ -42,7 +42,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 
 export const meta: MetaFunction = () => ([
-  { title: 'Playlist Detail - Local Streamer' },
+  { title: 'Playlist Detail - Mediavault' },
   { name: 'description', content: 'View playlist information and videos' },
 ]);
 

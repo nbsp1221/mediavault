@@ -3,9 +3,9 @@ import { mkdir, open, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { StorageProbeResult } from '../application/production-readiness.policy';
 
-export const DATABASE_READY_SENTINEL = '.local-streamer-db-ready';
+export const DATABASE_READY_SENTINEL = '.mediavault-db-ready';
 export const DEFAULT_STORAGE_PROBE_TIMEOUT_MS = 2_000;
-export const STORAGE_READY_SENTINEL = '.local-streamer-storage-ready';
+export const STORAGE_READY_SENTINEL = '.mediavault-storage-ready';
 
 export interface RuntimeStorageProbeConfig {
   databasePath: string;
@@ -50,7 +50,7 @@ async function probeWritableDirectory(
 
   const sentinelPath = path.join(directory, sentinelName);
   try {
-    const content = `local-streamer-readiness:${randomUUID()}`;
+    const content = `mediavault-readiness:${randomUUID()}`;
     await writeFile(sentinelPath, content, { encoding: 'utf8' });
     await readFile(sentinelPath, { encoding: 'utf8' });
   }

@@ -17,7 +17,7 @@ interface ComposeScenario {
 
 function createProjectName(name: string): string {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`.toLowerCase();
-  return `local-streamer-compose-smoke-${name}-${suffix}`.replace(/[^a-z0-9_-]/g, '-');
+  return `mediavault-compose-smoke-${name}-${suffix}`.replace(/[^a-z0-9_-]/g, '-');
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -105,7 +105,7 @@ async function writeComposeFile(
 ): Promise<string> {
   const composeFile = path.join(rootDir, `${scenario.name}.compose.yaml`);
   const content = `services:
-  local-streamer:
+  mediavault:
     image: ${JSON.stringify(imageTag)}
     environment:
 ${envBlock(scenario.env)}${volumesBlock(scenario.storageDir)}${commandBlock(scenario.command)}
@@ -133,10 +133,10 @@ async function inspectState(containerId: string): Promise<string> {
 }
 
 async function getContainerId(composeFile: string, projectName: string): Promise<string> {
-  const result = await runCompose(composeFile, projectName, ['ps', '-q', 'local-streamer']);
+  const result = await runCompose(composeFile, projectName, ['ps', '-q', 'mediavault']);
   const containerId = result.stdout.trim();
   if (!containerId) {
-    throw new Error(`Scenario ${projectName} did not create a local-streamer container`);
+    throw new Error(`Scenario ${projectName} did not create a mediavault container`);
   }
 
   return containerId;
@@ -182,7 +182,7 @@ async function waitForExpectedState(
 }
 
 async function readLogs(composeFile: string, projectName: string): Promise<string> {
-  const result = await runCompose(composeFile, projectName, ['logs', '--no-color', 'local-streamer']);
+  const result = await runCompose(composeFile, projectName, ['logs', '--no-color', 'mediavault']);
 
   return `${result.stdout}\n${result.stderr}`;
 }
@@ -202,13 +202,13 @@ function assertScenarioLogs(scenario: ComposeScenario, logs: string): void {
 }
 
 function assertComposeConfigContract(config: ComposeConfig): void {
-  const service = config.services?.['local-streamer'];
+  const service = config.services?.mediavault;
   if (!service) {
-    throw new Error('services.local-streamer is missing');
+    throw new Error('services.mediavault is missing');
   }
 
   if (service.build?.target !== 'production') {
-    throw new Error('services.local-streamer.build.target must be production');
+    throw new Error('services.mediavault.build.target must be production');
   }
 
   const publishesDefaultPort = service.ports?.some(port => (
@@ -216,14 +216,14 @@ function assertComposeConfigContract(config: ComposeConfig): void {
     String(port.target) === '3000'
   ));
   if (!publishesDefaultPort) {
-    throw new Error('services.local-streamer.ports must publish 3000:3000');
+    throw new Error('services.mediavault.ports must publish 3000:3000');
   }
 
   const healthcheckTest = Array.isArray(service.healthcheck?.test)
     ? service.healthcheck.test.join(' ')
     : String(service.healthcheck?.test ?? '');
   if (!healthcheckTest.includes('http://localhost:3000/health/ready')) {
-    throw new Error('services.local-streamer.healthcheck.test must use /health/ready');
+    throw new Error('services.mediavault.healthcheck.test must use /health/ready');
   }
 }
 
@@ -291,8 +291,8 @@ async function createStorageDir(rootDir: string, name: string): Promise<string> 
 }
 
 async function main(): Promise<void> {
-  const rootDir = await mkdtemp(path.join(tmpdir(), 'local-streamer-docker-compose-smoke-'));
-  const imageTag = `local-streamer-docker-compose-smoke:${Date.now()}`;
+  const rootDir = await mkdtemp(path.join(tmpdir(), 'mediavault-docker-compose-smoke-'));
+  const imageTag = `mediavault-docker-compose-smoke:${Date.now()}`;
 
   try {
     await validateCheckedInComposeConfig(rootDir);

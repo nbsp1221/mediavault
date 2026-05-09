@@ -8,7 +8,7 @@ describe('PlaybackTokenService', () => {
       config: {
         jwtAudience: 'video-streaming',
         jwtExpiry: '15m',
-        jwtIssuer: 'local-streamer',
+        jwtIssuer: 'mediavault',
         jwtSecret: 'phase-2-secret',
       },
       jwt: {
@@ -35,7 +35,7 @@ describe('PlaybackTokenService', () => {
 
     const decoded = jwt.verify(token, 'phase-2-secret', {
       audience: 'video-streaming',
-      issuer: 'local-streamer',
+      issuer: 'mediavault',
     }) as {
       ip?: string;
       userAgent?: string;
@@ -57,7 +57,7 @@ describe('PlaybackTokenService', () => {
       config: {
         jwtAudience: 'video-streaming',
         jwtExpiry: '15m',
-        jwtIssuer: 'local-streamer',
+        jwtIssuer: 'mediavault',
         jwtSecret: 'phase-2-secret',
       },
       jwt: {

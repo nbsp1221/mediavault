@@ -1,10 +1,10 @@
-# Local Streamer
+# Mediavault
 
-Personal media server application for streaming local video files through a web interface. Built with React Router v7 and pure Bun runtime.
+Self-hosted encrypted media streaming vault for browsing, uploading, and protecting personal media through a web interface. Built with React Router v7 and pure Bun runtime.
 
 ## Features
 
-- 🎬 Stream local video files through web browser
+- 🎬 Stream local media files through a web browser
 - 🔐 Shared-password auth gate with httpOnly site sessions
 - 📁 Browser-first upload with staged commit into the library
 - 🔒 Protected DASH playback with JWT tokens, ClearKey, and encrypted media packaging
@@ -41,7 +41,7 @@ bun start
 For local auth-only investigation, `AUTH_SHARED_PASSWORD` is sufficient.
 For protected playback routes, also set `VIDEO_JWT_SECRET`.
 For ingest and encrypted playback packaging, also set `VIDEO_MASTER_ENCRYPTION_SEED`.
-When `NODE_ENV=production`, Local Streamer runs a startup preflight and refuses to start
+When `NODE_ENV=production`, Mediavault runs a startup preflight and refuses to start
 without the full vault requirements: `AUTH_SHARED_PASSWORD`, `VIDEO_JWT_SECRET`,
 `VIDEO_MASTER_ENCRYPTION_SEED`, and usable configured storage.
 
@@ -77,8 +77,8 @@ no diagnostic body when they fail. Detailed causes are written to container logs
 The app writes to `/app/storage` inside the container.
 
 By default, Docker Compose backs that path with the named volume
-`local-streamer-storage`. If you want the files to appear in this checkout, set
-`LOCAL_STREAMER_STORAGE_MOUNT=./storage` in `.env` before running Compose.
+`mediavault-storage`. If you want the files to appear in this checkout, set
+`MEDIAVAULT_STORAGE_MOUNT=./storage` in `.env` before running Compose.
 
 - named volume: Docker-managed storage with fewer host permission issues
 - bind mount: host-visible files, but host ownership and write permissions matter
@@ -142,7 +142,7 @@ Optional:
 - `KEY_SALT_PREFIX`: salt prefix used during playback key derivation
 - `STORAGE_DIR`: override the unified storage root for `db.sqlite`, committed media, and staged uploads
 - `DATABASE_SQLITE_PATH`: override path for the primary SQLite database without moving media artifacts
-- `LOCAL_STREAMER_STORAGE_MOUNT`: Docker Compose storage mount source for `/app/storage`
+- `MEDIAVAULT_STORAGE_MOUNT`: Docker Compose storage mount source for `/app/storage`
 - `AUTH_CLIENT_COOKIE_NAME`: override the client identity cookie name
 - `AUTH_SESSION_COOKIE_NAME`: override the auth session cookie name
 - `AUTH_SESSION_TTL_MS`: session lifetime in milliseconds

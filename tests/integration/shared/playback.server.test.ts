@@ -21,7 +21,7 @@ describe('getPlaybackConfig', () => {
     expect(getPlaybackConfig()).toEqual({
       jwtAudience: 'video-streaming',
       jwtExpiry: '15m',
-      jwtIssuer: 'local-streamer',
+      jwtIssuer: 'mediavault',
       jwtSecret: 'playback-secret',
     });
   });

@@ -91,7 +91,7 @@ function AddVideosSidebar() {
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
-            <span className="text-lg font-bold text-sidebar-foreground">Local Streamer</span>
+            <span className="text-lg font-bold text-sidebar-foreground">Mediavault</span>
           </Link>
         </div>
       </SidebarHeader>

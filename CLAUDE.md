@@ -1,6 +1,6 @@
 # CLAUDE CODE CONFIGURATION - LOCAL STREAMER PROJECT
 
-This file contains project-specific configuration and behavioral rules for Claude Code when working with the Local Streamer codebase.
+This file contains project-specific configuration and behavioral rules for Claude Code when working with the Mediavault codebase.
 
 ## PROJECT INFORMATION
 
@@ -745,4 +745,4 @@ The Clean Architecture implementation provides testability through independent l
 
 ---
 
-_This configuration file defines the behavioral rules and constraints for Claude Code when working with the Local Streamer media server. All interactions must follow these guidelines strictly to maintain architecture quality, security standards, and performance requirements._
+_This configuration file defines the behavioral rules and constraints for Claude Code when working with the Mediavault media server. All interactions must follow these guidelines strictly to maintain architecture quality, security standards, and performance requirements._

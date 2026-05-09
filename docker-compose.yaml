@@ -1,10 +1,10 @@
 services:
-  local-streamer:
+  mediavault:
     build:
       context: .
       dockerfile: Dockerfile
       target: production
-    container_name: local-streamer
+    container_name: mediavault
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -15,9 +15,9 @@ services:
       PORT: "3000"
       STORAGE_DIR: /app/storage
     volumes:
-      - ${LOCAL_STREAMER_STORAGE_MOUNT:-local-streamer-storage}:/app/storage
+      - ${MEDIAVAULT_STORAGE_MOUNT:-mediavault-storage}:/app/storage
     networks:
-      - local-streamer-network
+      - mediavault-network
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s
@@ -34,8 +34,8 @@ services:
       - SETGID
 
 networks:
-  local-streamer-network:
+  mediavault-network:
     driver: bridge
 
 volumes:
-  local-streamer-storage:
+  mediavault-storage:

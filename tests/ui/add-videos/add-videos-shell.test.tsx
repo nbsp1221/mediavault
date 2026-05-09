@@ -22,7 +22,7 @@ describe('AddVideosShell', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Local Streamer')).toBeInTheDocument();
+    expect(screen.getByText('Mediavault')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 3, name: 'Browse' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Library' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Manage' })).toBeInTheDocument();

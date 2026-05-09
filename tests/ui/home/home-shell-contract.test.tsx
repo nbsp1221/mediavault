@@ -58,7 +58,7 @@ describe('Home shell contract', () => {
     const filtersButton = screen.getByRole('button', { name: 'Filters' });
     const accountMenu = screen.getByTitle('Account Menu');
 
-    expect(screen.getByText('Local Streamer')).toBeInTheDocument();
+    expect(screen.getByText('Mediavault')).toBeInTheDocument();
     expect(libraryHeading.compareDocumentPosition(manageHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(manageHeading.compareDocumentPosition(settingsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(homeLink).toHaveAttribute('href', '/');
@@ -144,7 +144,7 @@ describe('Home shell contract', () => {
 
     await user.click(toggleButton);
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'Local Streamer' }));
+    await user.click(screen.getByRole('link', { name: 'Mediavault' }));
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
 
     await user.click(toggleButton);

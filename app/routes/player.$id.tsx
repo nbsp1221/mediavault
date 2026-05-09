@@ -53,14 +53,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   if (!data) {
     return [
-      { title: 'Video Player - Local Streamer' },
+      { title: 'Video Player - Mediavault' },
       { name: 'description', content: 'Local video streaming' },
     ];
   }
 
   return [
-    { title: `${data.video.title} - Local Streamer` },
-    { name: 'description', content: `Watch ${data.video.title} on Local Streamer` },
+    { title: `${data.video.title} - Mediavault` },
+    { name: 'description', content: `Watch ${data.video.title} on Mediavault` },
   ];
 };
 

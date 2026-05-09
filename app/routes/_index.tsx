@@ -88,7 +88,7 @@ export function shouldRevalidate({
 
 export function meta() {
   return [
-    { title: 'Local Streamer - My Library' },
+    { title: 'Mediavault - My Library' },
     { name: 'description', content: 'Personal video library' },
   ];
 }

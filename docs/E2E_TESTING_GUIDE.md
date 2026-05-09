@@ -1,6 +1,6 @@
 # End-to-End Testing Guide
 
-This guide defines the current test layers for Local Streamer.
+This guide defines the current test layers for Mediavault.
 
 `docs/verification-contract.md` is the source of truth for the required verification bundle and escalation rules.
 `docs/browser-qa-contract.md` defines when browser-visible work must escalate beyond HTTP checks into Playwright MCP or equivalent isolated browser QA.
