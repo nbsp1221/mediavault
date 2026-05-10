@@ -47,7 +47,21 @@ without the full vault requirements: `AUTH_SHARED_PASSWORD`, `VIDEO_JWT_SECRET`,
 
 ## Docker Deployment
 
-### Quick Start
+### Published GHCR Image
+
+Mediavault publishes production images to GitHub Container Registry after verified
+`main` pushes. Pulling and restarting the service on a host is an operator-owned
+deployment step.
+
+```bash
+docker pull ghcr.io/nbsp1221/mediavault:latest
+```
+
+The current checked-in `docker-compose.yaml` remains a local source-build path. Do not
+use `docker compose pull` as the GHCR image update path until a future Compose migration
+changes that file to consume the published image.
+
+### Local Source-Build Compose
 
 ```bash
 # Start the application
@@ -105,9 +119,6 @@ docker-compose logs -f
 
 # Stop
 docker-compose down
-
-# Update
-docker-compose pull && docker-compose up -d
 ```
 
 ### Environment
