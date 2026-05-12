@@ -6,9 +6,7 @@ export async function loader({ request, params }: { request: Request; params: { 
   if (unauthorizedResponse) return unauthorizedResponse;
 
   return loadDecryptedThumbnailResponse({
-    contentSource: 'decrypted-thumbnail',
     eTagPrefix: 'thumbnail',
-    notFoundMessage: 'Thumbnail not found',
     request,
     videoId: params.id,
   });

@@ -56,6 +56,8 @@ The product exists to let one owner:
 - authentication before any page access
 - authentication before any thumbnail, token, manifest, segment, or license access
 - storage protection such that copied media files are not directly playable
+- thumbnail storage protection using the per-video `key.bin` and a Mediavault AES-128-GCM
+  envelope at the logical `thumbnail.jpg` asset path
 - HTTPS-protected transport
 - DRM-like download resistance for ordinary users
 
@@ -217,6 +219,10 @@ Reference data exception:
 
 - active technical module for protected thumbnail encryption, decryption, and finalization
 - supports ingest and playback flows
+- stores thumbnail bytes as a `MVTH` v1 AES-128-GCM envelope using the same per-video
+  `key.bin` as the DASH/CENC media assets
+- exposes thumbnails through authenticated server-side JPEG responses without public
+  encryption-specific route names, headers, or response bodies
 - does not own user-facing library behavior
 - does not own playback authorization policy
 - does not own storage persistence policy

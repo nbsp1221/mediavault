@@ -2,10 +2,8 @@ import { ThumbnailDecryptionService } from '~/modules/thumbnail/infrastructure/d
 
 interface LoadDecryptedThumbnailResponseInput {
   eTagPrefix: string;
-  notFoundMessage: string;
   request: Request;
   videoId: string;
-  contentSource: string;
 }
 
 function createThumbnailDecryptionService() {
@@ -26,11 +24,11 @@ export async function loadDecryptedThumbnailResponse(
 
     if (!result.success) {
       if (result.error.message.includes('not found')) {
-        return new Response(input.notFoundMessage, { status: 404 });
+        return new Response('Thumbnail not found', { status: 404 });
       }
 
       console.error('Failed to decrypt thumbnail:', result.error);
-      return new Response('Failed to decrypt thumbnail', { status: 500 });
+      return new Response('Failed to load thumbnail', { status: 500 });
     }
 
     const { imageBuffer, mimeType, size } = result.data;
@@ -47,12 +45,11 @@ export async function loadDecryptedThumbnailResponse(
         'Content-Length': size.toString(),
         'Content-Type': mimeType,
         'ETag': eTag,
-        'X-Content-Source': input.contentSource,
       },
     });
   }
   catch (error) {
     console.error('Unexpected error in thumbnail decryption:', error);
-    return new Response('Internal server error', { status: 500 });
+    return new Response('Failed to load thumbnail', { status: 500 });
   }
 }

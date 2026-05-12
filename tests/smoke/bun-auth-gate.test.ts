@@ -192,7 +192,7 @@ describe('Bun auth gate smoke', () => {
     const [authMeResponse, tokenResponse, thumbnailResponse] = await Promise.all([
       fetch(`${baseUrl}/api/auth/me`, { headers }),
       fetch(`${baseUrl}/videos/${syntheticVideoId}/token`, { headers }),
-      fetch(`${baseUrl}/api/thumbnail-encrypted/${syntheticVideoId}`, { headers }),
+      fetch(`${baseUrl}/api/thumbnail/${syntheticVideoId}`, { headers }),
     ]);
 
     expect(authMeResponse.status).toBe(200);
@@ -203,7 +203,7 @@ describe('Bun auth gate smoke', () => {
     expectAdminViewerShape(authMePayload.user);
     expect(tokenResponse.status).toBe(200);
     expect(thumbnailResponse.status).toBe(404);
-    await expect(thumbnailResponse.text()).resolves.toBe('Encrypted thumbnail not found');
+    await expect(thumbnailResponse.text()).resolves.toBe('Thumbnail not found');
   });
 
   test('authenticated playlist APIs create and list owner playlists under Bun', async () => {

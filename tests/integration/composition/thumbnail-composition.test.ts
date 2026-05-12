@@ -14,9 +14,7 @@ function createDecryptedThumbnailRequest(
   }> = {},
 ) {
   return {
-    contentSource: 'encrypted-thumbnail',
-    eTagPrefix: 'encrypted',
-    notFoundMessage: 'Encrypted thumbnail not found',
+    eTagPrefix: 'thumbnail',
     request,
     videoId: overrides.videoId ?? 'video-1',
   };
@@ -80,11 +78,11 @@ describe('thumbnail composition ownership', () => {
 
     const { loadDecryptedThumbnailResponse } = await importThumbnailComposition();
     const response = await loadDecryptedThumbnailResponse(
-      createDecryptedThumbnailRequest(new Request('http://localhost/api/thumbnail-encrypted/video-1')),
+      createDecryptedThumbnailRequest(new Request('http://localhost/api/thumbnail/video-1')),
     );
 
     expect(response.status).toBe(404);
-    await expect(response.text()).resolves.toBe('Encrypted thumbnail not found');
+    await expect(response.text()).resolves.toBe('Thumbnail not found');
   });
 
   test('loadDecryptedThumbnailResponse returns 500 when the thumbnail service reports an unexpected error', async () => {
@@ -95,24 +93,24 @@ describe('thumbnail composition ownership', () => {
 
     const { loadDecryptedThumbnailResponse } = await importThumbnailComposition();
     const response = await loadDecryptedThumbnailResponse(
-      createDecryptedThumbnailRequest(new Request('http://localhost/api/thumbnail-encrypted/video-1')),
+      createDecryptedThumbnailRequest(new Request('http://localhost/api/thumbnail/video-1')),
     );
 
     expect(response.status).toBe(500);
-    await expect(response.text()).resolves.toBe('Failed to decrypt thumbnail');
+    await expect(response.text()).resolves.toBe('Failed to load thumbnail');
   });
 
   test('loadDecryptedThumbnailResponse returns 500 for invalid thumbnail ids', async () => {
     const { loadDecryptedThumbnailResponse } = await importRealThumbnailComposition();
     const response = await loadDecryptedThumbnailResponse(
       createDecryptedThumbnailRequest(
-        new Request('http://localhost/api/thumbnail-encrypted/not-a-uuid'),
+        new Request('http://localhost/api/thumbnail/not-a-uuid'),
         { videoId: 'not-a-uuid' },
       ),
     );
 
     expect(response.status).toBe(500);
-    await expect(response.text()).resolves.toBe('Failed to decrypt thumbnail');
+    await expect(response.text()).resolves.toBe('Failed to load thumbnail');
   });
 
   test('loadDecryptedThumbnailResponse returns 304 when If-None-Match matches the generated ETag', async () => {
@@ -120,9 +118,9 @@ describe('thumbnail composition ownership', () => {
 
     const { loadDecryptedThumbnailResponse } = await importThumbnailComposition();
     const response = await loadDecryptedThumbnailResponse(createDecryptedThumbnailRequest(
-      new Request('http://localhost/api/thumbnail-encrypted/video-1', {
+      new Request('http://localhost/api/thumbnail/video-1', {
         headers: {
-          'If-None-Match': '"encrypted-video-1-4"',
+          'If-None-Match': '"thumbnail-video-1-4"',
         },
       }),
     ));
@@ -130,20 +128,20 @@ describe('thumbnail composition ownership', () => {
     expect(response.status).toBe(304);
   });
 
-  test('loadDecryptedThumbnailResponse preserves X-Content-Source and payload headers on success', async () => {
+  test('loadDecryptedThumbnailResponse returns image payload headers without exposing storage details on success', async () => {
     mockDecryptThumbnail.mockResolvedValue(createSuccessfulDecryptResult());
 
     const { loadDecryptedThumbnailResponse } = await importThumbnailComposition();
     const response = await loadDecryptedThumbnailResponse(
-      createDecryptedThumbnailRequest(new Request('http://localhost/api/thumbnail-encrypted/video-1')),
+      createDecryptedThumbnailRequest(new Request('http://localhost/api/thumbnail/video-1')),
     );
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toBe('image/jpeg');
     expect(response.headers.get('Content-Length')).toBe('4');
     expect(response.headers.get('Cache-Control')).toBe('private, max-age=3600');
-    expect(response.headers.get('ETag')).toBe('"encrypted-video-1-4"');
-    expect(response.headers.get('X-Content-Source')).toBe('encrypted-thumbnail');
+    expect(response.headers.get('ETag')).toBe('"thumbnail-video-1-4"');
+    expect(response.headers.has('X-Content-Source')).toBe(false);
     expect((await response.arrayBuffer()).byteLength).toBe(4);
   });
 });

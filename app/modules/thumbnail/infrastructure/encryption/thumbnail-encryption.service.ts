@@ -2,8 +2,8 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { getStoragePaths } from '~/shared/config/storage-paths.server';
 import {
-  decryptWithIVHeader,
-  encryptWithIVHeader,
+  decryptThumbnailEnvelope,
+  encryptThumbnailEnvelope,
   looksLikeJpeg,
 } from '../crypto/thumbnail-crypto.utils';
 import { Pbkdf2ThumbnailKeyManager } from '../security/pbkdf2-thumbnail-key-manager';
@@ -33,8 +33,16 @@ export class ThumbnailEncryptionService {
   }> {
     try {
       const originalData = await fs.readFile(input.thumbnailPath);
+      if (!looksLikeJpeg(originalData)) {
+        throw new Error('Thumbnail source is not a valid JPEG image');
+      }
+
       const key = await this.deps.keyManager.retrieveKey(input.videoId);
-      const encryptedData = encryptWithIVHeader(originalData, key);
+      const encryptedData = encryptThumbnailEnvelope({
+        imageData: originalData,
+        key,
+        videoId: input.videoId,
+      });
       const encryptedPath = this.getEncryptedThumbnailPath(input.videoId);
 
       await fs.writeFile(encryptedPath, encryptedData);
@@ -141,7 +149,11 @@ export class ThumbnailEncryptionService {
     videoId: string;
   }): Promise<Buffer> {
     const key = await this.deps.keyManager.retrieveKey(input.videoId);
-    const imageBuffer = decryptWithIVHeader(input.encryptedData, key);
+    const imageBuffer = decryptThumbnailEnvelope({
+      encryptedBuffer: input.encryptedData,
+      key,
+      videoId: input.videoId,
+    });
 
     if (!looksLikeJpeg(imageBuffer)) {
       throw new Error('Decrypted thumbnail is not a valid JPEG image');

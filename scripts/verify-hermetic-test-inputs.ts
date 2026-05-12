@@ -29,10 +29,12 @@ const REQUIRED_FIXTURE_PATHS = [
   'tests/fixtures/playback/68e5f819-15e8-41ef-90ee-8a96769311b7/video/init.mp4',
   'tests/fixtures/playback/68e5f819-15e8-41ef-90ee-8a96769311b7/audio/init.mp4',
   'tests/fixtures/playback/68e5f819-15e8-41ef-90ee-8a96769311b7/key.bin',
+  'tests/fixtures/playback/68e5f819-15e8-41ef-90ee-8a96769311b7/thumbnail.jpg',
   'tests/fixtures/playback/754c6828-621c-4df6-9cf8-a3d77297b85a/manifest.mpd',
   'tests/fixtures/playback/754c6828-621c-4df6-9cf8-a3d77297b85a/video/init.mp4',
   'tests/fixtures/playback/754c6828-621c-4df6-9cf8-a3d77297b85a/audio/init.mp4',
   'tests/fixtures/playback/754c6828-621c-4df6-9cf8-a3d77297b85a/key.bin',
+  'tests/fixtures/playback/754c6828-621c-4df6-9cf8-a3d77297b85a/thumbnail.jpg',
 ] as const;
 
 async function fileExists(filePath: string): Promise<boolean> {

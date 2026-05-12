@@ -1,44 +1,74 @@
 import crypto from 'node:crypto';
 
-const THUMBNAIL_IV_SIZE = 16;
-const ALGORITHM = 'aes-128-cbc';
+const THUMBNAIL_MAGIC = Buffer.from('MVTH', 'ascii');
+const THUMBNAIL_VERSION = 1;
+const THUMBNAIL_GCM_NONCE_SIZE = 12;
+const THUMBNAIL_GCM_AUTH_TAG_SIZE = 16;
+const THUMBNAIL_HEADER_SIZE = THUMBNAIL_MAGIC.length + 1 + THUMBNAIL_GCM_NONCE_SIZE + THUMBNAIL_GCM_AUTH_TAG_SIZE;
+const ALGORITHM = 'aes-128-gcm';
 
-export function encryptWithIVHeader(imageData: Buffer, key: Buffer): Buffer {
-  const iv = crypto.randomBytes(THUMBNAIL_IV_SIZE);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-  const encryptedData = Buffer.concat([
-    cipher.update(imageData),
+export function encryptThumbnailEnvelope(input: {
+  imageData: Buffer;
+  key: Buffer;
+  videoId: string;
+}): Buffer {
+  assertThumbnailKey(input.key);
+
+  const nonce = crypto.randomBytes(THUMBNAIL_GCM_NONCE_SIZE);
+  const cipher = crypto.createCipheriv(ALGORITHM, input.key, nonce, {
+    authTagLength: THUMBNAIL_GCM_AUTH_TAG_SIZE,
+  });
+  cipher.setAAD(createThumbnailAad(input.videoId));
+  const ciphertext = Buffer.concat([
+    cipher.update(input.imageData),
     cipher.final(),
   ]);
-
-  return Buffer.concat([iv, encryptedData]);
-}
-
-export function decryptWithIVHeader(encryptedBuffer: Buffer, key: Buffer): Buffer {
-  if (encryptedBuffer.length < THUMBNAIL_IV_SIZE) {
-    throw new Error('Invalid encrypted thumbnail format: missing or corrupt IV header');
-  }
-
-  const iv = encryptedBuffer.subarray(0, THUMBNAIL_IV_SIZE);
-  const encryptedData = encryptedBuffer.subarray(THUMBNAIL_IV_SIZE);
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  const authTag = cipher.getAuthTag();
 
   return Buffer.concat([
-    decipher.update(encryptedData),
-    decipher.final(),
+    THUMBNAIL_MAGIC,
+    Buffer.from([THUMBNAIL_VERSION]),
+    nonce,
+    authTag,
+    ciphertext,
   ]);
+}
+
+export function decryptThumbnailEnvelope(input: {
+  encryptedBuffer: Buffer;
+  key: Buffer;
+  videoId: string;
+}): Buffer {
+  assertThumbnailKey(input.key);
+  assertThumbnailEnvelopeFormat(input.encryptedBuffer);
+
+  const nonceStart = THUMBNAIL_MAGIC.length + 1;
+  const tagStart = nonceStart + THUMBNAIL_GCM_NONCE_SIZE;
+  const ciphertextStart = tagStart + THUMBNAIL_GCM_AUTH_TAG_SIZE;
+  const nonce = input.encryptedBuffer.subarray(nonceStart, tagStart);
+  const authTag = input.encryptedBuffer.subarray(tagStart, ciphertextStart);
+  const ciphertext = input.encryptedBuffer.subarray(ciphertextStart);
+  const decipher = crypto.createDecipheriv(ALGORITHM, input.key, nonce, {
+    authTagLength: THUMBNAIL_GCM_AUTH_TAG_SIZE,
+  });
+  decipher.setAAD(createThumbnailAad(input.videoId));
+  decipher.setAuthTag(authTag);
+
+  try {
+    return Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final(),
+    ]);
+  }
+  catch (error) {
+    throw new Error('Failed to authenticate thumbnail envelope', {
+      cause: error,
+    });
+  }
 }
 
 export function validateEncryptedFormat(encryptedBuffer: Buffer): boolean {
-  if (encryptedBuffer.length <= THUMBNAIL_IV_SIZE) {
-    return false;
-  }
-
-  // The first bytes are a random IV, so prefix-based magic-byte checks create
-  // false negatives for valid ciphertext. Keep this as a light-weight
-  // plaintext-JPEG rejection helper only; active service paths should validate
-  // encrypted thumbnails through decrypt + JPEG verification when the key is available.
-  return !looksLikeJpeg(encryptedBuffer);
+  return isThumbnailEnvelopeFormat(encryptedBuffer);
 }
 
 export function looksLikeJpeg(buffer: Buffer | undefined): buffer is Buffer {
@@ -231,4 +261,26 @@ function validateStartOfScanSegment(segment: JpegSegment, payloadLength: number,
   const expectedMinimumPayload = 1 + (componentCount * 2) + 3;
 
   return componentCount > 0 && payloadLength >= expectedMinimumPayload;
+}
+
+function createThumbnailAad(videoId: string): Buffer {
+  return Buffer.from(`mediavault-thumbnail:v1:${videoId}`, 'utf8');
+}
+
+function assertThumbnailKey(key: Buffer): void {
+  if (key.length !== 16) {
+    throw new Error('Invalid thumbnail encryption key length');
+  }
+}
+
+function assertThumbnailEnvelopeFormat(encryptedBuffer: Buffer): void {
+  if (!isThumbnailEnvelopeFormat(encryptedBuffer)) {
+    throw new Error('Unsupported thumbnail envelope format');
+  }
+}
+
+function isThumbnailEnvelopeFormat(encryptedBuffer: Buffer): boolean {
+  return encryptedBuffer.length > THUMBNAIL_HEADER_SIZE &&
+    encryptedBuffer.subarray(0, THUMBNAIL_MAGIC.length).equals(THUMBNAIL_MAGIC) &&
+    encryptedBuffer[THUMBNAIL_MAGIC.length] === THUMBNAIL_VERSION;
 }

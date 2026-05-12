@@ -56,10 +56,6 @@ async function importThumbnailRoute() {
   return import('../../../app/routes/api.thumbnail.$id');
 }
 
-async function importEncryptedThumbnailRoute() {
-  return import('../../../app/routes/api.thumbnail-encrypted.$id');
-}
-
 async function importPlaylistsRoute() {
   return import('../../../app/routes/api.playlists');
 }
@@ -988,12 +984,6 @@ describe('auth gate routes', () => {
       params: { id: 'video-1' },
       url: 'http://localhost/api/thumbnail/video-1',
     },
-    {
-      importRoute: importEncryptedThumbnailRoute,
-      label: 'encrypted thumbnail',
-      params: { id: 'video-1' },
-      url: 'http://localhost/api/thumbnail-encrypted/video-1',
-    },
   ])('protected $label route denies unauthenticated access', async ({ importRoute, params, url }) => {
     const routeModule = await importRoute();
     const response = await routeModule.loader({
@@ -1008,7 +998,7 @@ describe('auth gate routes', () => {
     });
   });
 
-  test('encrypted thumbnail delivery works with the site session without a legacy session cookie', async () => {
+  test('thumbnail delivery works with the site session without a legacy session cookie', async () => {
     const videoId = '00000000-0000-4000-8000-000000000123';
     const videoDir = join(storageDir, 'data', 'videos', videoId);
     const plaintextThumbnailPath = join(videoDir, 'thumbnail.jpg');
@@ -1046,10 +1036,10 @@ describe('auth gate routes', () => {
     expect(rawSetCookie).toContain('site_session=');
     expect(rawSetCookie).not.toContain('session_id=');
 
-    const { loader } = await importEncryptedThumbnailRoute();
+    const { loader } = await importThumbnailRoute();
     const response = await loader({
       params: { id: videoId },
-      request: new Request(`http://localhost/api/thumbnail-encrypted/${videoId}`, {
+      request: new Request(`http://localhost/api/thumbnail/${videoId}`, {
         headers: {
           cookie: cookie ?? '',
         },
@@ -1057,7 +1047,7 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('X-Content-Source')).toBe('encrypted-thumbnail');
+    expect(response.headers.has('X-Content-Source')).toBe(false);
   });
 
   test('root loader returns the configured viewer when storage has no users file', async () => {

@@ -25,6 +25,7 @@ export async function assertRequiredPlaybackFixture(videoId: string): Promise<st
   await Promise.all([
     access(resolve(fixtureDir, 'manifest.mpd')),
     access(resolve(fixtureDir, 'key.bin')),
+    access(resolve(fixtureDir, 'thumbnail.jpg')),
     access(resolve(fixtureDir, 'audio', 'init.mp4')),
     access(resolve(fixtureDir, 'video', 'init.mp4')),
   ]);

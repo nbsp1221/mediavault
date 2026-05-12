@@ -45,6 +45,9 @@ describe('verify-hermetic-test-inputs', () => {
       expect.objectContaining({
         filePath: 'tests/e2e/bad-smoke.spec.ts',
       }),
+      expect.objectContaining({
+        filePath: 'tests/fixtures/playback/68e5f819-15e8-41ef-90ee-8a96769311b7/thumbnail.jpg',
+      }),
     ]));
   });
 });

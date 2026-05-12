@@ -178,6 +178,9 @@ Notes:
   database. Existing encrypted media depends on preserving that value.
 - `KEY_SALT_PREFIX` is optional. If you customize it, preserve it with the encryption seed
   and storage backup.
+- Video segments use DASH/CENC/ClearKey with a per-video `key.bin`. Thumbnails use the
+  same per-video key and are stored at `thumbnail.jpg` as a Mediavault AES-128-GCM
+  envelope; authenticated HTTP responses expose only normal `image/jpeg` bytes.
 - The default Compose port binding `3000:3000` is for simple reachability. For a hardened
   deployment, restrict direct HTTP access with firewall rules, bind the port to loopback,
   or place the app behind a private proxy network.
@@ -200,6 +203,7 @@ For the current architecture and repo state, start here:
 - **Persistence**: Primary SQLite database for auth sessions, canonical video metadata, playlists, and ingest state
 - **Video**: FFmpeg for thumbnails and streaming
 - **Streaming**: DASH with JWT token issuance, ClearKey license delivery, and encrypted media packaging
+- **Thumbnail storage**: AES-128-GCM envelope at `thumbnail.jpg`, decrypted server-side after authentication
 
 ## Testing
 

@@ -1,4 +1,3 @@
-import { createCipheriv } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
@@ -6,17 +5,26 @@ import { describe, expect, test } from 'vitest';
 const VALID_JPEG_FIXTURE_PATH = join(process.cwd(), 'public', 'images', 'video-placeholder.jpg');
 
 describe('thumbnail crypto utils', () => {
-  test('encryptWithIVHeader prefixes the IV and decryptWithIVHeader round-trips a valid jpeg payload', async () => {
-    const { decryptWithIVHeader, encryptWithIVHeader } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+  test('encryptThumbnailEnvelope writes a versioned AES-GCM envelope and round-trips jpeg bytes', async () => {
+    const {
+      decryptThumbnailEnvelope,
+      encryptThumbnailEnvelope,
+      looksLikeJpeg,
+      validateEncryptedFormat,
+    } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
     const key = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
+    const videoId = '00000000-0000-4000-8000-000000000123';
 
-    const encrypted = encryptWithIVHeader(payload, key);
+    const encrypted = encryptThumbnailEnvelope({ imageData: payload, key, videoId });
 
     expect(encrypted.length).toBeGreaterThan(payload.length);
-    expect(encrypted.subarray(0, 16)).toHaveLength(16);
+    expect(encrypted.subarray(0, 4).toString('ascii')).toBe('MVTH');
+    expect(encrypted[4]).toBe(1);
+    expect(looksLikeJpeg(encrypted)).toBe(false);
+    expect(validateEncryptedFormat(encrypted)).toBe(true);
 
-    const decrypted = decryptWithIVHeader(encrypted, key);
+    const decrypted = decryptThumbnailEnvelope({ encryptedBuffer: encrypted, key, videoId });
 
     expect(decrypted).toEqual(payload);
   });
@@ -28,16 +36,51 @@ describe('thumbnail crypto utils', () => {
     expect(validateEncryptedFormat(payload)).toBe(false);
   });
 
-  test('validateEncryptedFormat accepts valid encrypted data even when the IV starts with jpeg-like bytes', async () => {
-    const { decryptWithIVHeader, looksLikeJpeg, validateEncryptedFormat } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+  test('decryptThumbnailEnvelope rejects envelopes bound to a different video id', async () => {
+    const {
+      decryptThumbnailEnvelope,
+      encryptThumbnailEnvelope,
+    } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
     const key = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
-    const iv = Buffer.from([0xff, 0xd8, 0x4e, 0x47, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b]);
-    const cipher = createCipheriv('aes-128-cbc', key, iv);
-    const encrypted = Buffer.concat([iv, cipher.update(payload), cipher.final()]);
+    const encrypted = encryptThumbnailEnvelope({
+      imageData: payload,
+      key,
+      videoId: '00000000-0000-4000-8000-000000000123',
+    });
 
-    expect(validateEncryptedFormat(encrypted)).toBe(true);
-    expect(looksLikeJpeg(decryptWithIVHeader(encrypted, key))).toBe(true);
+    expect(() => decryptThumbnailEnvelope({
+      encryptedBuffer: encrypted,
+      key,
+      videoId: '00000000-0000-4000-8000-000000000124',
+    })).toThrow(/Failed to authenticate thumbnail envelope/);
+  });
+
+  test('decryptThumbnailEnvelope rejects tampered ciphertext or auth tag bytes', async () => {
+    const {
+      decryptThumbnailEnvelope,
+      encryptThumbnailEnvelope,
+    } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+    const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
+    const key = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
+    const videoId = '00000000-0000-4000-8000-000000000123';
+    const encrypted = encryptThumbnailEnvelope({ imageData: payload, key, videoId });
+    const tamperedCiphertext = Buffer.from(encrypted);
+    const tamperedAuthTag = Buffer.from(encrypted);
+
+    tamperedCiphertext[tamperedCiphertext.length - 1] ^= 0x01;
+    tamperedAuthTag[5 + 12] ^= 0x01;
+
+    expect(() => decryptThumbnailEnvelope({
+      encryptedBuffer: tamperedCiphertext,
+      key,
+      videoId,
+    })).toThrow(/Failed to authenticate thumbnail envelope/);
+    expect(() => decryptThumbnailEnvelope({
+      encryptedBuffer: tamperedAuthTag,
+      key,
+      videoId,
+    })).toThrow(/Failed to authenticate thumbnail envelope/);
   });
 
   test('looksLikeJpeg accepts the tracked fixture and rejects malformed data', async () => {

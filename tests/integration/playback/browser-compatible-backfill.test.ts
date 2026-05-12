@@ -431,7 +431,11 @@ describe('backfillBrowserCompatiblePlayback', () => {
     const originalKey = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
     const replacementKey = Buffer.from('ffeeddccbbaa99887766554433221100', 'hex');
     const originalThumbnail = VALID_JPEG_BUFFER;
-    const encryptedThumbnail = ThumbnailCryptoUtils.encryptWithIVHeader(originalThumbnail, originalKey);
+    const encryptedThumbnail = ThumbnailCryptoUtils.encryptThumbnailEnvelope({
+      imageData: originalThumbnail,
+      key: originalKey,
+      videoId: targetVideoId,
+    });
 
     await mkdir(join(targetDir, 'video'), { recursive: true });
     await mkdir(join(targetDir, 'audio'), { recursive: true });
@@ -465,7 +469,11 @@ describe('backfillBrowserCompatiblePlayback', () => {
 
     const promotedThumbnail = await readFile(join(targetDir, 'thumbnail.jpg'));
     const promotedKey = await readFile(join(targetDir, 'key.bin'));
-    const decryptedThumbnail = ThumbnailCryptoUtils.decryptWithIVHeader(promotedThumbnail, promotedKey);
+    const decryptedThumbnail = ThumbnailCryptoUtils.decryptThumbnailEnvelope({
+      encryptedBuffer: promotedThumbnail,
+      key: promotedKey,
+      videoId: targetVideoId,
+    });
 
     expect(decryptedThumbnail).toEqual(originalThumbnail);
   });
@@ -480,7 +488,11 @@ describe('backfillBrowserCompatiblePlayback', () => {
     const oldKey = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
     const newKey = Buffer.from('ffeeddccbbaa99887766554433221100', 'hex');
     const foreignKey = Buffer.from('1234567890abcdef1234567890abcdef', 'hex');
-    const encryptedThumbnail = ThumbnailCryptoUtils.encryptWithIVHeader(Buffer.from('thumbnail-payload'), foreignKey);
+    const encryptedThumbnail = ThumbnailCryptoUtils.encryptThumbnailEnvelope({
+      imageData: Buffer.from('thumbnail-payload'),
+      key: foreignKey,
+      videoId: targetVideoId,
+    });
 
     await mkdir(join(targetDir, 'video'), { recursive: true });
     await mkdir(join(targetDir, 'audio'), { recursive: true });
@@ -533,7 +545,11 @@ describe('backfillBrowserCompatiblePlayback', () => {
     const originalKey = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
     const replacementKey = Buffer.from('ffeeddccbbaa99887766554433221100', 'hex');
     const originalThumbnail = createApp2JpegVariant();
-    const encryptedThumbnail = ThumbnailCryptoUtils.encryptWithIVHeader(originalThumbnail, originalKey);
+    const encryptedThumbnail = ThumbnailCryptoUtils.encryptThumbnailEnvelope({
+      imageData: originalThumbnail,
+      key: originalKey,
+      videoId: targetVideoId,
+    });
 
     await mkdir(join(targetDir, 'video'), { recursive: true });
     await mkdir(join(targetDir, 'audio'), { recursive: true });
@@ -567,7 +583,11 @@ describe('backfillBrowserCompatiblePlayback', () => {
 
     const promotedThumbnail = await readFile(join(targetDir, 'thumbnail.jpg'));
     const promotedKey = await readFile(join(targetDir, 'key.bin'));
-    const decryptedThumbnail = ThumbnailCryptoUtils.decryptWithIVHeader(promotedThumbnail, promotedKey);
+    const decryptedThumbnail = ThumbnailCryptoUtils.decryptThumbnailEnvelope({
+      encryptedBuffer: promotedThumbnail,
+      key: promotedKey,
+      videoId: targetVideoId,
+    });
 
     expect(decryptedThumbnail).toEqual(originalThumbnail);
   });
@@ -581,7 +601,11 @@ describe('backfillBrowserCompatiblePlayback', () => {
     const targetDir = join(videosDir, targetVideoId);
     const replacementKey = Buffer.from('ffeeddccbbaa99887766554433221100', 'hex');
     const malformedThumbnail = Buffer.from('ffd8ffe00002ffdaffd9', 'hex');
-    const encryptedThumbnail = ThumbnailCryptoUtils.encryptWithIVHeader(malformedThumbnail, replacementKey);
+    const encryptedThumbnail = ThumbnailCryptoUtils.encryptThumbnailEnvelope({
+      imageData: malformedThumbnail,
+      key: replacementKey,
+      videoId: targetVideoId,
+    });
 
     await mkdir(join(targetDir, 'video'), { recursive: true });
     await mkdir(join(targetDir, 'audio'), { recursive: true });

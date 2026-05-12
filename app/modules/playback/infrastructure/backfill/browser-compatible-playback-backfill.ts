@@ -4,8 +4,8 @@ import { basename } from 'node:path';
 import path from 'node:path';
 import { normalizeClearKeyManifest } from '~/modules/ingest/infrastructure/processing/normalize-clearkey-manifest';
 import {
-  decryptWithIVHeader,
-  encryptWithIVHeader,
+  decryptThumbnailEnvelope,
+  encryptThumbnailEnvelope,
   looksLikeJpeg,
   validateEncryptedFormat,
 } from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
@@ -468,7 +468,11 @@ async function reconcileThumbnailEncryption(input: {
     return;
   }
 
-  const currentDecryption = tryDecryptThumbnail(currentThumbnail, currentKey);
+  const currentDecryption = tryDecryptThumbnail({
+    encryptedThumbnail: currentThumbnail,
+    key: currentKey,
+    videoId: input.videoId,
+  });
   if (currentDecryption && looksLikeJpeg(currentDecryption)) {
     return;
   }
@@ -478,21 +482,41 @@ async function reconcileThumbnailEncryption(input: {
     throw new Error(`Encrypted thumbnail for ${input.videoId} is not decryptable with the promoted key.`);
   }
 
-  const previousThumbnail = tryDecryptThumbnail(currentThumbnail, previousKey) ??
-    tryDecryptThumbnail(input.previous?.data ?? currentThumbnail, previousKey);
+  const previousThumbnail = tryDecryptThumbnail({
+    encryptedThumbnail: currentThumbnail,
+    key: previousKey,
+    videoId: input.videoId,
+  }) ??
+  tryDecryptThumbnail({
+    encryptedThumbnail: input.previous?.data ?? currentThumbnail,
+    key: previousKey,
+    videoId: input.videoId,
+  });
 
   if (!previousThumbnail || !looksLikeJpeg(previousThumbnail)) {
     throw new Error(`Encrypted thumbnail for ${input.videoId} cannot be re-keyed after backfill.`);
   }
 
-  const reEncryptedThumbnail = encryptWithIVHeader(previousThumbnail, currentKey);
+  const reEncryptedThumbnail = encryptThumbnailEnvelope({
+    imageData: previousThumbnail,
+    key: currentKey,
+    videoId: input.videoId,
+  });
   await fs.writeFile(thumbnailPath, reEncryptedThumbnail);
   input.logger.info(`[browser-backfill] Re-keyed encrypted thumbnail for ${input.videoId}.`);
 }
 
-function tryDecryptThumbnail(encryptedThumbnail: Buffer, key: Buffer): Buffer | null {
+function tryDecryptThumbnail(input: {
+  encryptedThumbnail: Buffer;
+  key: Buffer;
+  videoId: string;
+}): Buffer | null {
   try {
-    return decryptWithIVHeader(encryptedThumbnail, key);
+    return decryptThumbnailEnvelope({
+      encryptedBuffer: input.encryptedThumbnail,
+      key: input.key,
+      videoId: input.videoId,
+    });
   }
   catch {
     return null;

@@ -6,7 +6,6 @@ const PROJECT_ROOT = resolve(__dirname, '../../..');
 
 const ACTIVE_THUMBNAIL_ROUTE_FILES = [
   'app/routes/api.thumbnail.$id.ts',
-  'app/routes/api.thumbnail-encrypted.$id.ts',
 ] as const;
 
 describe('thumbnail route ownership boundary', () => {
