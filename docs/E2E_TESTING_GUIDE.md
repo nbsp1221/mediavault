@@ -39,6 +39,17 @@ Only use this path when you intentionally want ad-hoc local investigation with `
 
 The manual dev server will be available at `http://localhost:5173`.
 
+`bun run dev` is not a deployment path. Use it only from a trusted local
+machine, and do not expose it through a public tunnel, reverse proxy, or
+untrusted LAN. Browser/device testing over LAN requires explicit trust in that
+network and should remain temporary manual QA.
+
+When `STORAGE_DIR` is not set, development runtime storage defaults to a
+checkout-specific directory outside the repository root. If you override
+`STORAGE_DIR` for manual investigation, do not place secrets, test media, SQLite
+databases, or generated key material under `public/`, because Vite serves
+`public/` without filesystem deny filtering and copies it into build output.
+
 ## CI-Like Verification
 
 For auth, playback, route wiring, or other runtime-sensitive changes, run a Docker verification pass that matches GitHub Actions more closely than the host shell.

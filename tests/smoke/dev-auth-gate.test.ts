@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
@@ -10,6 +10,10 @@ const repoRoot = process.cwd();
 const tempDir = mkdtempSync(join(tmpdir(), 'local-streamer-dev-smoke-'));
 const storageDir = join(tempDir, 'storage');
 const databasePath = join(storageDir, 'db.sqlite');
+const repoLocalBinariesCanaryDir = join(repoRoot, 'binaries', 'dev-smoke-sensitive-canary');
+const repoLocalCanaryStorageDir = join(repoRoot, 'storage', 'dev-smoke-sensitive-canary');
+const repoLocalCanaryVideoId = 'dev-smoke-video';
+const repoLocalEnvCanaryPath = join(repoRoot, '.env.dev-smoke-sensitive-canary');
 const port = 3400 + Math.floor(Math.random() * 200);
 const baseUrl = `http://127.0.0.1:${port}`;
 setDefaultTimeout(15_000);
@@ -73,6 +77,18 @@ function seedSmokeStorage(rootDir: string) {
   mkdirSync(join(rootDir, 'videos'), { recursive: true });
 }
 
+function seedRepoLocalSensitiveCanary() {
+  mkdirSync(repoLocalBinariesCanaryDir, { recursive: true });
+  mkdirSync(join(repoLocalCanaryStorageDir, 'videos', repoLocalCanaryVideoId), { recursive: true });
+  writeFileSync(join(repoLocalBinariesCanaryDir, 'tool'), 'fake binary');
+  writeFileSync(join(repoLocalCanaryStorageDir, 'db.sqlite'), 'not a real sqlite db');
+  writeFileSync(
+    join(repoLocalCanaryStorageDir, 'videos', repoLocalCanaryVideoId, 'key.bin'),
+    '0123456789abcdef',
+  );
+  writeFileSync(repoLocalEnvCanaryPath, 'AUTH_SHARED_PASSWORD=do-not-serve');
+}
+
 async function waitForServerReady(url: string) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if (server && server.exitCode !== null) {
@@ -124,8 +140,21 @@ async function loginAndGetCookie() {
   return toRequestCookieHeader(setCookie);
 }
 
+async function expectSensitivePathDenied(path: string, forbiddenBodyFragment: string) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    headers: {
+      Range: 'bytes=0-8',
+    },
+  });
+  const body = await response.text();
+
+  expect([200, 206]).not.toContain(response.status);
+  expect(body).not.toContain(forbiddenBodyFragment);
+}
+
 beforeAll(async () => {
   seedSmokeStorage(storageDir);
+  seedRepoLocalSensitiveCanary();
 
   server = Bun.spawn(createNoEnvFileBunCommand(['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(port)]), {
     cwd: repoRoot,
@@ -157,9 +186,52 @@ afterAll(async () => {
   await Promise.all(serverLogReaders);
 
   rmSync(tempDir, { force: true, recursive: true });
+  rmSync(repoLocalBinariesCanaryDir, { force: true, recursive: true });
+  rmSync(repoLocalCanaryStorageDir, { force: true, recursive: true });
+  rmSync(repoLocalEnvCanaryPath, { force: true });
 });
 
 describe('Dev auth gate smoke', () => {
+  test('does not anonymously serve repo-local storage files in dev', async () => {
+    const sensitivePaths: Array<[string, string]> = [
+      ['/storage/dev-smoke-sensitive-canary/db.sqlite', 'not a real sqlite db'],
+      [
+        `/storage/dev-smoke-sensitive-canary/videos/${repoLocalCanaryVideoId}/key.bin`,
+        '0123456789abcdef',
+      ],
+    ];
+
+    for (const [path, forbiddenBodyFragment] of sensitivePaths) {
+      await expectSensitivePathDenied(path, forbiddenBodyFragment);
+    }
+  });
+
+  test('does not anonymously serve repo-local env or binary files in dev', async () => {
+    const sensitivePaths: Array<[string, string]> = [
+      ['/.env.dev-smoke-sensitive-canary', 'AUTH_SHARED_PASSWORD=do-not-serve'],
+      ['/binaries/dev-smoke-sensitive-canary/tool', 'fake binary'],
+    ];
+
+    for (const [path, forbiddenBodyFragment] of sensitivePaths) {
+      await expectSensitivePathDenied(path, forbiddenBodyFragment);
+    }
+  });
+
+  test('does not anonymously serve repo-local server source in dev', async () => {
+    const sensitivePaths: Array<[string, string]> = [
+      ['/app/shared/config/auth.server.ts', 'DEFAULT_FAILED_LOGIN_BLOCK_DURATION_MS'],
+      ['/app/composition/server/playback.ts', 'getServerPlaybackServices'],
+      [
+        '/app/modules/auth/infrastructure/password/env-shared-password.verifier.ts',
+        'EnvSharedPasswordVerifier',
+      ],
+    ];
+
+    for (const [path, forbiddenBodyFragment] of sensitivePaths) {
+      await expectSensitivePathDenied(path, forbiddenBodyFragment);
+    }
+  });
+
   test('invalid shared password is rejected in dev', async () => {
     const response = await fetch(`${baseUrl}/api/auth/login`, {
       body: JSON.stringify({ password: 'wrong-password' }),

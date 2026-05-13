@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -5,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
 const ORIGINAL_DATABASE_SQLITE_PATH = process.env.DATABASE_SQLITE_PATH;
+const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 const workspaces: string[] = [];
 
 function createWorkspacePath(name: string) {
@@ -16,6 +18,15 @@ function createWorkspacePath(name: string) {
 function clearPathEnv() {
   delete process.env.DATABASE_SQLITE_PATH;
   delete process.env.STORAGE_DIR;
+}
+
+function getExpectedDevelopmentStorageDir() {
+  const workspaceHash = createHash('sha256')
+    .update(path.resolve(process.cwd()))
+    .digest('hex')
+    .slice(0, 12);
+
+  return path.join(tmpdir(), 'mediavault-dev-storage', workspaceHash);
 }
 
 beforeEach(() => {
@@ -42,6 +53,13 @@ afterEach(() => {
   else {
     process.env.DATABASE_SQLITE_PATH = ORIGINAL_DATABASE_SQLITE_PATH;
   }
+
+  if (ORIGINAL_NODE_ENV === undefined) {
+    delete process.env.NODE_ENV;
+  }
+  else {
+    process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+  }
 });
 
 describe('shared storage paths', () => {
@@ -66,8 +84,9 @@ describe('shared storage paths', () => {
     });
   });
 
-  test('falls back to the repository storage directory for runtime primary config', async () => {
+  test('falls back to the repository storage directory for production runtime primary config', async () => {
     delete process.env.STORAGE_DIR;
+    process.env.NODE_ENV = 'production';
     const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
     const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
 
@@ -84,6 +103,30 @@ describe('shared storage paths', () => {
       storageDir: path.resolve(process.cwd(), 'storage'),
       videosDir: path.resolve(process.cwd(), 'storage', 'videos'),
     });
+  });
+
+  test('falls back outside the repository storage directory for development runtime primary config', async () => {
+    delete process.env.DATABASE_SQLITE_PATH;
+    delete process.env.STORAGE_DIR;
+    process.env.NODE_ENV = 'development';
+    const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
+    const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
+    const storageDir = getExpectedDevelopmentStorageDir();
+
+    expect(getStoragePaths()).toEqual({
+      stagingDir: path.join(storageDir, 'staging'),
+      stagingTempDir: path.join(storageDir, 'staging', 'temp'),
+      storageDir,
+      videosDir: path.join(storageDir, 'videos'),
+    });
+    expect(getPrimaryStorageConfig()).toEqual({
+      databasePath: path.join(storageDir, 'db.sqlite'),
+      stagingDir: path.join(storageDir, 'staging'),
+      stagingTempDir: path.join(storageDir, 'staging', 'temp'),
+      storageDir,
+      videosDir: path.join(storageDir, 'videos'),
+    });
+    expect(storageDir).not.toBe(path.resolve(process.cwd(), 'storage'));
   });
 
   test('respects an explicit DATABASE_SQLITE_PATH override while keeping primary media paths', async () => {

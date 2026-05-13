@@ -23,10 +23,17 @@ bun install
 cp .env.example .env
 
 # Start development server
-bun dev
+bun run dev
 ```
 
 Access at http://localhost:5173
+
+`bun run dev` is for trusted local development only. Do not expose the Vite
+development server through a public tunnel, reverse proxy, or untrusted LAN. Use
+`bun run build` and `bun run start`, or the Docker production image, for
+deployment. When `STORAGE_DIR` is not set, development runtime storage defaults
+to a checkout-specific directory outside this repository so Vite cannot serve
+runtime media, keys, or SQLite data from the project root.
 
 ### Production
 
