@@ -79,7 +79,7 @@ Examples of active areas include:
 - **EVERY USECASE MUST HAVE UNIT TESTS** with comprehensive business logic validation
 - **IMMUTABLE DATA PATTERNS** - prefer readonly interfaces and functional updates
 - **DOCSTRINGS REQUIRED** for all public functions and UseCases
-- **75% COVERAGE TARGET** - inspect with `bun run test:run -- --coverage`; this is a project target, not part of the default CI gate today
+- **80% COVERAGE GATE** - enforced with `bun run test:coverage` through Vitest native thresholds and included in `bun run check`
 
 ### Security Standards
 
@@ -125,10 +125,10 @@ bun run test        # Full verification: Vitest + Bun smoke layers (required bef
 
 ```bash
 # Full quality check (run before any commit)
-bun run typecheck && bun run lint && bun run test
+bun run check
 
-# Ad hoc coverage inspection against the project target
-bun run test:run -- --coverage
+# Calibrated coverage gate
+bun run test:coverage
 
 # Build verification
 bun run build && bun run start
@@ -459,7 +459,7 @@ export async function action({ request }: Route.ActionArgs) {
 5. **TESTING REQUIREMENTS**
    - ✅ All UseCases have unit tests: `bun run test`
    - ✅ Integration tests for API endpoints
-   - ✅ 75% code coverage minimum: `bun run test:run -- --coverage`
+   - ✅ 80% calibrated code coverage minimum: `bun run test:coverage`
    - ✅ Error scenarios covered in tests
 
 6. **CODE QUALITY**
@@ -471,8 +471,8 @@ export async function action({ request }: Route.ActionArgs) {
 ### Testing Commands by Scope
 
 ```bash
-# Run all tests with coverage
-bun run test:run -- --coverage
+# Run the calibrated coverage gate
+bun run test:coverage
 
 # Focused Vitest projects
 bun run test:modules
@@ -481,7 +481,7 @@ bun run test:ui-dom
 bun run vitest:ui
 
 # Full required verification
-bun run verify:base
+bun run check
 ```
 
 ## DEVELOPMENT WORKFLOW
@@ -728,7 +728,7 @@ tests/
 - **YouTube UX Standard:** All UI patterns should match YouTube's familiar interface
 - **2-Second Rule:** Video playback must start within 2 seconds of user action
 - **Security First:** Every video access requires JWT token validation
-- **Quality Focus:** 75% test coverage minimum, zero `any` types allowed
+- **Quality Focus:** 80% calibrated test coverage minimum, zero `any` types allowed
 - **Performance Critical:** Support 4GB files with 10 concurrent users
 
 ### Key Architectural Benefits

@@ -223,7 +223,7 @@ The test suite is split by scope:
 - `bun run test:run`: all Vitest projects
 - `bun run test:smoke:dev-auth`: dev-server auth smoke against `bun run dev`
 - `bun run test:smoke:bun-auth`: Bun runtime smoke against the built server
-- `bun run verify:base`: hermetic lint + typecheck + Vitest + Bun smoke + build
+- `bun run check`: hermetic lint + typecheck + Vitest + Bun smoke + calibrated coverage + build
 - `bun run verify:docker-compose-smoke`: Docker Compose production readiness contract
 - `bun run verify:e2e-smoke`: required browser smoke command
 

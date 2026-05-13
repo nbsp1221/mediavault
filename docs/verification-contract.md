@@ -2,7 +2,7 @@
 
 The base verification authority is:
 
-- `bun run verify:base`
+- `bun run check`
 
 The expanded base sequence is:
 
@@ -11,6 +11,7 @@ bun run verify:hermetic-inputs
 bun run lint
 bun run typecheck
 bun run test
+bun run test:coverage
 bun run build
 ```
 
@@ -20,14 +21,14 @@ Use this matrix to decide what must run before reporting a task complete.
 
 | Change type | Required verification |
 | --- | --- |
-| Documentation-only | `bun run verify:base` |
-| Pure module or non-runtime-sensitive server logic | `bun run verify:base` |
+| Documentation-only | `bun run check` |
+| Pure module or non-runtime-sensitive server logic | `bun run check` |
 | Browser-visible but not runtime-sensitive UI flow | base verification bundle + `bun run verify:e2e-smoke` |
-| Storage schema, media asset records, ingest commit visibility, media artifact paths, artifact deletion, or data-integrity reporting | `bun run verify:base` + `bun run verify:data-integrity` |
+| Storage schema, media asset records, ingest commit visibility, media artifact paths, artifact deletion, or data-integrity reporting | `bun run check` + `bun run verify:data-integrity` |
 | Auth, playback, route wiring, storage, or other runtime-sensitive behavior | base verification bundle + Docker CI-like verification |
 | Runtime-sensitive and browser-visible flow | base verification bundle + Docker CI-like verification + required browser smoke + Playwright MCP or equivalent isolated browser QA when HTTP checks are insufficient |
 
-The base verification bundle is `bun run verify:base`. If a change is both
+The base verification bundle is `bun run check`. If a change is both
 storage-sensitive and Docker-sensitive, run both `bun run verify:data-integrity` and the
 appropriate Docker gate.
 
@@ -36,6 +37,7 @@ appropriate Docker gate.
 - `lint` checks static lint rules.
 - `typecheck` checks React Router type generation plus TypeScript contracts.
 - `test` covers Vitest plus the Bun auth smoke layers under env-scrubbed conditions.
+- `test:coverage` runs Vitest coverage through `@vitest/coverage-v8` and enforces the calibrated 80% thresholds.
 - `build` verifies the production build succeeds.
 - `bun run verify:e2e-smoke` is the required browser smoke layer for browser-visible changes. It currently covers the home owner path, the add-videos owner upload flow, the playlist owner flow, player layout, and protected playback compatibility.
   This required smoke command is the stability boundary and may use stricter worker settings than ad hoc `bun run test:e2e` runs. Parallel browser stress runs are diagnostic, not the default required gate, until the harness owns per-worker runtime isolation.
@@ -61,7 +63,7 @@ appropriate Docker gate.
 The authoritative commands for the current repo state are:
 
 - `bun run verify:hermetic-inputs`
-- `bun run verify:base`
+- `bun run check`
 - `bun run verify:e2e-smoke`
 - `bun run verify:ci-faithful`
 - `bun run verify:ci-faithful:docker`
@@ -71,6 +73,7 @@ The authoritative commands for the current repo state are:
 - `bun run lint`
 - `bun run typecheck`
 - `bun run test`
+- `bun run test:coverage`
 - `bun run build`
 
 The authoritative Docker verification surfaces are `bun run verify:ci-faithful:docker`,
@@ -84,7 +87,7 @@ changes.
 Diagnostic reference only:
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" -e CI=true -e GITHUB_ACTIONS=true -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -e TZ=Etc/UTC -v "$PWD":/workspace -w /workspace oven/bun:<matching-packageManager-version> bash -lc 'bun install --frozen-lockfile && bun run lint && bun run typecheck && bun run test && bun run build'
+docker run --rm --user "$(id -u):$(id -g)" -e CI=true -e GITHUB_ACTIONS=true -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -e TZ=Etc/UTC -v "$PWD":/workspace -w /workspace oven/bun:<matching-packageManager-version> bash -lc 'bun install --frozen-lockfile && bun run check'
 ```
 
 This raw Docker command is not equivalent to `bun run verify:ci-faithful:docker` or
@@ -100,16 +103,19 @@ GitHub Actions should run dedicated jobs for:
 - `lint`
 - `typecheck`
 - `test`
+- `coverage`
 - `build`
 - `e2e-smoke`
 - `Docker Compose Smoke` for production runtime-sensitive paths
 
-CI and local base verification should use `bun run verify:base` so the hermetic input
-guard cannot be skipped.
+CI may split the base verification surfaces into dedicated jobs, but the required base
+surface must include the same checks as `bun run check`, including hermetic inputs,
+lint, typecheck, test, coverage, and build. Local base verification should use
+`bun run check` so the hermetic input and coverage guards cannot be skipped.
 
 `e2e-smoke` should run `bun run verify:e2e-smoke`. If broader browser suites are added later, they can remain non-required under `bun run test:e2e` until they are deterministic.
 `Docker Compose Smoke` should run `bun run verify:docker-compose-smoke`
-as a separate path-scoped Docker workflow, not as part of `verify:base`.
+as a separate path-scoped Docker workflow, not as part of `check`.
 
 ## Broader browser suite
 

@@ -111,6 +111,27 @@ export default defineConfig(({ command }) => {
       globals: true,
       exclude: ['node_modules', 'build', 'public'],
       fileParallelism: false,
+      coverage: {
+        provider: 'v8',
+        reporter: ['text-summary', 'json-summary', 'html'],
+        include: ['app/**/*.{ts,tsx}'],
+        exclude: [
+          'app/**/*.test.{ts,tsx}',
+          'app/**/*.spec.{ts,tsx}',
+          'app/entry.client.tsx',
+          'app/entry.server.tsx',
+          'app/routes.ts',
+          'app/server.ts',
+          'app/shared/ui/**/*',
+          'app/components/ui/**/*',
+        ],
+        thresholds: {
+          lines: 80,
+          branches: 80,
+          functions: 80,
+          statements: 80,
+        },
+      },
       projects: [
         {
           extends: true,

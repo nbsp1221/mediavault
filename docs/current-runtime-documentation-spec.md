@@ -341,7 +341,7 @@ Documentation cleanup is complete when:
 - historical docs are unmistakably labeled as historical or superseded
 - deployment docs and Docker files either provision required media tooling or explicitly
   document external requirements
-- verification docs make `bun run verify:base` the base authority, including the hermetic
+- verification docs make `bun run check` the base authority, including the hermetic
   input guard
 - storage-sensitive verification guidance requires `bun run verify:data-integrity` for
   changes that affect primary DB/media filesystem consistency
@@ -354,8 +354,8 @@ Documentation cleanup is complete when:
 
 ## 8. Verification Documentation Specification
 
-The base verification authority is `bun run verify:base`, not the prose-only list of
-`lint`, `typecheck`, `test`, and `build`.
+The base verification authority is `bun run check`, not the prose-only list of
+`lint`, `typecheck`, `test`, `coverage`, and `build`.
 
 The expanded base sequence is:
 
@@ -364,6 +364,7 @@ bun run verify:hermetic-inputs
 bun run lint
 bun run typecheck
 bun run test
+bun run test:coverage
 bun run build
 ```
 

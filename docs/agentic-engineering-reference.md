@@ -60,7 +60,7 @@ Operational notes for this repository:
 
 - Do not hide tool policy only in a global prompt or a general agent instruction.
 - Verification commands should carry specific semantics:
-  - `bun run verify:base`: base completion authority.
+  - `bun run check`: base completion authority.
   - `bun run verify:e2e-smoke`: browser-visible owner-flow smoke gate.
   - `bun run verify:data-integrity`: storage and media-artifact integrity gate.
   - `bun run verify:docker-compose-smoke`: production readiness and Docker preflight gate.
@@ -620,8 +620,8 @@ For these areas, agent-generated code should be reviewed more strictly than ordi
 
 | Task type | Agent suitability | Required human role | Required feedback loop |
 | --- | --- | --- | --- |
-| Documentation alignment | High | Review final wording and accuracy | `bun run verify:base` by repo contract |
-| Focused module test addition | High | Define behavior and inspect assertions | targeted test, then `verify:base` |
+| Documentation alignment | High | Review final wording and accuracy | `bun run check` by repo contract |
+| Focused module test addition | High | Define behavior and inspect assertions | targeted test, then `check` |
 | UI polish in existing pattern | Medium to high | Inspect screenshot/browser behavior | UI tests, `verify:e2e-smoke` when browser-visible |
 | Playback route behavior | Medium | Design policy and review critical code | module tests, integration tests, e2e, browser QA as needed |
 | Auth/session change | Medium | Review security behavior line-by-line | module/integration/smoke/Docker as applicable |

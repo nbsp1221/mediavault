@@ -28,6 +28,26 @@ describe('CI parity contract', () => {
     expect(packageJson).toContain('"verify:ci-worktree:docker":');
   });
 
+  test('keeps coverage as a required base verification gate', async () => {
+    const workflow = await readFile('.github/workflows/ci.yml', 'utf8');
+    const packageJson = JSON.parse(await readFile('package.json', 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    const viteConfig = await readFile('vite.config.ts', 'utf8');
+
+    expect(packageJson.scripts['test:coverage']).toContain('run-vitest.ts run --coverage');
+    expect(packageJson.scripts.check).toContain('bun run test:coverage');
+    expect(workflow).toContain('coverage:');
+    expect(workflow).toContain('run: bun run verify:hermetic-inputs && bun run test:coverage');
+    expect(workflow).toContain('needs: [typecheck, lint, test, coverage, e2e-smoke, build]');
+    expect(viteConfig).toContain('provider: \'v8\'');
+    expect(viteConfig).toContain('include: [\'app/**/*.{ts,tsx}\']');
+    expect(viteConfig).toContain('lines: 80');
+    expect(viteConfig).toContain('branches: 80');
+    expect(viteConfig).toContain('functions: 80');
+    expect(viteConfig).toContain('statements: 80');
+  });
+
   test('keeps Bun version enforcement at install time instead of repeating a custom prefix across every verification script', async () => {
     const packageJson = await readFile('package.json', 'utf8');
 
