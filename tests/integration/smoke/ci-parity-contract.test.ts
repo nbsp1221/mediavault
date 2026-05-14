@@ -34,6 +34,8 @@ describe('CI parity contract', () => {
       scripts: Record<string, string>;
     };
     const viteConfig = await readFile('vite.config.ts', 'utf8');
+    const changedFileCoverageEntrypoint = await readFile('scripts/test-coverage-changed.ts', 'utf8');
+    const changedFileCoverageModule = await readFile('scripts/lib/coverage/changed-file-coverage.ts', 'utf8');
 
     const baseline = JSON.parse(await readFile('tests/coverage-regression-baseline.json', 'utf8')) as {
       metrics?: Record<string, number>;
@@ -44,9 +46,12 @@ describe('CI parity contract', () => {
     expect(packageJson.scripts['test:coverage:collect']).toContain('run-vitest.ts run --coverage');
     expect(packageJson.scripts['test:coverage:collect']).toContain('--coverage.reporter=json-summary');
     expect(packageJson.scripts['test:coverage:regression']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/check-coverage-regression.ts');
+    expect(packageJson.scripts['test:coverage:changed']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-coverage-changed.ts');
     expect(packageJson.scripts['test:coverage:update-baseline']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/update-coverage-baseline.ts');
     expect(packageJson.scripts.check).toContain('bun run test:coverage');
+    expect(packageJson.scripts.check).not.toContain('bun run test:coverage:changed');
     expect(packageJson.scripts.check).not.toContain('test:coverage:update-baseline');
+    expect(workflow).not.toContain('test:coverage:changed');
     expect(workflow).toContain('coverage:');
     expect(workflow).toContain('run: bun run verify:hermetic-inputs && bun run test:coverage');
     expect(workflow).toContain('needs: [typecheck, lint, test, coverage, e2e-smoke, build]');
@@ -66,6 +71,20 @@ describe('CI parity contract', () => {
     expect(viteConfig).toContain('branches: 80');
     expect(viteConfig).toContain('functions: 80');
     expect(viteConfig).toContain('statements: 80');
+    expect(changedFileCoverageEntrypoint).toContain('runChangedFileCoverage');
+    expect(changedFileCoverageEntrypoint).toContain('./lib/coverage/changed-file-coverage');
+    expect(changedFileCoverageEntrypoint).toContain('process.exit(await runChangedFileCoverage())');
+    expect(changedFileCoverageModule).toContain('const THRESHOLD_PERCENTAGE = 80');
+    expect(changedFileCoverageModule).toContain('git');
+    expect(changedFileCoverageModule).toContain('diff');
+    expect(changedFileCoverageModule).toContain('HEAD');
+    expect(changedFileCoverageModule).toContain('ls-files');
+    expect(changedFileCoverageModule).toContain('--others');
+    expect(changedFileCoverageModule).toContain('--exclude-standard');
+    expect(changedFileCoverageModule).toContain('`--coverage.thresholds.lines=${THRESHOLD_PERCENTAGE}`');
+    expect(changedFileCoverageModule).toContain('`--coverage.thresholds.branches=${THRESHOLD_PERCENTAGE}`');
+    expect(changedFileCoverageModule).toContain('`--coverage.thresholds.functions=${THRESHOLD_PERCENTAGE}`');
+    expect(changedFileCoverageModule).toContain('`--coverage.thresholds.statements=${THRESHOLD_PERCENTAGE}`');
   });
 
   test('keeps Bun version enforcement at install time instead of repeating a custom prefix across every verification script', async () => {
