@@ -441,7 +441,37 @@ Why not use the current raw global values?
 - raw branches are 78.39% and functions are 78.86%
 - using raw global lines would either fail immediately or force bad test generation
 
-### Phase 3: Changed-Code Coverage
+### Phase 3: Project Coverage Regression Gate
+
+After the calibrated 80% floor is enforced through `check`, add a second project-level
+guard:
+
+```text
+current metric >= committed baseline metric - 0.25 percentage points
+```
+
+Implementation position:
+
+- `bun run test:coverage:collect` runs Vitest, generates `coverage/coverage-summary.json`, and enforces the 80% floor.
+- `bun run test:coverage:regression` compares the generated summary to `tests/coverage-regression-baseline.json`.
+- `bun run test:coverage` runs both commands in order.
+- `tests/coverage-regression-baseline.json` stores the baseline metrics and tolerance, not the 80% absolute floor.
+- `bun run test:coverage:update-baseline` is the only command that may ratchet improved baseline metrics upward.
+- `bun run test:coverage` and `bun run check` must not mutate the baseline.
+
+Initial regression baseline:
+
+| Metric | Baseline | Tolerance | Effective regression minimum |
+| --- | ---: | ---: | ---: |
+| lines | 84.73% | 0.25 pp | 84.48% |
+| branches | 80.17% | 0.25 pp | 79.92% |
+| functions | 87.16% | 0.25 pp | 86.91% |
+| statements | 84.73% | 0.25 pp | 84.48% |
+
+The branch regression minimum is below 80%, but the Vitest floor still fails below
+80%. That value is intentionally not duplicated in the regression baseline.
+
+### Phase 4: Changed-Code Coverage
 
 Only after calibrated global coverage is enforced through `check`:
 
@@ -463,7 +493,7 @@ For this repository, branch coverage should matter more than line coverage in:
 - runtime readiness
 - route loaders/actions
 
-### Phase 4: Risk-Based Higher Targets
+### Phase 5: Risk-Based Higher Targets
 
 Raise targets only for high-risk areas after the changed-code gate is stable:
 
@@ -529,7 +559,8 @@ Reason to defer:
 3. Configure coverage include/exclude rules.
 4. Re-run baseline and update this document with calibrated values.
 5. Add `test:coverage` to `check`.
-6. Create a route/test classification table:
+6. Add project coverage regression validation with a committed baseline and explicit ratchet command.
+7. Create a route/test classification table:
    - direct route contract
    - real composition integration
    - HTTP smoke

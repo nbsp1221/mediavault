@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "source": "Vitest coverage-summary.json total metrics",
+  "scope": "calibrated app/**/*.{ts,tsx} coverage configured in vite.config.ts",
+  "lastReviewed": "2026-05-14",
+  "tolerancePercentagePoints": 0.25,
+  "metrics": {
+    "lines": 84.73,
+    "branches": 80.17,
+    "functions": 87.16,
+    "statements": 84.73
+  }
+}

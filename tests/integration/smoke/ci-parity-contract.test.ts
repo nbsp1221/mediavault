@@ -35,11 +35,31 @@ describe('CI parity contract', () => {
     };
     const viteConfig = await readFile('vite.config.ts', 'utf8');
 
-    expect(packageJson.scripts['test:coverage']).toContain('run-vitest.ts run --coverage');
+    const baseline = JSON.parse(await readFile('tests/coverage-regression-baseline.json', 'utf8')) as {
+      metrics?: Record<string, number>;
+      minimumFloorPercentage?: number;
+    };
+
+    expect(packageJson.scripts['test:coverage']).toBe('bun run test:coverage:collect && bun run test:coverage:regression');
+    expect(packageJson.scripts['test:coverage:collect']).toContain('run-vitest.ts run --coverage');
+    expect(packageJson.scripts['test:coverage:collect']).toContain('--coverage.reporter=json-summary');
+    expect(packageJson.scripts['test:coverage:regression']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/check-coverage-regression.ts');
+    expect(packageJson.scripts['test:coverage:update-baseline']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/update-coverage-baseline.ts');
     expect(packageJson.scripts.check).toContain('bun run test:coverage');
+    expect(packageJson.scripts.check).not.toContain('test:coverage:update-baseline');
     expect(workflow).toContain('coverage:');
     expect(workflow).toContain('run: bun run verify:hermetic-inputs && bun run test:coverage');
     expect(workflow).toContain('needs: [typecheck, lint, test, coverage, e2e-smoke, build]');
+    expect(baseline.metrics).toEqual(expect.objectContaining({
+      lines: expect.any(Number),
+      branches: expect.any(Number),
+      functions: expect.any(Number),
+      statements: expect.any(Number),
+    }));
+    expect(baseline).toEqual(expect.objectContaining({
+      tolerancePercentagePoints: 0.25,
+    }));
+    expect(baseline).not.toHaveProperty('minimumFloorPercentage');
     expect(viteConfig).toContain('provider: \'v8\'');
     expect(viteConfig).toContain('include: [\'app/**/*.{ts,tsx}\']');
     expect(viteConfig).toContain('lines: 80');

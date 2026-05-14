@@ -37,7 +37,10 @@ appropriate Docker gate.
 - `lint` checks static lint rules.
 - `typecheck` checks React Router type generation plus TypeScript contracts.
 - `test` covers Vitest plus the Bun auth smoke layers under env-scrubbed conditions.
-- `test:coverage` runs Vitest coverage through `@vitest/coverage-v8` and enforces the calibrated 80% thresholds.
+- `test:coverage` runs `test:coverage:collect` followed by `test:coverage:regression`.
+- `test:coverage:collect` runs Vitest coverage through `@vitest/coverage-v8`, writes `coverage/coverage-summary.json`, and enforces the calibrated 80% thresholds through `vite.config.ts`.
+- `test:coverage:regression` compares `coverage/coverage-summary.json` against `tests/coverage-regression-baseline.json` and fails when any calibrated project metric drops more than 0.25 percentage points below the committed baseline.
+- `test:coverage:update-baseline` explicitly ratchets improved baseline metrics upward. It is reviewable, mutating, and must not run inside `bun run test:coverage` or `bun run check`.
 - `build` verifies the production build succeeds.
 - `bun run verify:e2e-smoke` is the required browser smoke layer for browser-visible changes. It currently covers the home owner path, the add-videos owner upload flow, the playlist owner flow, player layout, and protected playback compatibility.
   This required smoke command is the stability boundary and may use stricter worker settings than ad hoc `bun run test:e2e` runs. Parallel browser stress runs are diagnostic, not the default required gate, until the harness owns per-worker runtime isolation.
@@ -74,6 +77,9 @@ The authoritative commands for the current repo state are:
 - `bun run typecheck`
 - `bun run test`
 - `bun run test:coverage`
+- `bun run test:coverage:collect`
+- `bun run test:coverage:regression`
+- `bun run test:coverage:update-baseline`
 - `bun run build`
 
 The authoritative Docker verification surfaces are `bun run verify:ci-faithful:docker`,
@@ -110,8 +116,16 @@ GitHub Actions should run dedicated jobs for:
 
 CI may split the base verification surfaces into dedicated jobs, but the required base
 surface must include the same checks as `bun run check`, including hermetic inputs,
-lint, typecheck, test, coverage, and build. Local base verification should use
+lint, typecheck, test, coverage collection, coverage regression validation, and build. Local base verification should use
 `bun run check` so the hermetic input and coverage guards cannot be skipped.
+
+The coverage regression baseline is `tests/coverage-regression-baseline.json`. It records
+the committed calibrated project coverage values and the regression tolerance only.
+The 80% absolute floor remains owned by Vitest in `vite.config.ts`; do not duplicate
+that floor in the baseline JSON. This regression gate is not changed-code or patch
+coverage. Changed-code coverage should be evaluated later through Codecov patch
+coverage, SonarQube new-code quality gates, GitLab coverage tooling, or an equivalent
+standard PR-level mechanism before adding a local implementation.
 
 `e2e-smoke` should run `bun run verify:e2e-smoke`. If broader browser suites are added later, they can remain non-required under `bun run test:e2e` until they are deterministic.
 `Docker Compose Smoke` should run `bun run verify:docker-compose-smoke`
