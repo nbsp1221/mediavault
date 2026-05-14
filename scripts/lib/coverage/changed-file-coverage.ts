@@ -1,21 +1,13 @@
 import { spawnSync } from 'node:child_process';
+import {
+  type BranchChangedFileOptions,
+  type ChangedFileOptions,
+  listLocalChangedFiles,
+  listChangedFilesSinceBase as listSharedChangedFilesSinceBase,
+  normalizeChangedPath,
+} from '../git/local-changed-files';
 
 const THRESHOLD_PERCENTAGE = 80;
-
-interface GitCommandResult {
-  status: number | null;
-  stdout: string;
-  stderr: string;
-  error?: Error;
-}
-
-interface ChangedFileOptions {
-  cwd: string;
-}
-
-interface BranchChangedFileOptions extends ChangedFileOptions {
-  baseRef: string;
-}
 
 interface BuildVitestArgsOptions {
   changedBase?: string;
@@ -35,38 +27,6 @@ interface RunChangedFileCoverageOptions {
   spawn?: SpawnCommand;
   stdout?: OutputWriter;
   stderr?: OutputWriter;
-}
-
-interface ChangedFileDiscovery {
-  changedBase?: string;
-  files: string[];
-}
-
-function runGit(cwd: string, args: string[]): GitCommandResult {
-  const result = spawnSync('git', args, {
-    cwd,
-    encoding: 'utf8',
-  });
-
-  return {
-    error: result.error,
-    status: result.status,
-    stderr: result.stderr,
-    stdout: result.stdout,
-  };
-}
-
-function assertGitSuccess(result: GitCommandResult, message: string): void {
-  if (result.status !== 0 || result.error) {
-    throw new Error(message);
-  }
-}
-
-function normalizeChangedPath(path: string): string {
-  return path
-    .replace(/\\/g, '/')
-    .replace(/^\.\//, '')
-    .replace(/^\/+/, '');
 }
 
 export function isCoverageEligibleChangedProductionFile(path: string): boolean {
@@ -108,102 +68,28 @@ export function filterCoverageEligibleChangedProductionFiles(paths: string[]): s
   return [...eligiblePaths].sort();
 }
 
-function resolveGitBase(cwd: string, baseRef: string): string {
-  const refResult = runGit(cwd, ['rev-parse', '--verify', `${baseRef}^{commit}`]);
-  assertGitSuccess(
-    refResult,
-    `Unable to resolve coverage changed base ref: ${baseRef}`,
-  );
-
-  const mergeBaseResult = runGit(cwd, ['merge-base', 'HEAD', baseRef]);
-  assertGitSuccess(
-    mergeBaseResult,
-    `Unable to resolve coverage changed merge base: ${baseRef}`,
-  );
-
-  return mergeBaseResult.stdout.trim();
-}
-
-async function discoverChangedFilesSinceBase(options: BranchChangedFileOptions): Promise<ChangedFileDiscovery> {
-  const changedBase = resolveGitBase(options.cwd, options.baseRef);
-  const diffResult = runGit(options.cwd, [
-    'diff',
-    '--name-only',
-    '--diff-filter=ACMRT',
-    `${changedBase}...HEAD`,
-    '--',
-  ]);
-
-  assertGitSuccess(
-    diffResult,
-    `Unable to list changed files since coverage changed base ref: ${options.baseRef}`,
-  );
-
-  return {
-    changedBase,
-    files: diffResult.stdout
-      .split(/\r?\n/)
-      .map(line => line.trim())
-      .filter(Boolean)
-      .map(normalizeChangedPath),
-  };
-}
-
-function parseGitPathList(stdout: string): string[] {
-  return stdout
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(Boolean)
-    .map(normalizeChangedPath);
-}
-
-async function discoverLocalChangedFiles(options: ChangedFileOptions): Promise<ChangedFileDiscovery> {
-  const trackedResult = runGit(options.cwd, [
-    'diff',
-    '--name-only',
-    '--diff-filter=ACMRT',
-    'HEAD',
-    '--',
-  ]);
-
-  assertGitSuccess(
-    trackedResult,
-    'Unable to list local changed files relative to HEAD',
-  );
-
-  const untrackedResult = runGit(options.cwd, [
-    'ls-files',
-    '--others',
-    '--exclude-standard',
-  ]);
-
-  assertGitSuccess(
-    untrackedResult,
-    'Unable to list untracked local files',
-  );
-
-  return {
-    files: [...new Set([
-      ...parseGitPathList(trackedResult.stdout),
-      ...parseGitPathList(untrackedResult.stdout),
-    ])].sort(),
-  };
-}
-
-export async function listLocalChangedFiles(options: ChangedFileOptions): Promise<string[]> {
-  const discovery = await discoverLocalChangedFiles(options);
-  return discovery.files;
-}
-
-export async function listChangedFilesSinceBase(options: BranchChangedFileOptions): Promise<string[]> {
-  const discovery = await discoverChangedFilesSinceBase(options);
-  return discovery.files.sort();
-}
-
 export async function listCoverageEligibleChangedProductionFiles(options: ChangedFileOptions): Promise<string[]> {
   return filterCoverageEligibleChangedProductionFiles(
     await listLocalChangedFiles(options),
   );
+}
+
+export { listLocalChangedFiles };
+
+export async function listChangedFilesSinceBase(options: BranchChangedFileOptions): Promise<string[]> {
+  try {
+    return await listSharedChangedFilesSinceBase(options);
+  }
+  catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message
+        .replace('Unable to resolve changed base ref', 'Unable to resolve coverage changed base ref')
+        .replace('Unable to resolve changed merge base', 'Unable to resolve coverage changed merge base')
+        .replace('Unable to list changed files since base ref', 'Unable to list changed files since coverage changed base ref'));
+    }
+
+    throw error;
+  }
 }
 
 export function buildChangedFileCoverageVitestArgs(options: BuildVitestArgsOptions): string[] {
@@ -245,8 +131,7 @@ export async function runChangedFileCoverage(
   const cwd = options.cwd ?? process.cwd();
   const spawn = options.spawn ?? defaultSpawn;
   const stdout = options.stdout ?? console.log;
-  const discovery = await discoverLocalChangedFiles({ cwd });
-  const files = filterCoverageEligibleChangedProductionFiles(discovery.files);
+  const files = await listCoverageEligibleChangedProductionFiles({ cwd });
 
   if (files.length === 0) {
     stdout('No changed production files require coverage validation.');
