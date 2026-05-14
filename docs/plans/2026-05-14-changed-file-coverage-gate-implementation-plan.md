@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add an advisory mechanical command that fails when production files changed in the current local worktree are not covered above the configured changed-file threshold. The first rollout exposes the command separately from `bun run check`; making it part of the required verification bundle is a later enforcement decision.
+**Goal:** Add a mechanical command that fails when production files changed in the current local worktree are not covered above the configured changed-file threshold, and include that command in the repository's required coverage gate.
 
 **Architecture:** Keep Vitest as the only coverage engine and threshold enforcer. Add a thin Bun/TypeScript wrapper that discovers staged, unstaged, and untracked local production files with Git, filters that list through the same calibrated coverage scope used by the project coverage gate, and invokes Vitest with `--changed` plus explicit `--coverage.include` arguments for those files. This is changed-file coverage, not Codecov-style patch-line coverage.
 
@@ -39,7 +39,7 @@ Changed production file coverage: 18% FAIL should happen, but does not happen to
 
 This gate exists to make new and modified production files visible to the harness. It reduces the chance that AI-generated implementation code hides behind the existing test suite's aggregate coverage.
 
-The expected behavior for the advisory command is:
+The expected behavior for the changed-file command is:
 
 ```text
 If local work changes production code, `bun run test:coverage:changed` must verify that changed production surface has meaningful coverage before the command can pass.
@@ -217,20 +217,16 @@ Recommended package script:
 
 ### Base Verification Integration
 
-Do not immediately add this command to `bun run check` in the first implementation commit unless the measured local behavior is stable on real project changes.
-
-Recommended rollout:
-
-1. implement the script and contract tests
-2. run it against controlled temporary changes
-3. document the measured behavior
-4. add it to `check` only after the command has no false-positive cases for docs-only, tests-only, excluded files, and normal production changes
-
-If the owner decides to enforce immediately, `check` should call the public command, not the script directly:
+`test:coverage` is the public coverage verification bundle. Because this project now
+has collect, regression, and changed-file coverage gates, `test:coverage` must call all
+three public coverage commands:
 
 ```json
-"check": "bun run verify:hermetic-inputs && bun run lint && bun run typecheck && bun run test && bun run test:coverage && bun run test:coverage:changed && bun run build"
+"test:coverage": "bun run test:coverage:collect && bun run test:coverage:regression && bun run test:coverage:changed"
 ```
+
+`check` should continue to call `bun run test:coverage`, not each coverage subcommand
+directly. That keeps `test:coverage` as the source of truth for coverage verification.
 
 ## 4. PoC Findings From 2026-05-14
 
@@ -653,8 +649,9 @@ Assert:
 - the script is env-scrubbed
 - the package script calls `scripts/test-coverage-changed.ts`
 - `scripts/test-coverage-changed.ts` is a thin entrypoint that imports `scripts/lib/coverage/changed-file-coverage.ts`
-- `check` does not call `test:coverage:changed` unless enforcement has been explicitly accepted
-- `docs/verification-contract.md` documents the command and whether it is advisory or required
+- `test:coverage` calls `test:coverage:collect`, `test:coverage:regression`, and `test:coverage:changed`
+- `check` calls `test:coverage`
+- `docs/verification-contract.md` documents that the command is part of the required coverage gate
 
 **Step 3: Update verification contract**
 
@@ -746,42 +743,22 @@ No PoC source changes remain
 
 **Files:**
 
-- Modify: `package.json` only if enforcing inside `check`
+- Modify: `package.json` so `test:coverage` includes the changed-file gate
 - Modify: `docs/verification-contract.md`
 - Modify: `tests/integration/smoke/ci-parity-contract.test.ts`
 
-Decision options:
-
-#### Option A: Advisory First
-
-Keep `test:coverage:changed` available but outside `check`.
-
-Use this when:
-
-- first implementation is complete but false-positive risk still needs observation
-- the owner wants explicit command-level validation before making it blocking
-
-#### Option B: Required Gate
-
-Add `test:coverage:changed` to `bun run check`.
-
-Use this when:
-
-- docs-only, tests-only, excluded-file, tested-production-file, and untested-new-file cases behave correctly
-- runtime cost is acceptable
-- local changed-file behavior is stable enough to require before handoff
-
-Recommended initial decision:
+Decision:
 
 ```text
-Option A for the first implementation commit, then Option B after one successful real-branch validation.
+Include `test:coverage:changed` in `test:coverage`.
 ```
 
 Reason:
 
-- the command is new and local changed-file behavior should be observed before it becomes a required handoff gate
-- the existing `check` path is already required and stable
-- making the gate advisory first avoids breaking unrelated local workflows before false-positive behavior is known
+- `test:coverage` should represent the complete coverage verification bundle
+- `check` already delegates coverage verification to `test:coverage`
+- adding `changed` under `test:coverage` keeps the package-script contract clearer than adding another sibling command directly to `check`
+- clean-checkout CI remains deterministic because the changed-file command no-ops when there are no staged, unstaged, or untracked eligible production files
 
 ## 7. Success Conditions
 

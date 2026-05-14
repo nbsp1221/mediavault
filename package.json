@@ -18,7 +18,7 @@
     "test:media-prep": "bun run download:ffmpeg && bun run download:shaka && LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/run-vitest.ts run --project integration tests/integration/modules/ingest/ffmpeg-media-preparation.real-media.test.ts",
     "test:modules": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/run-vitest.ts run --project modules",
     "test:run": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/run-vitest.ts run",
-    "test:coverage": "bun run test:coverage:collect && bun run test:coverage:regression",
+    "test:coverage": "bun run test:coverage:collect && bun run test:coverage:regression && bun run test:coverage:changed",
     "test:coverage:collect": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/run-vitest.ts run --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary",
     "test:coverage:regression": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/check-coverage-regression.ts",
     "test:coverage:changed": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-coverage-changed.ts",

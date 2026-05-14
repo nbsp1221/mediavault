@@ -37,10 +37,10 @@ appropriate Docker gate.
 - `lint` checks static lint rules.
 - `typecheck` checks React Router type generation plus TypeScript contracts.
 - `test` covers Vitest plus the Bun auth smoke layers under env-scrubbed conditions.
-- `test:coverage` runs `test:coverage:collect` followed by `test:coverage:regression`.
+- `test:coverage` runs `test:coverage:collect`, `test:coverage:regression`, and `test:coverage:changed`.
 - `test:coverage:collect` runs Vitest coverage through `@vitest/coverage-v8`, writes `coverage/coverage-summary.json`, and enforces the calibrated 80% thresholds through `vite.config.ts`.
 - `test:coverage:regression` compares `coverage/coverage-summary.json` against `tests/coverage-regression-baseline.json` and fails when any calibrated project metric drops more than 0.25 percentage points below the committed baseline.
-- `test:coverage:changed` is an advisory local changed-file coverage gate. It discovers staged, unstaged, and untracked local production files relative to `HEAD`, filters them through the same calibrated production coverage scope as `vite.config.ts`, and invokes Vitest with explicit `--coverage.include` arguments plus the 80% threshold values. It is changed-file aggregate coverage for eligible changed files, not line-level patch coverage.
+- `test:coverage:changed` is the local changed-file coverage gate. It discovers staged, unstaged, and untracked local production files relative to `HEAD`, filters them through the same calibrated production coverage scope as `vite.config.ts`, and invokes Vitest with explicit `--coverage.include` arguments plus the 80% threshold values. It is changed-file aggregate coverage for eligible changed files, not line-level patch coverage.
 - `test:coverage:update-baseline` explicitly ratchets improved baseline metrics upward. It is reviewable, mutating, and must not run inside `bun run test:coverage` or `bun run check`.
 - `build` verifies the production build succeeds.
 - `bun run verify:e2e-smoke` is the required browser smoke layer for browser-visible changes. It currently covers the home owner path, the add-videos owner upload flow, the playlist owner flow, player layout, and protected playback compatibility.
@@ -127,19 +127,19 @@ The 80% absolute floor remains owned by Vitest in `vite.config.ts`; do not dupli
 that floor in the baseline JSON. This regression gate is not changed-code or patch
 coverage.
 
-`bun run test:coverage:changed` is available as a local-first advisory changed-file
-coverage gate for pre-commit agent work. It is outside `bun run check` until the
-repository validates false-positive behavior on normal local changes and explicitly
-accepts it as a required handoff gate. The command reads staged tracked changes,
-unstaged tracked changes, and untracked files; filters that list to eligible production
-coverage inputs; then runs Vitest with `--changed` and explicit coverage includes. When
-no eligible changed production files remain after filtering, it exits successfully
-without running Vitest and prints `No changed production files require coverage
-validation.` Deleted files are not eligible changed-file coverage inputs. This command
-does not implement line-level patch coverage or CI/PR changed-file enforcement; those
-should be evaluated separately through PR metadata, Codecov patch status, SonarQube
-new-code quality gates, GitLab coverage tooling, or an equivalent standard mechanism if
-the project later needs exact changed-line coverage.
+`bun run test:coverage:changed` is part of `bun run test:coverage`, and therefore
+part of `bun run check`. It is still local-first in semantics: the command reads
+staged tracked changes, unstaged tracked changes, and untracked files relative to
+`HEAD`; filters that list to eligible production coverage inputs; then runs Vitest
+with `--changed` and explicit coverage includes. When no eligible changed production
+files remain after filtering, it exits successfully without running Vitest and prints
+`No changed production files require coverage validation.` Deleted files are not
+eligible changed-file coverage inputs. In clean-checkout CI this command normally
+no-ops because there are no local staged, unstaged, or untracked production changes.
+This command does not implement line-level patch coverage or CI/PR changed-file
+enforcement; those should be evaluated separately through PR metadata, Codecov patch
+status, SonarQube new-code quality gates, GitLab coverage tooling, or an equivalent
+standard mechanism if the project later needs exact changed-line coverage.
 
 `e2e-smoke` should run `bun run verify:e2e-smoke`. If broader browser suites are added later, they can remain non-required under `bun run test:e2e` until they are deterministic.
 `Docker Compose Smoke` should run `bun run verify:docker-compose-smoke`

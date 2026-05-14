@@ -42,14 +42,15 @@ describe('CI parity contract', () => {
       minimumFloorPercentage?: number;
     };
 
-    expect(packageJson.scripts['test:coverage']).toBe('bun run test:coverage:collect && bun run test:coverage:regression');
+    expect(packageJson.scripts['test:coverage']).toBe(
+      'bun run test:coverage:collect && bun run test:coverage:regression && bun run test:coverage:changed',
+    );
     expect(packageJson.scripts['test:coverage:collect']).toContain('run-vitest.ts run --coverage');
     expect(packageJson.scripts['test:coverage:collect']).toContain('--coverage.reporter=json-summary');
     expect(packageJson.scripts['test:coverage:regression']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/check-coverage-regression.ts');
     expect(packageJson.scripts['test:coverage:changed']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-coverage-changed.ts');
     expect(packageJson.scripts['test:coverage:update-baseline']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/update-coverage-baseline.ts');
     expect(packageJson.scripts.check).toContain('bun run test:coverage');
-    expect(packageJson.scripts.check).not.toContain('bun run test:coverage:changed');
     expect(packageJson.scripts.check).not.toContain('test:coverage:update-baseline');
     expect(workflow).not.toContain('test:coverage:changed');
     expect(workflow).toContain('coverage:');
