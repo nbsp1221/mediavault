@@ -1,15 +1,7 @@
 import type { LoaderFunctionArgs } from 'react-router';
 import { getOptionalSiteViewer } from '~/composition/server/auth';
-import { getAuthRuntimeState } from '~/shared/config/auth.server';
 export async function loader({ request }: LoaderFunctionArgs): Promise<Response> {
   try {
-    if (!getAuthRuntimeState().isConfigured) {
-      return Response.json(
-        { success: false, error: 'Authentication is not configured' },
-        { status: 503 },
-      );
-    }
-
     const user = await getOptionalSiteViewer(request);
 
     if (!user) {

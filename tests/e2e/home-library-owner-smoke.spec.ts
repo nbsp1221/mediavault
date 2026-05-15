@@ -1,15 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { getE2ESharedPassword } from '../support/shared-password';
 import { loginToPath } from './support/auth';
-
-const sharedPassword = getE2ESharedPassword(process.env.AUTH_SHARED_PASSWORD);
 
 test.describe('home library owner smoke', () => {
   test('boots the authenticated home route with loader bootstrap filters', async ({ page }) => {
     await loginToPath(page, {
       expectedUrl: /\/\?q=action&tag=action&type=clip&genre=action$/,
       redirectTo: '/?q=action&tag=action&type=clip&genre=action',
-      sharedPassword,
     });
     await expect(page.getByRole('heading', { level: 1, name: 'My Library' })).toBeVisible();
     await expect(page.getByLabel('Search library (desktop)')).toHaveValue('action');

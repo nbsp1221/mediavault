@@ -14,7 +14,6 @@ async function createTempRoot(): Promise<string> {
 
 function createProductionEnv(overrides: Record<string, string | undefined> = {}) {
   return {
-    AUTH_SHARED_PASSWORD: 'test-auth-password',
     NODE_ENV: 'production',
     VIDEO_JWT_SECRET: 'test-video-jwt-secret',
     VIDEO_MASTER_ENCRYPTION_SEED: 'test-master-encryption-seed',
@@ -29,7 +28,6 @@ afterEach(async () => {
 
 describe('production startup preflight', () => {
   test.each([
-    'AUTH_SHARED_PASSWORD',
     'VIDEO_JWT_SECRET',
     'VIDEO_MASTER_ENCRYPTION_SEED',
   ])('rejects production startup when %s is missing', async (missingKey) => {
@@ -43,6 +41,7 @@ describe('production startup preflight', () => {
         databasePath: path.join(root, 'storage', 'db.sqlite'),
         storageDir: path.join(root, 'storage'),
       }),
+      countAuthUsers: async () => 1,
       logger: { error: vi.fn(), warn: vi.fn() },
     });
 
@@ -59,6 +58,7 @@ describe('production startup preflight', () => {
         databasePath: path.join(storageDir, 'db.sqlite'),
         storageDir,
       }),
+      countAuthUsers: async () => 1,
       logger: { error: vi.fn(), warn: vi.fn() },
     });
 
@@ -75,6 +75,7 @@ describe('production startup preflight', () => {
         databasePath: path.join(blockedParent, 'db.sqlite'),
         storageDir: path.join(root, 'storage'),
       }),
+      countAuthUsers: async () => 1,
       logger: { error: vi.fn(), warn: vi.fn() },
     });
 
@@ -91,6 +92,7 @@ describe('production startup preflight', () => {
         storageDir: path.join(root, 'storage'),
       }),
       logger: { error: vi.fn(), warn: vi.fn() },
+      countAuthUsers: async () => 1,
       probeMediaTools: async () => [
         { ok: true, tool: 'ffmpeg' },
         { ok: true, tool: 'ffprobe' },
@@ -129,6 +131,7 @@ describe('production startup preflight', () => {
         storageDir: path.join(root, 'storage'),
       }),
       logger: { error: vi.fn(), warn: vi.fn() },
+      countAuthUsers: async () => 1,
       mediaProbeCacheTtlMs: 1_000,
       probeMediaTools: async () => {
         mediaProbeCalls += 1;
@@ -169,6 +172,7 @@ describe('production startup preflight', () => {
         storageDir: path.join(root, 'storage'),
       }),
       logger: { error: vi.fn(), warn: vi.fn() },
+      countAuthUsers: async () => 1,
       mediaProbeCacheTtlMs: 1_000,
       probeMediaTools: async () => {
         mediaProbeCalls += 1;
@@ -195,5 +199,21 @@ describe('production startup preflight', () => {
       expect.objectContaining({ ready: true }),
     ]);
     expect(mediaProbeCalls).toBe(1);
+  });
+
+  test('rejects production startup when the auth user table is empty', async () => {
+    const root = await createTempRoot();
+    const services = createRuntimeReadinessServices({
+      env: createProductionEnv(),
+      getStorageConfig: () => ({
+        databasePath: path.join(root, 'storage', 'db.sqlite'),
+        storageDir: path.join(root, 'storage'),
+      }),
+      countAuthUsers: async () => 0,
+      logger: { error: vi.fn(), warn: vi.fn() },
+      runDatabaseStartupProbe: async () => {},
+    });
+
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('auth users');
   });
 });

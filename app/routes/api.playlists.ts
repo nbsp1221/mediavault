@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
-import { requireProtectedApiSession } from '~/composition/server/auth';
-import { getServerPlaylistServices, resolveServerPlaylistOwnerId } from '~/composition/server/playlist';
+import { requireProtectedApiSessionValue } from '~/composition/server/auth';
+import { getServerPlaylistServices } from '~/composition/server/playlist';
 
 const playlistTypes = ['user_created', 'series', 'season', 'auto_generated'] as const;
 const playlistStatuses = ['ongoing', 'completed', 'hiatus'] as const;
@@ -102,10 +102,10 @@ function parseSortOrder(value: string | null): PlaylistSortOrder {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    const unauthorizedResponse = await requireProtectedApiSession(request);
-    if (unauthorizedResponse) return unauthorizedResponse;
+    const authSession = await requireProtectedApiSessionValue(request);
+    if (authSession instanceof Response) return authSession;
 
-    const ownerId = await resolveServerPlaylistOwnerId();
+    const ownerId = authSession.userId;
     const url = new URL(request.url);
     const services = getServerPlaylistServices();
 
@@ -154,10 +154,10 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   try {
-    const unauthorizedResponse = await requireProtectedApiSession(request);
-    if (unauthorizedResponse) return unauthorizedResponse;
+    const authSession = await requireProtectedApiSessionValue(request);
+    if (authSession instanceof Response) return authSession;
 
-    const ownerId = await resolveServerPlaylistOwnerId();
+    const ownerId = authSession.userId;
     const services = getServerPlaylistServices();
     const body = await request.json() as {
       description?: string;

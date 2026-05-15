@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
 import { requireProtectedPageSession } from '~/composition/server/auth';
-import { getServerPlaylistServices, resolveServerPlaylistOwnerId } from '~/composition/server/playlist';
+import { getServerPlaylistServices } from '~/composition/server/playlist';
 import { PlaylistsPage } from '~/pages/playlists/ui/PlaylistsPage';
 import { RouteErrorView } from '~/shared/ui/route-error-view';
 
@@ -11,11 +11,11 @@ function getErrorMessage(error: unknown) {
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  await requireProtectedPageSession(request);
+  const authSession = await requireProtectedPageSession(request);
 
   const url = new URL(request.url);
   const searchQuery = url.searchParams.get('q') || '';
-  const ownerId = await resolveServerPlaylistOwnerId();
+  const ownerId = authSession.userId;
   const services = getServerPlaylistServices();
   const result = await services.findPlaylists.execute({
     filters: {

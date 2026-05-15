@@ -32,7 +32,6 @@ describe('production readiness route', () => {
         issues: [{
           code: 'media-tool-unavailable',
           message: [
-            'AUTH_SHARED_PASSWORD',
             secretValue,
             localStoragePath,
             binaryPath,
@@ -50,7 +49,6 @@ describe('production readiness route', () => {
 
     expect(response.status).toBe(503);
     expect(body).toBe('');
-    expect(body).not.toContain('AUTH_SHARED_PASSWORD');
     expect(body).not.toContain('VIDEO_JWT_SECRET');
     expect(body).not.toContain('VIDEO_MASTER_ENCRYPTION_SEED');
     expect(body).not.toContain(secretValue);

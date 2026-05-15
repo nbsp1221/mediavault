@@ -2,19 +2,19 @@ import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
 import { AlertTriangle, FileWarning, Lock } from 'lucide-react';
 import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
 import { requireProtectedPageSession } from '~/composition/server/auth';
-import { getServerPlaylistServices, resolveServerPlaylistOwnerId } from '~/composition/server/playlist';
+import { getServerPlaylistServices } from '~/composition/server/playlist';
 import { PlaylistDetailPage } from '~/pages/playlist-detail/ui/PlaylistDetailPage';
 import { RouteErrorView } from '~/shared/ui/route-error-view';
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await requireProtectedPageSession(request);
+  const authSession = await requireProtectedPageSession(request);
 
   const playlistId = params.id;
   if (!playlistId) {
     throw new Response('Playlist ID is required', { status: 400 });
   }
 
-  const ownerId = await resolveServerPlaylistOwnerId();
+  const ownerId = authSession.userId;
   const services = getServerPlaylistServices();
   const result = await services.getPlaylistDetails.execute({
     includeRelated: false,

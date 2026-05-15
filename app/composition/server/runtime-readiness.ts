@@ -1,3 +1,4 @@
+import { SqliteAuthUserRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-auth-user.repository';
 import {
   type MediaToolProbeResult,
   type ProductionReadinessIssue,
@@ -6,6 +7,7 @@ import {
   type StorageProbeResult,
   classifyMediaToolProbeResults,
   classifyStorageProbeResults,
+  collectAuthAccountIssues,
   collectCriticalProductionSecretIssues,
   createProductionReadinessReport,
   isProductionRuntime,
@@ -32,6 +34,7 @@ interface RuntimeReadinessServicesInput {
   mediaProbeCacheTtlMs?: number;
   probeMediaTools?: () => Promise<MediaToolProbeResult[]>;
   probeStorage?: (config: RuntimeStorageProbeConfig) => Promise<StorageProbeResult[]>;
+  countAuthUsers?: (databasePath: string) => Promise<number>;
   runDatabaseStartupProbe?: (databasePath: string) => Promise<void>;
 }
 
@@ -64,6 +67,12 @@ async function runDefaultDatabaseStartupProbe(databasePath: string): Promise<voi
   await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
 }
 
+async function countDefaultAuthUsers(databasePath: string): Promise<number> {
+  return new SqliteAuthUserRepository({
+    dbPath: databasePath,
+  }).count();
+}
+
 function createDatabaseStartupIssue(): ProductionReadinessIssue {
   return {
     code: 'database-unavailable',
@@ -90,6 +99,7 @@ export function createRuntimeReadinessServices(
   const logger = input.logger ?? defaultLogger();
   const runStorageProbe = input.probeStorage ?? probeConfiguredStorage;
   const runMediaProbe = input.probeMediaTools ?? probeMediaTools;
+  const countAuthUsers = input.countAuthUsers ?? countDefaultAuthUsers;
   const runDatabaseStartupProbe = input.runDatabaseStartupProbe ?? runDefaultDatabaseStartupProbe;
   const mediaProbeCacheTtlMs = input.mediaProbeCacheTtlMs ?? DEFAULT_MEDIA_PROBE_CACHE_TTL_MS;
   let cachedMediaProbe:
@@ -137,7 +147,9 @@ export function createRuntimeReadinessServices(
 
     try {
       await runDatabaseStartupProbe(storageConfig.databasePath);
-      return [];
+      return collectAuthAccountIssues({
+        authUserCount: await countAuthUsers(storageConfig.databasePath),
+      });
     }
     catch {
       return [createDatabaseStartupIssue()];
@@ -164,8 +176,14 @@ export function createRuntimeReadinessServices(
       }
 
       const secretIssues = collectCriticalProductionSecretIssues(env);
-      const storageIssues = classifyStorageProbeResults(await runStorageProbe(getStorageConfig()));
-      const startupIssues = [...secretIssues, ...storageIssues];
+      const storageConfig = getStorageConfig();
+      const storageIssues = classifyStorageProbeResults(await runStorageProbe(storageConfig));
+      const authAccountIssues = secretIssues.length > 0 || storageIssues.length > 0
+        ? []
+        : collectAuthAccountIssues({
+            authUserCount: await countAuthUsers(storageConfig.databasePath),
+          });
+      const startupIssues = [...secretIssues, ...storageIssues, ...authAccountIssues];
       const mediaIssues = startupIssues.length > 0
         ? []
         : classifyMediaToolProbeResults(await checkMediaTools());

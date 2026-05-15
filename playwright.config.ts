@@ -5,10 +5,8 @@ import {
   type PlaywrightRuntimeMode,
   detectPlaywrightRuntimeMode,
 } from './tests/support/detect-playwright-runtime-mode';
-import { getE2ESharedPassword } from './tests/support/shared-password';
 
 const port = 4173;
-const sharedPassword = getE2ESharedPassword(process.env.AUTH_SHARED_PASSWORD);
 const runtimeMode = detectPlaywrightRuntimeMode(process.argv);
 const runtimeWorkspace = runtimeMode === 'hermetic-smoke'
   ? await createRuntimeTestWorkspace()
@@ -17,7 +15,6 @@ const runtimeWorkspace = runtimeMode === 'hermetic-smoke'
 function createPlaywrightWebServerEnv(portValue: number): Record<string, string> {
   if (runtimeMode === 'hermetic-smoke' && runtimeWorkspace) {
     return createRuntimeTestEnv({
-      AUTH_SHARED_PASSWORD: sharedPassword,
       DATABASE_SQLITE_PATH: runtimeWorkspace.databasePath,
       PORT: String(portValue),
       STORAGE_DIR: runtimeWorkspace.storageDir,
@@ -25,7 +22,6 @@ function createPlaywrightWebServerEnv(portValue: number): Record<string, string>
   }
 
   return createRuntimeTestEnv({
-    AUTH_SHARED_PASSWORD: sharedPassword,
     PORT: String(portValue),
   });
 }

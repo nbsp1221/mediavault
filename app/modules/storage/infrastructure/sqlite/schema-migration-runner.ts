@@ -4,6 +4,7 @@ import {
   DEFAULT_VIDEO_GENRES,
 } from '~/modules/library/domain/video-taxonomy';
 import type { SqliteDatabaseAdapter } from './primary-sqlite.database';
+import { accountAuthMigrationSql } from './account-auth-migration.sql';
 import { primaryStorageMigrationSql } from './primary-storage-migration.sql';
 
 export interface MigrationDefinition {
@@ -27,6 +28,11 @@ const migrations: MigrationDefinition[] = [
     name: 'primary_storage',
     sql: primaryStorageMigrationSql,
     version: 1,
+  },
+  {
+    name: 'account_auth',
+    sql: accountAuthMigrationSql,
+    version: 2,
   },
 ];
 

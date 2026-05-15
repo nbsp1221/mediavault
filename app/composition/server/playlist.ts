@@ -44,7 +44,6 @@ import { ReorderPlaylistItemsUseCase } from '~/modules/playlist/application/use-
 import { UpdatePlaylistUseCase } from '~/modules/playlist/application/use-cases/update-playlist.usecase';
 import { SqlitePlaylistRepository } from '~/modules/playlist/infrastructure/sqlite/sqlite-playlist.repository';
 import { SqlitePlaylistVideoCatalog } from '~/modules/playlist/infrastructure/video/sqlite-playlist-video-catalog.adapter';
-import { resolveSiteViewer } from './auth';
 
 export type PlaylistFailure = {
   error: string;
@@ -76,7 +75,7 @@ function withSuccessFlag<T extends object>(data: T): T & { success: true } {
 }
 
 export async function resolveServerPlaylistOwnerId() {
-  return (await resolveSiteViewer()).id;
+  return 'site-owner';
 }
 
 type ServerPlaylistVideoCatalog = PlaylistVideoCatalogPort & Required<Pick<PlaylistVideoCatalogPort, 'findById'>>;
@@ -176,7 +175,7 @@ function resolveDependencies(
 ): ServerPlaylistServiceDependencies {
   return {
     playlistRepository: overrides.playlistRepository ?? new SqlitePlaylistRepository(),
-    resolveOwnerId: overrides.resolveOwnerId ?? (async () => (await resolveSiteViewer()).id),
+    resolveOwnerId: overrides.resolveOwnerId ?? resolveServerPlaylistOwnerId,
     videoCatalog: overrides.videoCatalog ?? new SqlitePlaylistVideoCatalog(),
   };
 }

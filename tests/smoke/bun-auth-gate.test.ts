@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { createNoEnvFileBunCommand } from '../../scripts/no-env-file-bun';
 import { toRequestCookieHeader } from '../helpers/cookies';
+import { E2E_AUTH_PASSWORD, E2E_AUTH_USERNAME, seedRuntimeAuthUser } from '../support/auth-account';
 import { createRuntimeTestEnv } from '../support/create-runtime-test-env';
 
 const repoRoot = process.cwd();
@@ -23,9 +24,9 @@ const serverLogReaders: Promise<void>[] = [];
 
 function expectAdminViewerShape(viewer: unknown) {
   expect(viewer).toEqual(expect.objectContaining({
-    email: expect.stringMatching(/\S/),
     id: expect.stringMatching(/\S/),
     role: 'admin',
+    username: E2E_AUTH_USERNAME,
   }));
 }
 
@@ -99,7 +100,10 @@ async function waitForServerReady(url: string) {
 
 async function loginAndGetCookie() {
   const response = await fetch(`${baseUrl}/api/auth/login`, {
-    body: JSON.stringify({ password: 'vault-password' }),
+    body: JSON.stringify({
+      password: E2E_AUTH_PASSWORD,
+      username: E2E_AUTH_USERNAME,
+    }),
     headers: {
       'Content-Type': 'application/json',
     },
@@ -126,13 +130,11 @@ async function loginAndGetCookie() {
 
 beforeAll(async () => {
   seedSmokeStorage(storageDir);
+  await seedRuntimeAuthUser(databasePath);
 
   server = Bun.spawn(createNoEnvFileBunCommand(['./build/server/index.js']), {
     cwd: repoRoot,
     env: createRuntimeTestEnv({
-      AUTH_OWNER_EMAIL: 'admin@example.com',
-      AUTH_OWNER_ID: 'seeded-owner-1',
-      AUTH_SHARED_PASSWORD: 'vault-password',
       DATABASE_SQLITE_PATH: databasePath,
       PORT: String(port),
       STORAGE_DIR: storageDir,
@@ -170,9 +172,12 @@ describe('Bun auth gate smoke', () => {
     expect(response.headers.get('location')).toBe('/login?redirectTo=%2F');
   });
 
-  test('invalid shared password is rejected', async () => {
+  test('invalid password is rejected', async () => {
     const response = await fetch(`${baseUrl}/api/auth/login`, {
-      body: JSON.stringify({ password: 'wrong-password' }),
+      body: JSON.stringify({
+        password: 'wrong-password',
+        username: E2E_AUTH_USERNAME,
+      }),
       headers: {
         'Content-Type': 'application/json',
       },

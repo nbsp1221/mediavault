@@ -8,20 +8,33 @@ import {
   getLoginAttemptKeys,
   getTrustedClientIP,
 } from '~/composition/server/auth-client-identity';
-import { getAuthRuntimeState } from '~/shared/config/auth.server';
 
-async function extractPassword(request: Request): Promise<string | null> {
+async function extractCredentials(request: Request): Promise<{
+  password: string | null;
+  username: string | null;
+}> {
   const contentType = request.headers.get('Content-Type') || '';
 
   if (contentType.includes('application/json')) {
-    const body = await request.json() as { password?: string };
-    return body.password?.trim() || null;
+    const body = await request.json() as {
+      password?: string;
+      username?: string;
+    };
+
+    return {
+      password: body.password ?? null,
+      username: body.username?.trim() || null,
+    };
   }
 
   const formData = await request.formData();
   const password = formData.get('password');
+  const username = formData.get('username');
 
-  return typeof password === 'string' ? password.trim() : null;
+  return {
+    password: typeof password === 'string' ? password : null,
+    username: typeof username === 'string' ? username.trim() : null,
+  };
 }
 
 function createLoginResponseHeaders(request: Request, additionalCookies: string[] = []): Headers {
@@ -48,22 +61,13 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
   }
 
   try {
-    const authRuntimeState = getAuthRuntimeState();
+    const { password, username } = await extractCredentials(request);
 
-    if (!authRuntimeState.isConfigured) {
-      return Response.json(
-        { success: false, error: 'Shared-password auth is not configured' },
-        { status: 503 },
-      );
-    }
-
-    const password = await extractPassword(request);
-
-    if (!password) {
+    if (!username || !password) {
       return Response.json(
         {
           success: false,
-          error: 'Password is required',
+          error: 'Username and password are required',
         },
         { status: 400 },
       );
@@ -75,6 +79,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
       ipAddress: getTrustedClientIP(request),
       now: new Date(),
       password,
+      username,
       userAgent: request.headers.get('User-Agent') || undefined,
     });
 
@@ -94,7 +99,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
       }
 
       return Response.json(
-        { success: false, error: 'Invalid password' },
+        { success: false, error: 'Invalid username or password' },
         {
           headers: createLoginResponseHeaders(request),
           status: 401,
@@ -105,7 +110,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
     return Response.json(
       {
         success: true,
-        user: await authServices.resolveSiteViewer(),
+        user: await authServices.resolveSiteViewerByUserId(result.session.userId),
       },
       {
         headers: createLoginResponseHeaders(request, [

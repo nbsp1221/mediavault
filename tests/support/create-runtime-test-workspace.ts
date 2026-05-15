@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { seedRuntimeAuthUser } from './auth-account';
 import { copyPlaybackFixture } from './copy-playback-fixture';
 import { REQUIRED_BROWSER_PLAYBACK_FIXTURE_IDS } from './playback-fixture-manifest';
 import { seedLibraryVideoMetadata } from './seed-library-video-metadata';
@@ -61,6 +62,7 @@ export async function createRuntimeTestWorkspace(): Promise<RuntimeTestWorkspace
   );
 
   await seedLibraryVideoMetadata(databasePath, SEEDED_VIDEOS);
+  await seedRuntimeAuthUser(databasePath);
 
   return {
     authDbPath,

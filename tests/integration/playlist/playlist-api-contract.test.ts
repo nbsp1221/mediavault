@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-const requireProtectedApiSessionMock = vi.fn();
-const resolveServerPlaylistOwnerIdMock = vi.fn();
+const requireProtectedApiSessionValueMock = vi.fn();
 const fakePlaylistServices = {
   addVideoToPlaylist: { execute: vi.fn() },
   createPlaylist: { execute: vi.fn() },
@@ -34,14 +33,12 @@ describe('playlist api contract', () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.doMock('~/composition/server/auth', () => ({
-      requireProtectedApiSession: requireProtectedApiSessionMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     }));
     vi.doMock('~/composition/server/playlist', () => ({
       getServerPlaylistServices: () => fakePlaylistServices,
-      resolveServerPlaylistOwnerId: resolveServerPlaylistOwnerIdMock,
     }));
-    requireProtectedApiSessionMock.mockResolvedValue(null);
-    resolveServerPlaylistOwnerIdMock.mockResolvedValue('owner-1');
+    requireProtectedApiSessionValueMock.mockResolvedValue({ id: 'session-1', userId: 'owner-1' });
   });
 
   afterEach(() => {
@@ -80,6 +77,86 @@ describe('playlist api contract', () => {
       success: true,
       totalCount: 1,
     });
+  });
+
+  test('list route parses optional filters, pagination, and sorting parameters', async () => {
+    fakePlaylistServices.findPlaylists.execute.mockResolvedValue({
+      data: {
+        filters: { genre: ['action', 'drama'], isPublic: false, searchQuery: undefined },
+        hasMore: false,
+        pagination: { currentPage: 3, limit: 10, offset: 20, totalPages: 3 },
+        playlists: [],
+        totalCount: 0,
+      },
+      success: true,
+    });
+    const { loader } = await importPlaylistsApiRoute();
+
+    const response = await loader({
+      request: new Request([
+        'http://localhost/api/playlists?',
+        'type=series',
+        '&status=completed',
+        '&isPublic=false',
+        '&genre=action',
+        '&genre=drama',
+        '&seriesName=Vault',
+        '&includeEmpty=false',
+        '&includeStats=true',
+        '&limit=10',
+        '&offset=20',
+        '&sortBy=name',
+        '&sortOrder=asc',
+      ].join('')),
+    } as never);
+
+    expect(response.status).toBe(200);
+    expect(fakePlaylistServices.findPlaylists.execute).toHaveBeenCalledWith(expect.objectContaining({
+      filters: {
+        genre: ['action', 'drama'],
+        isPublic: false,
+        searchQuery: undefined,
+        seriesName: 'Vault',
+        status: 'completed',
+        type: 'series',
+      },
+      includeEmpty: false,
+      includeStats: true,
+      limit: 10,
+      offset: 20,
+      ownerId: 'owner-1',
+      sortBy: 'name',
+      sortOrder: 'asc',
+    }));
+  });
+
+  test('list route falls back for unsupported filter and sort values', async () => {
+    fakePlaylistServices.findPlaylists.execute.mockResolvedValue({
+      data: {
+        filters: {},
+        hasMore: false,
+        pagination: { currentPage: 1, limit: 20, offset: 0, totalPages: 1 },
+        playlists: [],
+        totalCount: 0,
+      },
+      success: true,
+    });
+    const { loader } = await importPlaylistsApiRoute();
+
+    const response = await loader({
+      request: new Request('http://localhost/api/playlists?type=bad&status=bad&sortBy=bad&sortOrder=bad&isPublic=true'),
+    } as never);
+
+    expect(response.status).toBe(200);
+    expect(fakePlaylistServices.findPlaylists.execute).toHaveBeenCalledWith(expect.objectContaining({
+      filters: expect.objectContaining({
+        isPublic: true,
+        status: undefined,
+        type: undefined,
+      }),
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+    }));
   });
 
   test('create route preserves the current success payload shape', async () => {
@@ -437,7 +514,7 @@ describe('playlist api contract', () => {
   });
 
   test('route returns auth response without touching services when unauthorized', async () => {
-    requireProtectedApiSessionMock.mockResolvedValue(new Response('unauthorized', { status: 401 }));
+    requireProtectedApiSessionValueMock.mockResolvedValue(new Response('unauthorized', { status: 401 }));
     const { loader } = await importPlaylistsApiRoute();
 
     const response = await loader({

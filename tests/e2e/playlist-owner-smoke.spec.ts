@@ -1,15 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { getE2ESharedPassword } from '../support/shared-password';
 import { loginToPath } from './support/auth';
-
-const sharedPassword = getE2ESharedPassword(process.env.AUTH_SHARED_PASSWORD);
 
 test.describe('playlist owner smoke', () => {
   test('lets the owner open playlists, create one, and open its detail page', async ({ page }) => {
     await loginToPath(page, {
       expectedUrl: /\/playlists$/,
       redirectTo: '/playlists',
-      sharedPassword,
     });
     await expect(page.getByRole('heading', { level: 1, name: 'My Playlists' })).toBeVisible();
 

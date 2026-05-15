@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { addAuthUser } from '../../../scripts/auth-add-user';
 import { getCookieMap, toRequestCookieHeader } from '../../helpers/cookies';
 
 const VALID_JPEG_FIXTURE_PATH = join(process.cwd(), 'public', 'images', 'video-placeholder.jpg');
@@ -60,20 +61,20 @@ async function importPlaylistsRoute() {
   return import('../../../app/routes/api.playlists');
 }
 
-const SEEDED_OWNER_EMAIL = 'admin@example.com';
 const SEEDED_OWNER_ID = 'seeded-owner-1';
+const SEEDED_USERNAME = 'Owner';
 
 const SEEDED_VIEWER = {
-  email: SEEDED_OWNER_EMAIL,
   id: SEEDED_OWNER_ID,
   role: 'admin',
+  username: SEEDED_USERNAME,
 } as const;
 
 function expectAdminViewerShape(viewer: unknown) {
   expect(viewer).toEqual(expect.objectContaining({
-    email: expect.stringMatching(/\S/),
     id: expect.stringMatching(/\S/),
     role: 'admin',
+    username: expect.stringMatching(/\S/),
   }));
 }
 
@@ -133,10 +134,14 @@ describe('auth gate routes', () => {
     tempDir = await mkdtemp(join(tmpdir(), 'local-streamer-auth-routes-'));
     storageDir = join(tempDir, 'storage');
     await seedStorage(storageDir);
-    process.env.AUTH_OWNER_EMAIL = SEEDED_OWNER_EMAIL;
-    process.env.AUTH_OWNER_ID = SEEDED_OWNER_ID;
     databasePath = join(storageDir, 'db.sqlite');
-    process.env.AUTH_SHARED_PASSWORD = 'vault-password';
+    await addAuthUser({
+      confirmPassword: 'vault-password',
+      dbPath: databasePath,
+      password: 'vault-password',
+      userId: SEEDED_OWNER_ID,
+      username: SEEDED_USERNAME,
+    });
     process.env.DATABASE_SQLITE_PATH = databasePath;
     process.env.STORAGE_DIR = storageDir;
     delete process.env.VIDEO_JWT_SECRET;
@@ -145,9 +150,6 @@ describe('auth gate routes', () => {
   });
 
   afterEach(async () => {
-    delete process.env.AUTH_OWNER_EMAIL;
-    delete process.env.AUTH_OWNER_ID;
-    delete process.env.AUTH_SHARED_PASSWORD;
     delete process.env.AUTH_CLIENT_COOKIE_SECRET;
     delete process.env.DATABASE_SQLITE_PATH;
     delete process.env.AUTH_TRUST_PROXY_HEADERS;
@@ -158,10 +160,10 @@ describe('auth gate routes', () => {
     await rm(tempDir, { force: true, recursive: true });
   });
 
-  test('login action creates a session cookie and returns the seeded viewer for the shared password', async () => {
+  test('login action creates a session cookie and returns the seeded account viewer', async () => {
     const { action } = await importLoginAction();
     const request = new Request('http://localhost/api/auth/login', {
-      body: JSON.stringify({ password: 'vault-password' }),
+      body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'vitest',
@@ -180,6 +182,67 @@ describe('auth gate routes', () => {
     expectAdminViewerShape(payload.user);
   });
 
+  test('login action accepts form credentials and trims the username', async () => {
+    const { action } = await importLoginAction();
+    const body = new URLSearchParams([
+      ['username', '  owner  '],
+      ['password', 'vault-password'],
+    ]);
+
+    const response = await action({
+      request: new Request('http://localhost/api/auth/login', {
+        body,
+        method: 'POST',
+      }),
+    } as never);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Set-Cookie')).toContain('site_session=');
+    await expect(response.json()).resolves.toEqual(expect.objectContaining({
+      success: true,
+      user: expect.objectContaining({
+        id: SEEDED_OWNER_ID,
+        username: SEEDED_USERNAME,
+      }),
+    }));
+  });
+
+  test('login action rejects unsupported methods before reading credentials', async () => {
+    const { action } = await importLoginAction();
+
+    const response = await action({
+      request: new Request('http://localhost/api/auth/login', {
+        method: 'GET',
+      }),
+    } as never);
+
+    expect(response.status).toBe(405);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: 'Method not allowed',
+    });
+  });
+
+  test('login action rejects missing username or password', async () => {
+    const { action } = await importLoginAction();
+
+    const response = await action({
+      request: new Request('http://localhost/api/auth/login', {
+        body: JSON.stringify({ username: 'owner' }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: 'Username and password are required',
+    });
+  });
+
   test('protected home route redirects unauthenticated requests to login', async () => {
     const { loader } = await importHomeRoute();
     const request = new Request('http://localhost/');
@@ -194,7 +257,7 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
     const loginResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -225,7 +288,7 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
     const loginResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -259,7 +322,7 @@ describe('auth gate routes', () => {
     const { action: loginAction } = await importLoginAction();
     const loginResponse = await loginAction({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -288,7 +351,7 @@ describe('auth gate routes', () => {
     const { action: loginAction } = await importLoginAction();
     const loginResponse = await loginAction({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -327,11 +390,11 @@ describe('auth gate routes', () => {
     });
   });
 
-  test('login rejects an invalid shared password without issuing a site session cookie', async () => {
+  test('login rejects invalid credentials without issuing a site session cookie', async () => {
     const { action } = await importLoginAction();
     const response = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -342,18 +405,18 @@ describe('auth gate routes', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('Set-Cookie')).not.toContain('site_session=');
     await expect(response.json()).resolves.toEqual({
-      error: 'Invalid password',
+      error: 'Invalid username or password',
       success: false,
     });
   });
 
-  test('login rate limits repeated invalid shared-password attempts from the same IP', async () => {
+  test('login rate limits repeated invalid credential attempts from the same IP', async () => {
     const { action } = await importLoginAction();
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const response = await action({
         request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ password: 'wrong-password' }),
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
             'Content-Type': 'application/json',
             'X-Real-IP': '203.0.113.10',
@@ -367,7 +430,7 @@ describe('auth gate routes', () => {
 
     const blockedResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
           'X-Real-IP': '203.0.113.10',
@@ -383,13 +446,13 @@ describe('auth gate routes', () => {
     });
   });
 
-  test('login rate limits concurrent invalid shared-password attempts from the same IP in a single burst', async () => {
+  test('login rate limits concurrent invalid credential attempts from the same IP in a single burst', async () => {
     const { action } = await importLoginAction();
 
     const responses = await Promise.all(
       Array.from({ length: 10 }, () => action({
         request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ password: 'wrong-password' }),
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
             'Content-Type': 'application/json',
             'X-Real-IP': '203.0.113.11',
@@ -410,7 +473,7 @@ describe('auth gate routes', () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const response = await action({
         request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ password: 'wrong-password' }),
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
             'Content-Type': 'application/json',
             'X-Forwarded-For': `198.51.100.${attempt}`,
@@ -424,7 +487,7 @@ describe('auth gate routes', () => {
 
     const blockedResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
           'X-Forwarded-For': '198.51.100.250',
@@ -442,7 +505,7 @@ describe('auth gate routes', () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const response = await action({
         request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ password: 'wrong-password' }),
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
             'Content-Type': 'application/json',
             'cookie': `site_auth_client=forged-${attempt}`,
@@ -456,7 +519,7 @@ describe('auth gate routes', () => {
 
     const blockedResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
           'cookie': 'site_auth_client=forged-250',
@@ -468,8 +531,7 @@ describe('auth gate routes', () => {
     expect(blockedResponse.status).toBe(429);
   });
 
-  test('root loader tolerates a missing shared password configuration', async () => {
-    delete process.env.AUTH_SHARED_PASSWORD;
+  test('root loader tolerates a request without an account session', async () => {
     vi.resetModules();
 
     const { loader } = await importRootModule();
@@ -482,8 +544,7 @@ describe('auth gate routes', () => {
     });
   });
 
-  test('login route loader exposes auth misconfiguration state', async () => {
-    delete process.env.AUTH_SHARED_PASSWORD;
+  test('login route loader provisions an auth client cookie', async () => {
     vi.resetModules();
 
     const { loader } = await importLoginRoute();
@@ -492,14 +553,11 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Set-Cookie')).toBeNull();
-    await expect(response.json()).resolves.toEqual({
-      authConfigured: false,
-      configurationError: 'AUTH_SHARED_PASSWORD environment variable is required',
-    });
+    expect(response.headers.get('Set-Cookie')).toContain('site_auth_client=');
+    await expect(response.json()).resolves.toEqual({});
   });
 
-  test('login route issues an auth-client cookie that is not derived from the shared password by default', async () => {
+  test('login route issues an auth-client cookie that is not derived from the account password by default', async () => {
     const { loader } = await importLoginRoute();
     const response = await loader({
       request: new Request('http://localhost/login'),
@@ -510,11 +568,11 @@ describe('auth gate routes', () => {
     expect(authClientCookie).toBeTruthy();
 
     const [clientId, signature] = authClientCookie!.split('.');
-    const sharedPasswordDerivedSignature = createHmac('sha256', 'vault-password')
+    const accountPasswordDerivedSignature = createHmac('sha256', 'vault-password')
       .update(clientId)
       .digest('hex');
 
-    expect(signature).not.toBe(sharedPasswordDerivedSignature);
+    expect(signature).not.toBe(accountPasswordDerivedSignature);
   });
 
   test('login route loader provisions an anonymous auth client cookie for direct-runtime rate limiting', async () => {
@@ -532,7 +590,7 @@ describe('auth gate routes', () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const response = await action({
         request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ password: 'wrong-password' }),
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
             'Content-Type': 'application/json',
             'cookie': clientCookie ?? '',
@@ -546,7 +604,7 @@ describe('auth gate routes', () => {
 
     const blockedResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
           'cookie': clientCookie ?? '',
@@ -572,7 +630,7 @@ describe('auth gate routes', () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const response = await action({
         request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ password: 'wrong-password' }),
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
             'Content-Type': 'application/json',
             'cookie': firstClientCookie ?? '',
@@ -594,7 +652,7 @@ describe('auth gate routes', () => {
 
     const blockedResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
           'cookie': rotatedClientCookie ?? '',
@@ -623,7 +681,7 @@ describe('auth gate routes', () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const response = await action({
         request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ password: 'wrong-password' }),
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
             'Content-Type': 'application/json',
             'X-Forwarded-For': `198.51.100.${attempt}, 203.0.113.10`,
@@ -638,7 +696,7 @@ describe('auth gate routes', () => {
 
     const blockedResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
           'X-Forwarded-For': '198.51.100.250, 203.0.113.10',
@@ -655,7 +713,7 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
     const firstAttempt = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -671,7 +729,7 @@ describe('auth gate routes', () => {
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const response = await action({
         request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ password: 'wrong-password' }),
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
             'Content-Type': 'application/json',
             'cookie': firstClientCookie ?? '',
@@ -685,7 +743,7 @@ describe('auth gate routes', () => {
 
     const blockedResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
           'cookie': firstClientCookie ?? '',
@@ -698,7 +756,7 @@ describe('auth gate routes', () => {
 
     const secondAttempt = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -710,14 +768,11 @@ describe('auth gate routes', () => {
     expect(secondAttempt.headers.get('Set-Cookie')).toContain('site_auth_client=');
   }, 10_000);
 
-  test('login action returns a service error when shared-password auth is not configured', async () => {
-    delete process.env.AUTH_SHARED_PASSWORD;
-    vi.resetModules();
-
+  test('login action rejects an unknown username with the generic credential error', async () => {
     const { action } = await importLoginAction();
     const response = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'missing', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -725,9 +780,9 @@ describe('auth gate routes', () => {
       }),
     } as never);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: 'Shared-password auth is not configured',
+      error: 'Invalid username or password',
       success: false,
     });
   });
@@ -750,7 +805,7 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
     const actionResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'wrong-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
           'cookie': malformedCookie,
@@ -763,11 +818,11 @@ describe('auth gate routes', () => {
     expect(actionResponse.headers.get('Set-Cookie')).toContain('site_auth_client=');
   });
 
-  test('logout still revokes the server-side session after restart into a misconfigured state', async () => {
+  test('logout still revokes the server-side session after module reload', async () => {
     const { action: loginAction } = await importLoginAction();
     const loginResponse = await loginAction({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -778,7 +833,6 @@ describe('auth gate routes', () => {
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
 
-    delete process.env.AUTH_SHARED_PASSWORD;
     vi.resetModules();
 
     const { action: logoutAction } = await importLogoutRoute();
@@ -793,7 +847,6 @@ describe('auth gate routes', () => {
 
     expect(logoutResponse.status).toBe(302);
 
-    process.env.AUTH_SHARED_PASSWORD = 'vault-password';
     vi.resetModules();
 
     const { loader: authMeLoader } = await importAuthMeRoute();
@@ -808,8 +861,7 @@ describe('auth gate routes', () => {
     expect(authMeResponse.status).toBe(401);
   });
 
-  test('auth me returns a configuration error when shared-password auth is not configured', async () => {
-    delete process.env.AUTH_SHARED_PASSWORD;
+  test('auth me returns unauthenticated when no account session exists', async () => {
     vi.resetModules();
 
     const { loader } = await importAuthMeRoute();
@@ -817,9 +869,9 @@ describe('auth gate routes', () => {
       request: new Request('http://localhost/api/auth/me'),
     } as never);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: 'Authentication is not configured',
+      error: 'Not authenticated',
       success: false,
     });
   });
@@ -828,7 +880,7 @@ describe('auth gate routes', () => {
     const { action: loginAction } = await importLoginAction();
     const loginResponse = await loginAction({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -871,7 +923,7 @@ describe('auth gate routes', () => {
     const { action: loginAction } = await importLoginAction();
     const loginResponse = await loginAction({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1023,7 +1075,7 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
     const loginResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1050,14 +1102,14 @@ describe('auth gate routes', () => {
     expect(response.headers.has('X-Content-Source')).toBe(false);
   });
 
-  test('root loader returns the configured viewer when storage has no users file', async () => {
+  test('root loader returns the database account viewer', async () => {
     await seedStorage(storageDir);
     vi.resetModules();
 
     const { action } = await importLoginAction();
     const loginResponse = await action({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1091,7 +1143,7 @@ describe('auth gate routes', () => {
     const { action: loginAction } = await importLoginAction();
     const loginResponse = await loginAction({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1155,7 +1207,7 @@ describe('auth gate routes', () => {
     const { action: loginAction } = await importLoginAction();
     const loginResponse = await loginAction({
       request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ password: 'vault-password' }),
+        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
         headers: {
           'Content-Type': 'application/json',
         },

@@ -1,5 +1,6 @@
 import { createMigratedPrimarySqliteDatabase } from '../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import { toRequestCookieHeader } from '../helpers/cookies';
+import { E2E_AUTH_PASSWORD, E2E_AUTH_USERNAME, seedRuntimeAuthUser } from './auth-account';
 import { createRuntimeTestWorkspace } from './create-runtime-test-workspace';
 import { type SeedLibraryVideoInput, seedLibraryVideoMetadata } from './seed-library-video-metadata';
 
@@ -70,9 +71,6 @@ interface PlaylistRuntimeWorkspace {
 }
 
 const ENV_KEYS_TO_RESTORE = [
-  'AUTH_OWNER_EMAIL',
-  'AUTH_OWNER_ID',
-  'AUTH_SHARED_PASSWORD',
   'DATABASE_SQLITE_PATH',
   'STORAGE_DIR',
   'VIDEO_JWT_SECRET',
@@ -215,9 +213,6 @@ export async function createPlaylistRuntimeTestWorkspace(
     process.env[key] = value;
   }
 
-  process.env.AUTH_OWNER_EMAIL = 'admin@example.com';
-  process.env.AUTH_OWNER_ID = PLAYLIST_OWNER_ID;
-  process.env.AUTH_SHARED_PASSWORD = 'vault-password';
   process.env.DATABASE_SQLITE_PATH = workspace.databasePath;
   process.env.STORAGE_DIR = workspace.storageDir;
   delete process.env.VIDEO_JWT_SECRET;
@@ -249,6 +244,11 @@ export async function createPlaylistRuntimeTestWorkspace(
     playlistItems,
     playlists,
   });
+  await seedRuntimeAuthUser(workspace.databasePath, {
+    password: E2E_AUTH_PASSWORD,
+    userId: PLAYLIST_OWNER_ID,
+    username: E2E_AUTH_USERNAME,
+  });
 
   return {
     authDbPath: workspace.authDbPath,
@@ -263,7 +263,10 @@ export async function createPlaylistRuntimeTestWorkspace(
       const { action } = await import('../../app/routes/api.auth.login');
       const response = await action({
         request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ password: 'vault-password' }),
+          body: JSON.stringify({
+            password: E2E_AUTH_PASSWORD,
+            username: E2E_AUTH_USERNAME,
+          }),
           headers: {
             'Content-Type': 'application/json',
           },

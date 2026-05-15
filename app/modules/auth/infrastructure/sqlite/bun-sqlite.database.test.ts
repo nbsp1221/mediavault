@@ -29,16 +29,18 @@ describe('createSqliteDatabaseForRuntime', () => {
       .prepare(`
         INSERT OR REPLACE INTO auth_sessions (
           id,
+          user_id,
           created_at,
           expires_at,
           ip_address,
           is_revoked,
           last_accessed_at,
           user_agent
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         'session-1',
+        'user-1',
         '2026-03-10T00:00:00.000Z',
         '2026-03-10T01:00:00.000Z',
         '127.0.0.1',
@@ -52,6 +54,7 @@ describe('createSqliteDatabaseForRuntime', () => {
         .prepare(`
           SELECT
             id,
+            user_id,
             created_at,
             expires_at,
             ip_address,
@@ -70,6 +73,7 @@ describe('createSqliteDatabaseForRuntime', () => {
       is_revoked: 0,
       last_accessed_at: '2026-03-10T00:00:00.000Z',
       user_agent: 'Vitest',
+      user_id: 'user-1',
     });
   });
 });

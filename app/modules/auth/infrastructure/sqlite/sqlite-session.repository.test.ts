@@ -13,6 +13,7 @@ interface AuthSessionRow {
   ip_address: string | null;
   is_revoked: number;
   last_accessed_at: string;
+  user_id: string;
   user_agent: string | null;
 }
 
@@ -46,13 +47,14 @@ class InMemorySqliteDatabase {
         run: async (...params: unknown[]) => {
           const [
             id,
+            userId,
             createdAt,
             expiresAt,
             ipAddress,
             isRevoked,
             lastAccessedAt,
             userAgent,
-          ] = params as [string, string, string, string | null, number, string, string | null];
+          ] = params as [string, string, string, string, string | null, number, string, string | null];
           this.rows.set(id, {
             created_at: createdAt,
             expires_at: expiresAt,
@@ -60,6 +62,7 @@ class InMemorySqliteDatabase {
             ip_address: ipAddress,
             is_revoked: isRevoked,
             last_accessed_at: lastAccessedAt,
+            user_id: userId,
             user_agent: userAgent,
           });
           return { changes: 1 };
@@ -144,6 +147,7 @@ describe('SqliteSessionRepository', () => {
       id: 'session-1',
       now: new Date('2026-03-07T00:00:00.000Z'),
       ttlMs: 60_000,
+      userId: 'user-1',
       userAgent: 'vitest',
     });
 
@@ -172,6 +176,7 @@ describe('SqliteSessionRepository', () => {
       id: 'session-2',
       now: new Date('2026-03-07T00:00:00.000Z'),
       ttlMs: 60_000,
+      userId: 'user-1',
     });
 
     await repository.save(session);
@@ -194,6 +199,7 @@ describe('SqliteSessionRepository', () => {
       id: 'session-3',
       now: new Date('2026-03-07T00:00:00.000Z'),
       ttlMs: 60_000,
+      userId: 'user-1',
     });
 
     await repository.save(session);

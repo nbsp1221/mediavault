@@ -1,30 +1,31 @@
 import { randomUUID } from 'node:crypto';
 import { redirect } from 'react-router';
+import type { AuthSession } from '~/modules/auth/domain/auth-session';
 import type { SiteViewer } from '~/modules/auth/domain/site-viewer';
 import { CreateAuthSessionUseCase } from '~/modules/auth/application/use-cases/create-auth-session.usecase';
 import { DestroyAuthSessionUseCase } from '~/modules/auth/application/use-cases/destroy-auth-session.usecase';
 import { EvaluateSiteAccessUseCase } from '~/modules/auth/application/use-cases/evaluate-site-access.usecase';
 import { ResolveAuthSessionUseCase } from '~/modules/auth/application/use-cases/resolve-auth-session.usecase';
-import { EnvSharedPasswordVerifier } from '~/modules/auth/infrastructure/password/env-shared-password.verifier';
+import { Argon2PasswordHashService } from '~/modules/auth/infrastructure/password/argon2-password-hash.service';
 import { InMemoryLoginAttemptGuard } from '~/modules/auth/infrastructure/security/in-memory-login-attempt-guard';
+import { SqliteAuthUserRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-auth-user.repository';
 import { SqliteSessionRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-session.repository';
-import { ConfigSiteViewerResolver } from '~/modules/auth/infrastructure/viewer/config-site-viewer.resolver';
 import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import {
   getAuthConfig,
   getAuthCookieConfig,
-  getAuthRuntimeState,
 } from '~/shared/config/auth.server';
 import { getCookieValue, serializeCookie } from '~/shared/lib/http/cookies.server';
 
 interface ServerSessionServices {
   destroyAuthSession: DestroyAuthSessionUseCase;
   evaluateSiteAccess: EvaluateSiteAccessUseCase;
-  resolveSiteViewer: () => Promise<SiteViewer>;
   resolveAuthSession: ResolveAuthSessionUseCase;
+  resolveSiteViewerByUserId: (userId: string) => Promise<SiteViewer | null>;
 }
 
 interface CachedServerSessionServices extends ServerSessionServices {
+  authUserRepository: SqliteAuthUserRepository;
   sessionRepository: SqliteSessionRepository;
 }
 
@@ -41,10 +42,13 @@ function getCachedServerSessionServices(): CachedServerSessionServices {
   }
 
   const authCookieConfig = getAuthCookieConfig();
-  const sessionRepository = new SqliteSessionRepository({
-    dbPath: getPrimaryStorageConfig().databasePath,
+  const dbPath = getPrimaryStorageConfig().databasePath;
+  const authUserRepository = new SqliteAuthUserRepository({
+    dbPath,
   });
-  const siteViewerResolver = new ConfigSiteViewerResolver();
+  const sessionRepository = new SqliteSessionRepository({
+    dbPath,
+  });
   const resolveAuthSession = new ResolveAuthSessionUseCase({
     sessionRepository,
     sessionTtlMs: authCookieConfig.sessionTtlMs,
@@ -57,20 +61,35 @@ function getCachedServerSessionServices(): CachedServerSessionServices {
     evaluateSiteAccess: new EvaluateSiteAccessUseCase({
       resolveAuthSession,
     }),
-    resolveSiteViewer: async () => siteViewerResolver.resolveViewer(),
     resolveAuthSession,
+    resolveSiteViewerByUserId: async (userId: string) => {
+      const user = await authUserRepository.findById(userId);
+
+      return user
+        ? {
+            id: user.id,
+            role: user.role,
+            username: user.username,
+          }
+        : null;
+    },
+    authUserRepository,
     sessionRepository,
   };
 
   return cachedSessionServices;
 }
 
-export async function resolveSiteViewer(): Promise<SiteViewer> {
-  return getServerSessionServices().resolveSiteViewer();
+export async function resolveSiteViewerForSession(session: AuthSession): Promise<SiteViewer | null> {
+  return getServerSessionServices().resolveSiteViewerByUserId(session.userId);
 }
 
 export function getServerSessionServices(): ServerSessionServices {
-  const { sessionRepository: _sessionRepository, ...services } = getCachedServerSessionServices();
+  const {
+    authUserRepository: _authUserRepository,
+    sessionRepository: _sessionRepository,
+    ...services
+  } = getCachedServerSessionServices();
 
   return services;
 }
@@ -78,12 +97,6 @@ export function getServerSessionServices(): ServerSessionServices {
 export function getServerAuthServices(): ServerAuthServices {
   if (cachedAuthServices) {
     return cachedAuthServices;
-  }
-
-  const authRuntimeState = getAuthRuntimeState();
-
-  if (!authRuntimeState.isConfigured) {
-    throw new Error(authRuntimeState.configurationError || 'Shared-password auth is not configured');
   }
 
   const authConfig = getAuthConfig();
@@ -96,21 +109,20 @@ export function getServerAuthServices(): ServerAuthServices {
 
   cachedAuthServices = {
     createAuthSession: new CreateAuthSessionUseCase({
+      authUserRepository: sessionServices.authUserRepository,
       createSessionId: randomUUID,
       loginAttemptGuard,
-      onInvalidPassword: async () => {
+      onInvalidCredentials: async () => {
         await new Promise(resolve => setTimeout(resolve, authConfig.failedLoginDelayMs));
       },
-      passwordVerifier: new EnvSharedPasswordVerifier({
-        sharedPassword: authConfig.sharedPassword,
-      }),
+      passwordHashService: new Argon2PasswordHashService(),
       sessionRepository: sessionServices.sessionRepository,
       sessionTtlMs: authConfig.sessionTtlMs,
     }),
     destroyAuthSession: sessionServices.destroyAuthSession,
     evaluateSiteAccess: sessionServices.evaluateSiteAccess,
-    resolveSiteViewer: sessionServices.resolveSiteViewer,
     resolveAuthSession: sessionServices.resolveAuthSession,
+    resolveSiteViewerByUserId: sessionServices.resolveSiteViewerByUserId,
   };
 
   return cachedAuthServices;
@@ -145,17 +157,13 @@ export function createClearedSessionCookieHeader(): string {
 }
 
 export async function getOptionalSiteViewer(request: Request): Promise<SiteViewer | null> {
-  if (!getAuthRuntimeState().isConfigured) {
-    return null;
-  }
-
   const sessionServices = getServerSessionServices();
   const session = await sessionServices.resolveAuthSession.execute({
     now: new Date(),
     sessionId: getSiteSessionId(request),
   });
 
-  return session ? sessionServices.resolveSiteViewer() : null;
+  return session ? sessionServices.resolveSiteViewerByUserId(session.userId) : null;
 }
 
 async function requireProtectedSessionAccess(
@@ -172,17 +180,23 @@ async function requireProtectedSessionAccess(
 }
 
 export async function requireProtectedPageSession(request: Request) {
-  if (!getAuthRuntimeState().isConfigured) {
-    throw redirect('/login?misconfigured=1');
-  }
-
   const access = await requireProtectedSessionAccess(request, 'protected-page');
 
-  if (!access.decision.allowed) {
+  if (!access.decision.allowed || !access.session) {
     const url = new URL(request.url);
     const redirectTo = url.pathname + url.search;
     const searchParams = new URLSearchParams([['redirectTo', redirectTo]]);
     throw redirect(`/login?${searchParams}`);
+  }
+
+  return access.session;
+}
+
+export async function requireProtectedApiSessionValue(request: Request) {
+  const access = await requireProtectedSessionAccess(request, 'protected-api');
+
+  if (!access.decision.allowed || !access.session) {
+    return createUnauthorizedAuthResponse(401, 'Authentication required');
   }
 
   return access.session;
@@ -196,10 +210,6 @@ async function requireProtectedHttpSession(
   request: Request,
   surface: 'protected-api' | 'media-resource',
 ) {
-  if (!getAuthRuntimeState().isConfigured) {
-    return createUnauthorizedAuthResponse(503, 'Authentication is not configured');
-  }
-
   const access = await requireProtectedSessionAccess(request, surface);
 
   if (!access.decision.allowed) {

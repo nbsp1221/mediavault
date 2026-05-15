@@ -5,6 +5,7 @@ interface CreateSessionInput {
   ipAddress?: string;
   now: Date;
   ttlMs: number;
+  userId: string;
   userAgent?: string;
 }
 
@@ -22,6 +23,7 @@ export class SessionPolicy {
       ipAddress: input.ipAddress,
       isRevoked: false,
       lastAccessedAt: input.now,
+      userId: input.userId,
       userAgent: input.userAgent,
     };
   }

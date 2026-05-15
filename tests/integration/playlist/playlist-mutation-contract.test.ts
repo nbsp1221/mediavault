@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { toRequestCookieHeader } from '../../helpers/cookies';
+import { seedRuntimeAuthUser } from '../../support/auth-account';
 import { createPlaylistRuntimeTestWorkspace } from '../../support/create-playlist-runtime-test-workspace';
 
 async function importPlaylistDetailLoaderRoute() {
@@ -16,6 +18,21 @@ async function importPlaylistItemRoute() {
 
 async function importPlaylistDetailRoute() {
   return import('../../../app/routes/api.playlists.$id');
+}
+
+async function loginWithCredentials(username: string, password: string) {
+  const { action } = await import('../../../app/routes/api.auth.login');
+  const response = await action({
+    request: new Request('http://localhost/api/auth/login', {
+      body: JSON.stringify({ password, username }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+    }),
+  } as never);
+
+  return toRequestCookieHeader(response.headers.get('Set-Cookie'));
 }
 
 async function readPlaylistRows(databasePath: string) {
@@ -152,11 +169,13 @@ describe.sequential('playlist mutation contract', () => {
     });
 
     try {
-      const cookie = await workspace.login();
+      await seedRuntimeAuthUser(workspace.databasePath, {
+        password: 'intruder-password',
+        userId: 'intruder-owner',
+        username: 'intruder',
+      });
+      const cookie = await loginWithCredentials('intruder', 'intruder-password');
       const playlistsBefore = await readPlaylistRows(workspace.databasePath);
-
-      process.env.AUTH_OWNER_ID = 'intruder-owner';
-      process.env.AUTH_OWNER_EMAIL = 'intruder@example.com';
       vi.resetModules();
 
       const { action } = await importPlaylistDetailRoute();

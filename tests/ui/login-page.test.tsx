@@ -1,4 +1,3 @@
-import type { ComponentProps } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, test, vi } from 'vitest';
@@ -17,16 +16,13 @@ vi.mock('react-router', async () => {
   };
 });
 
-function renderLoginPage(
-  initialEntry: string = '/login',
-  loginPageProps?: ComponentProps<typeof LoginPage>,
-) {
+function renderLoginPage(initialEntry: string = '/login') {
   const url = new URL(initialEntry, 'http://localhost');
   currentSearchParams = new URLSearchParams(url.search);
 
   return {
     user: userEvent.setup(),
-    ...render(<LoginPage {...loginPageProps} />),
+    ...render(<LoginPage />),
   };
 }
 
@@ -38,19 +34,21 @@ describe('LoginPage', () => {
     vi.unstubAllGlobals();
   });
 
-  test('renders an accessible heading and labeled password field', () => {
+  test('renders accessible username and password fields', () => {
     renderLoginPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Unlock your vault' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Shared password')).toHaveAttribute('type', 'password');
-    expect(screen.getByRole('button', { name: 'Unlock' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Sign in to Mediavault' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Username')).toHaveAttribute('type', 'text');
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.queryByText(/shared password/i)).not.toBeInTheDocument();
   });
 
   test('shows an error alert when login fails', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(
-        JSON.stringify({ success: false, error: 'Invalid password' }),
+        JSON.stringify({ success: false, error: 'Invalid username or password' }),
         {
           headers: {
             'Content-Type': 'application/json',
@@ -62,10 +60,11 @@ describe('LoginPage', () => {
 
     const { user } = renderLoginPage();
 
-    await user.type(screen.getByLabelText('Shared password'), 'wrong-password');
-    await user.click(screen.getByRole('button', { name: 'Unlock' }));
+    await user.type(screen.getByLabelText('Username'), 'owner');
+    await user.type(screen.getByLabelText('Password'), 'wrong-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid password');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid username or password');
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
@@ -85,24 +84,30 @@ describe('LoginPage', () => {
 
     const { user } = renderLoginPage('/login?redirectTo=%2Fvault');
 
-    await user.type(screen.getByLabelText('Shared password'), 'correct-password');
-    await user.click(screen.getByRole('button', { name: 'Unlock' }));
+    await user.type(screen.getByLabelText('Username'), 'owner');
+    await user.type(screen.getByLabelText('Password'), 'correct-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(fetch).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({
+      body: JSON.stringify({
+        password: 'correct-password',
+        username: 'owner',
+      }),
+    }));
 
     await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith('/vault', { replace: true });
     });
   });
 
-  test('shows a configuration error and disables login controls when auth is misconfigured', () => {
-    renderLoginPage('/login', {
-      authConfigured: false,
-      configurationError: 'AUTH_SHARED_PASSWORD environment variable is required',
-    });
+  test('requires both username and password before submitting', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'AUTH_SHARED_PASSWORD environment variable is required',
-    );
-    expect(screen.getByLabelText('Shared password')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Unlock' })).toBeDisabled();
+    const { user } = renderLoginPage();
+
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -5,7 +5,7 @@ Self-hosted encrypted media streaming vault for browsing, uploading, and protect
 ## Features
 
 - 🎬 Stream local media files through a web browser
-- 🔐 Shared-password auth gate with httpOnly site sessions
+- 🔐 SQLite-backed account login with httpOnly site sessions
 - 📁 Browser-first upload with staged commit into the library
 - 🔒 Protected DASH playback with JWT tokens, ClearKey, and encrypted media packaging
 - 🎨 YouTube-inspired UI for video browsing
@@ -19,8 +19,11 @@ Self-hosted encrypted media streaming vault for browsing, uploading, and protect
 # Install dependencies
 bun install
 
-# Configure the shared password gate
+# Create local environment config
 cp .env.example .env
+
+# Create the first login account
+bun run auth:add-user
 
 # Start development server
 bun run dev
@@ -45,12 +48,13 @@ bun run build
 bun start
 ```
 
-For local auth-only investigation, `AUTH_SHARED_PASSWORD` is sufficient.
-For protected playback routes, also set `VIDEO_JWT_SECRET`.
+Create login accounts with `bun run auth:add-user`; remove them with
+`bun run auth:delete-user`. For protected playback routes, set `VIDEO_JWT_SECRET`.
 For ingest and encrypted playback packaging, also set `VIDEO_MASTER_ENCRYPTION_SEED`.
 When `NODE_ENV=production`, Mediavault runs a startup preflight and refuses to start
-without the full vault requirements: `AUTH_SHARED_PASSWORD`, `VIDEO_JWT_SECRET`,
-`VIDEO_MASTER_ENCRYPTION_SEED`, and usable configured storage.
+without the full vault requirements: at least one auth account in the primary SQLite
+database, `VIDEO_JWT_SECRET`, `VIDEO_MASTER_ENCRYPTION_SEED`, and usable configured
+storage.
 
 ## Docker Deployment
 
@@ -138,15 +142,15 @@ cp .env.example .env
 
 Required for the full vault feature set:
 
-- `AUTH_SHARED_PASSWORD`: shared password for unlocking the site
 - `VIDEO_JWT_SECRET`: signing secret for protected playback token issuance
 - `VIDEO_MASTER_ENCRYPTION_SEED`: master seed for deriving per-video encryption keys
+- at least one SQLite auth account created with `bun run auth:add-user`
 
 Generate deployment-specific secret values before starting the full vault path. The
 encryption seed and playback JWT secret are free-form strings, but they should be
 cryptographically random. They do not need to be hex-encoded.
 
-In production, these three values must be present and non-blank before the app starts.
+In production, both secret values must be present and non-blank before the app starts.
 Runtime preflight does not score secret strength, so weak values are an operator mistake,
 not something the app can reliably fix at startup.
 
@@ -164,8 +168,6 @@ Optional:
 - `AUTH_CLIENT_COOKIE_NAME`: override the client identity cookie name
 - `AUTH_SESSION_COOKIE_NAME`: override the auth session cookie name
 - `AUTH_SESSION_TTL_MS`: session lifetime in milliseconds
-- `AUTH_OWNER_ID`: optional config-owned site owner id override (`site-owner` by default)
-- `AUTH_OWNER_EMAIL`: optional config-owned site owner email override (`owner@local` by default)
 - `AUTH_TRUST_PROXY_HEADERS`: trust forwarded client IP headers for rate limiting
 - `AUTH_FAILED_LOGIN_BLOCK_DURATION_MS`: failed-login block duration
 - `AUTH_FAILED_LOGIN_DELAY_MS`: invalid-login response delay
@@ -178,9 +180,8 @@ Optional:
 Notes:
 
 - Use `/login` for the site auth flow.
-- Auth-only startup and home-library access can work with `AUTH_SHARED_PASSWORD` alone.
 - Production Docker readiness requires the full vault configuration, writable storage,
-  and runnable FFmpeg, ffprobe, and Shaka Packager.
+  at least one auth account, and runnable FFmpeg, ffprobe, and Shaka Packager.
 - Back up `VIDEO_MASTER_ENCRYPTION_SEED` with the storage volume and primary SQLite
   database. Existing encrypted media depends on preserving that value.
 - `KEY_SALT_PREFIX` is optional. If you customize it, preserve it with the encryption seed
@@ -191,7 +192,6 @@ Notes:
 - The default Compose port binding `3000:3000` is for simple reachability. For a hardened
   deployment, restrict direct HTTP access with firewall rules, bind the port to loopback,
   or place the app behind a private proxy network.
-- The site owner identity is config-owned through `AUTH_OWNER_ID` and `AUTH_OWNER_EMAIL`.
 - The protected playback path issues `/videos/:videoId/token`, resolves `/videos/:videoId/manifest.mpd`, and serves `/videos/:videoId/clearkey` for the browser license flow.
 
 ## Architecture And Refactor Context
@@ -235,7 +235,7 @@ Why the smoke layers exist:
 
 Smoke split:
 
-- `test:smoke:dev-auth`: shared-password login must work under the dev server
+- `test:smoke:dev-auth`: account login must work under the dev server
 - `test:smoke:bun-auth`: built Bun server must still protect token and thumbnail routes correctly
 
 Browser verification remains a separate step for UI and playback flows. See [docs/E2E_TESTING_GUIDE.md](docs/E2E_TESTING_GUIDE.md).

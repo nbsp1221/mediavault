@@ -7,6 +7,7 @@ interface AuthSessionRow {
   ip_address: string | null;
   is_revoked: number;
   last_accessed_at: string;
+  user_id: string;
   user_agent: string | null;
 }
 
@@ -46,13 +47,14 @@ export function createInMemoryAuthSessionDatabase(): SqliteDatabaseAdapter {
           run: (...params: unknown[]) => {
             const [
               id,
+              userId,
               createdAt,
               expiresAt,
               ipAddress,
               isRevoked,
               lastAccessedAt,
               userAgent,
-            ] = params as [string, string, string, string | null, number, string, string | null];
+            ] = params as [string, string, string, string, string | null, number, string, string | null];
 
             rows.set(id, {
               created_at: createdAt,
@@ -61,6 +63,7 @@ export function createInMemoryAuthSessionDatabase(): SqliteDatabaseAdapter {
               ip_address: ipAddress,
               is_revoked: isRevoked,
               last_accessed_at: lastAccessedAt,
+              user_id: userId,
               user_agent: userAgent,
             });
 

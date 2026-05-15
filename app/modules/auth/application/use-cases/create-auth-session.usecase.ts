@@ -1,14 +1,18 @@
 import type { AuthSession } from '../../domain/auth-session';
 import type { AuthSessionRepository } from '../ports/auth-session-repository.port';
+import type { AuthUserRepository } from '../ports/auth-user-repository.port';
 import type { LoginAttemptGuard } from '../ports/login-attempt-guard.port';
-import type { SharedPasswordVerifier } from '../ports/shared-password-verifier.port';
+import type { PasswordHashService } from '../ports/password-hash-service.port';
+import { validateAuthPassword } from '../../domain/auth-password-policy';
+import { createAuthUsername } from '../../domain/auth-username';
 import { SessionPolicy } from '../../domain/policies/SessionPolicy';
 
 interface CreateAuthSessionUseCaseDependencies {
+  authUserRepository: AuthUserRepository;
   createSessionId: () => string;
   loginAttemptGuard?: LoginAttemptGuard;
-  onInvalidPassword?: () => Promise<void>;
-  passwordVerifier: SharedPasswordVerifier;
+  onInvalidCredentials?: () => Promise<void>;
+  passwordHashService: PasswordHashService;
   sessionRepository: AuthSessionRepository;
   sessionTtlMs: number;
 }
@@ -20,12 +24,15 @@ interface CreateAuthSessionUseCaseInput {
   now: Date;
   password: string;
   userAgent?: string;
+  username: string;
 }
 
 type CreateAuthSessionUseCaseResult =
   | { ok: true; session: AuthSession }
-  | { ok: false; reason: 'INVALID_SHARED_PASSWORD' }
+  | { ok: false; reason: 'INVALID_CREDENTIALS' }
   | { ok: false; reason: 'RATE_LIMITED'; retryAfterSeconds: number };
+
+const missingUserPasswordHash = '$argon2id$v=19$m=65536,t=3,p=4$gAxMt01zhbLw2749qtYKyw$rFXDGJGWvkCNiUJvmDmTu+RgkA0nTCsbbmG/RopVGvI';
 
 export class CreateAuthSessionUseCase {
   constructor(private readonly deps: CreateAuthSessionUseCaseDependencies) {}
@@ -62,20 +69,44 @@ export class CreateAuthSessionUseCase {
         }
       }
 
-      const passwordMatches = await this.deps.passwordVerifier.verify(input.password);
+      const username = createAuthUsername(input.username);
+      const passwordValidation = validateAuthPassword(input.password);
 
-      if (!passwordMatches) {
+      if ('ok' in username || !passwordValidation.ok) {
         for (const key of attemptKeys) {
           this.deps.loginAttemptGuard?.registerFailure({
             key,
             now: input.now,
           });
         }
-        await this.deps.onInvalidPassword?.();
+
+        await this.deps.onInvalidCredentials?.();
 
         return {
           ok: false,
-          reason: 'INVALID_SHARED_PASSWORD',
+          reason: 'INVALID_CREDENTIALS',
+        };
+      }
+
+      const user = await this.deps.authUserRepository.findByUsernameKey(username.usernameKey);
+      const passwordMatches = await this.deps.passwordHashService.verify({
+        hash: user?.passwordHash ?? missingUserPasswordHash,
+        password: input.password,
+      });
+
+      if (!user || !passwordMatches) {
+        for (const key of attemptKeys) {
+          this.deps.loginAttemptGuard?.registerFailure({
+            key,
+            now: input.now,
+          });
+        }
+
+        await this.deps.onInvalidCredentials?.();
+
+        return {
+          ok: false,
+          reason: 'INVALID_CREDENTIALS',
         };
       }
 
@@ -88,6 +119,7 @@ export class CreateAuthSessionUseCase {
         ipAddress: input.ipAddress,
         now: input.now,
         ttlMs: this.deps.sessionTtlMs,
+        userId: user.id,
         userAgent: input.userAgent,
       });
 

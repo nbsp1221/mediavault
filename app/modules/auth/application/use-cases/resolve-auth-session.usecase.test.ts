@@ -20,6 +20,7 @@ describe('ResolveAuthSessionUseCase', () => {
       id: 'session-1',
       now: new Date('2026-03-07T00:00:00.000Z'),
       ttlMs: 1_000,
+      userId: 'user-1',
     });
     const touch = vi.fn();
     const useCase = new ResolveAuthSessionUseCase({
@@ -42,6 +43,7 @@ describe('ResolveAuthSessionUseCase', () => {
       id: 'session-2',
       now: new Date('2026-03-07T00:00:00.000Z'),
       ttlMs: 60_000,
+      userId: 'user-1',
     });
     const touch = vi.fn();
     const useCase = new ResolveAuthSessionUseCase({
@@ -74,6 +76,7 @@ describe('ResolveAuthSessionUseCase', () => {
       id: 'session-3',
       now: new Date('2026-03-07T00:00:00.000Z'),
       ttlMs: 60_000,
+      userId: 'user-1',
     });
     const touch = vi.fn(async () => {
       const error = new Error('database is locked');

@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
-import { requireProtectedApiSession } from '~/composition/server/auth';
-import { getServerPlaylistServices, resolveServerPlaylistOwnerId } from '~/composition/server/playlist';
+import { requireProtectedApiSessionValue } from '~/composition/server/auth';
+import { getServerPlaylistServices } from '~/composition/server/playlist';
 
 type UseCaseResult<T> =
   | { data: T; success: true }
@@ -52,10 +52,10 @@ function handleUseCaseResult<T>(result: UseCaseResult<T>): Response | T {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   try {
-    const unauthorizedResponse = await requireProtectedApiSession(request);
-    if (unauthorizedResponse) return unauthorizedResponse;
+    const authSession = await requireProtectedApiSessionValue(request);
+    if (authSession instanceof Response) return authSession;
 
-    const ownerId = await resolveServerPlaylistOwnerId();
+    const ownerId = authSession.userId;
     const { id: playlistId } = params;
 
     if (!playlistId) {
@@ -95,10 +95,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 export async function action({ request, params }: ActionFunctionArgs) {
   try {
-    const unauthorizedResponse = await requireProtectedApiSession(request);
-    if (unauthorizedResponse) return unauthorizedResponse;
+    const authSession = await requireProtectedApiSessionValue(request);
+    if (authSession instanceof Response) return authSession;
 
-    const ownerId = await resolveServerPlaylistOwnerId();
+    const ownerId = authSession.userId;
     const { id: playlistId } = params;
 
     if (!playlistId) {

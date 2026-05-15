@@ -1,9 +1,9 @@
 import { useRouteLoaderData } from 'react-router';
 
 export interface RootUser {
-  email: string;
   id: string;
   role: 'admin' | 'user';
+  username: string;
 }
 
 export function useRootUser(): RootUser | null {

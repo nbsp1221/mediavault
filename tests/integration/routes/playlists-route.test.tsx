@@ -1,9 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import type { ReactNode } from 'react';
+import { renderToString } from 'react-dom/server';
+import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 const PROJECT_ROOT = resolve(__dirname, '../../..');
 const useLoaderDataMock = vi.fn();
+const useRouteErrorMock = vi.fn();
 const playlistsPageMock = vi.fn((props: unknown) => (
   <div data-testid="mock-playlists-page">{JSON.stringify(props)}</div>
 ));
@@ -11,12 +15,22 @@ const playlistDetailPageMock = vi.fn((props: unknown) => (
   <div data-testid="mock-playlist-detail-page">{JSON.stringify(props)}</div>
 ));
 
+function routeErrorResponse(status: number, data?: string) {
+  return {
+    data,
+    isRouteErrorResponse: true,
+    status,
+  };
+}
+
 vi.mock('react-router', async () => {
   const actual = await vi.importActual<typeof import('react-router')>('react-router');
 
   return {
     ...actual,
+    isRouteErrorResponse: (error: unknown) => Boolean((error as { isRouteErrorResponse?: boolean } | null)?.isRouteErrorResponse),
     useLoaderData: () => useLoaderDataMock(),
+    useRouteError: () => useRouteErrorMock(),
   };
 });
 
@@ -26,6 +40,12 @@ vi.mock('~/pages/playlists/ui/PlaylistsPage', () => ({
 
 vi.mock('~/pages/playlist-detail/ui/PlaylistDetailPage', () => ({
   PlaylistDetailPage: (props: unknown) => playlistDetailPageMock(props),
+}));
+
+vi.mock('~/widgets/home-shell/ui/HomeShell', () => ({
+  HomeShell: ({ children }: { children: ReactNode }) => (
+    <div data-testid="mock-home-shell">{children}</div>
+  ),
 }));
 
 async function importPlaylistsRoute() {
@@ -39,6 +59,7 @@ async function importPlaylistDetailRoute() {
 describe('playlist route adapters', () => {
   afterEach(() => {
     useLoaderDataMock.mockReset();
+    useRouteErrorMock.mockReset();
     playlistsPageMock.mockClear();
     playlistDetailPageMock.mockClear();
     vi.resetModules();
@@ -47,8 +68,7 @@ describe('playlist route adapters', () => {
   });
 
   test('playlist index loader delegates auth and playlist composition', async () => {
-    const requireProtectedPageSessionMock = vi.fn().mockResolvedValue({ id: 'session-1' });
-    const resolveServerPlaylistOwnerIdMock = vi.fn().mockResolvedValue('owner-1');
+    const requireProtectedPageSessionMock = vi.fn().mockResolvedValue({ id: 'session-1', userId: 'owner-1' });
     const fakePlaylistServices = {
       getPlaylistDetails: { execute: vi.fn() },
       findPlaylists: {
@@ -67,7 +87,6 @@ describe('playlist route adapters', () => {
     }));
     vi.doMock('~/composition/server/playlist', () => ({
       getServerPlaylistServices: () => fakePlaylistServices,
-      resolveServerPlaylistOwnerId: resolveServerPlaylistOwnerIdMock,
     }));
 
     const { loader } = await importPlaylistsRoute();
@@ -77,7 +96,6 @@ describe('playlist route adapters', () => {
     } as never);
 
     expect(requireProtectedPageSessionMock).toHaveBeenCalledWith(expect.any(Request));
-    expect(resolveServerPlaylistOwnerIdMock).toHaveBeenCalledTimes(1);
     expect(fakePlaylistServices.findPlaylists.execute).toHaveBeenCalledWith(expect.objectContaining({
       filters: expect.objectContaining({ searchQuery: 'vault' }),
       ownerId: 'owner-1',
@@ -91,8 +109,7 @@ describe('playlist route adapters', () => {
   });
 
   test('playlist index loader translates playlist service failures into the public list-page error message', async () => {
-    const requireProtectedPageSessionMock = vi.fn().mockResolvedValue({ id: 'session-1' });
-    const resolveServerPlaylistOwnerIdMock = vi.fn().mockResolvedValue('owner-1');
+    const requireProtectedPageSessionMock = vi.fn().mockResolvedValue({ id: 'session-1', userId: 'owner-1' });
     const fakePlaylistServices = {
       getPlaylistDetails: { execute: vi.fn() },
       findPlaylists: {
@@ -110,7 +127,6 @@ describe('playlist route adapters', () => {
     }));
     vi.doMock('~/composition/server/playlist', () => ({
       getServerPlaylistServices: () => fakePlaylistServices,
-      resolveServerPlaylistOwnerId: resolveServerPlaylistOwnerIdMock,
     }));
 
     const { loader } = await importPlaylistsRoute();
@@ -120,7 +136,6 @@ describe('playlist route adapters', () => {
     } as never)).rejects.toThrow('Failed to load playlists');
 
     expect(requireProtectedPageSessionMock).toHaveBeenCalledWith(expect.any(Request));
-    expect(resolveServerPlaylistOwnerIdMock).toHaveBeenCalledTimes(1);
     expect(fakePlaylistServices.findPlaylists.execute).toHaveBeenCalledWith(expect.objectContaining({
       filters: expect.objectContaining({ searchQuery: 'vault' }),
       ownerId: 'owner-1',
@@ -174,9 +189,49 @@ describe('playlist route adapters', () => {
     expect(forwardedProps.onSearchChange).toEqual(expect.any(Function));
   });
 
+  test('playlist index route exposes stable meta tags', async () => {
+    const { meta } = await importPlaylistsRoute();
+
+    expect(meta({} as never)).toEqual([
+      { title: 'Playlists - Mediavault' },
+      { name: 'description', content: 'Manage your video playlists' },
+    ]);
+  });
+
+  test('playlist index error boundary renders route and unexpected failures', async () => {
+    const { ErrorBoundary } = await importPlaylistsRoute();
+
+    useRouteErrorMock.mockReturnValue(routeErrorResponse(503, 'Playlist storage unavailable'));
+    let html = renderToString(
+      <MemoryRouter>
+        <ErrorBoundary />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('We couldn’t load your playlists');
+    expect(html).toContain('Playlist storage unavailable');
+    expect(html).toContain('href="/playlists"');
+    expect(html).toContain('Try again');
+    expect(html).toContain('href="/"');
+    expect(html).toContain('Go to home');
+
+    useRouteErrorMock.mockReturnValue(new Error('Database unavailable'));
+    html = renderToString(
+      <MemoryRouter>
+        <ErrorBoundary />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('Something went wrong');
+    expect(html).toContain('Database unavailable');
+    expect(html).toContain('href="/playlists"');
+    expect(html).toContain('Try again');
+    expect(html).toContain('href="/"');
+    expect(html).toContain('Go to home');
+  });
+
   test('playlist detail loader delegates auth and playlist composition', async () => {
-    const requireProtectedPageSessionMock = vi.fn().mockResolvedValue({ id: 'session-1' });
-    const resolveServerPlaylistOwnerIdMock = vi.fn().mockResolvedValue('owner-1');
+    const requireProtectedPageSessionMock = vi.fn().mockResolvedValue({ id: 'session-1', userId: 'owner-1' });
     const fakePlaylistServices = {
       findPlaylists: { execute: vi.fn() },
       getPlaylistDetails: {
@@ -208,7 +263,6 @@ describe('playlist route adapters', () => {
     }));
     vi.doMock('~/composition/server/playlist', () => ({
       getServerPlaylistServices: () => fakePlaylistServices,
-      resolveServerPlaylistOwnerId: resolveServerPlaylistOwnerIdMock,
     }));
 
     const { loader } = await importPlaylistDetailRoute();
@@ -218,7 +272,6 @@ describe('playlist route adapters', () => {
     } as never);
 
     expect(requireProtectedPageSessionMock).toHaveBeenCalledWith(expect.any(Request));
-    expect(resolveServerPlaylistOwnerIdMock).toHaveBeenCalledTimes(1);
     expect(fakePlaylistServices.getPlaylistDetails.execute).toHaveBeenCalledWith({
       includeRelated: false,
       includeStats: true,
@@ -291,9 +344,73 @@ describe('playlist route adapters', () => {
     });
   });
 
+  test('playlist detail route exposes stable meta tags', async () => {
+    const { meta } = await importPlaylistDetailRoute();
+
+    expect(meta({} as never)).toEqual([
+      { title: 'Playlist Detail - Mediavault' },
+      { name: 'description', content: 'View playlist information and videos' },
+    ]);
+  });
+
+  test('playlist detail error boundary renders private, missing, and unexpected states', async () => {
+    const { ErrorBoundary } = await importPlaylistDetailRoute();
+
+    useRouteErrorMock.mockReturnValue(routeErrorResponse(403));
+    let html = renderToString(
+      <MemoryRouter>
+        <ErrorBoundary />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('This playlist is private');
+    expect(html).toContain('The owner hasn’t shared this playlist yet');
+    expect(html).toContain('If you believe you should have access, contact the playlist owner for an invitation.');
+    expect(html).toContain('href="/playlists"');
+    expect(html).toContain('Explore public playlists');
+    expect(html).toContain('href="/"');
+    expect(html).toContain('Back to library');
+
+    useRouteErrorMock.mockReturnValue(routeErrorResponse(404));
+    html = renderToString(
+      <MemoryRouter>
+        <ErrorBoundary />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('Playlist not found');
+    expect(html).toContain('The playlist might have been removed or the link could be incorrect. Try a different collection instead.');
+    expect(html).toContain('href="/playlists"');
+    expect(html).toContain('Browse playlists');
+    expect(html).toContain('href="/"');
+    expect(html).toContain('Go to library');
+
+    useRouteErrorMock.mockReturnValue(new Error('Playlist service unavailable'));
+    html = renderToString(
+      <MemoryRouter>
+        <ErrorBoundary />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('We couldn’t open this playlist');
+    expect(html).toContain('Playlist service unavailable');
+    expect(html).toContain('href="/playlists"');
+    expect(html).toContain('Try again');
+    expect(html).toContain('href="/"');
+    expect(html).toContain('Go to home');
+
+    useRouteErrorMock.mockReturnValue('unknown failure');
+    html = renderToString(
+      <MemoryRouter>
+        <ErrorBoundary />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('Something unexpected happened while loading the playlist. Please try again shortly.');
+  });
+
   test('playlist detail loader throws 400 when params.id is missing', async () => {
-    const requireProtectedPageSessionMock = vi.fn().mockResolvedValue({ id: 'session-1' });
-    const resolveServerPlaylistOwnerIdMock = vi.fn();
+    const requireProtectedPageSessionMock = vi.fn().mockResolvedValue({ id: 'session-1', userId: 'owner-1' });
     const fakePlaylistServices = {
       getPlaylistDetails: { execute: vi.fn() },
     };
@@ -303,7 +420,6 @@ describe('playlist route adapters', () => {
     }));
     vi.doMock('~/composition/server/playlist', () => ({
       getServerPlaylistServices: () => fakePlaylistServices,
-      resolveServerPlaylistOwnerId: resolveServerPlaylistOwnerIdMock,
     }));
 
     const { loader } = await importPlaylistDetailRoute();
@@ -317,7 +433,6 @@ describe('playlist route adapters', () => {
     });
 
     expect(requireProtectedPageSessionMock).toHaveBeenCalledWith(expect.any(Request));
-    expect(resolveServerPlaylistOwnerIdMock).not.toHaveBeenCalled();
     expect(fakePlaylistServices.getPlaylistDetails.execute).not.toHaveBeenCalled();
   });
 });

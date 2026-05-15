@@ -5,6 +5,7 @@ export interface AuthSession {
   ipAddress?: string;
   isRevoked: boolean;
   lastAccessedAt: Date;
+  userId: string;
   userAgent?: string;
 }
 

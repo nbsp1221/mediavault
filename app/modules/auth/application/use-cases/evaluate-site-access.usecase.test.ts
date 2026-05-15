@@ -49,6 +49,7 @@ describe('EvaluateSiteAccessUseCase', () => {
       id: 'session-3',
       now: new Date('2026-03-07T00:00:00.000Z'),
       ttlMs: 60_000,
+      userId: 'user-1',
     });
     const useCase = new EvaluateSiteAccessUseCase({
       resolveAuthSession: {

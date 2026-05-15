@@ -7,20 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/sha
 import { Input } from '~/shared/ui/input';
 import { Label } from '~/shared/ui/label';
 
-interface LoginPageProps {
-  authConfigured?: boolean;
-  configurationError?: string | null;
-}
-
-export function LoginPage({
-  authConfigured = true,
-  configurationError = null,
-}: LoginPageProps) {
+export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
 
   const redirectTo = (() => {
     const candidate = searchParams.get('redirectTo');
@@ -39,7 +32,7 @@ export function LoginPage({
 
     try {
       const response = await fetch('/api/auth/login', {
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, username }),
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
@@ -49,15 +42,15 @@ export function LoginPage({
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setError(data.error || 'Unlock failed');
+        setError(data.error || 'Sign in failed');
         return;
       }
 
       navigate(redirectTo, { replace: true });
     }
     catch (submissionError) {
-      console.error('Unlock failed:', submissionError);
-      setError('Unlock failed');
+      console.error('Sign in failed:', submissionError);
+      setError('Sign in failed');
     }
     finally {
       setIsSubmitting(false);
@@ -69,21 +62,35 @@ export function LoginPage({
       <Card className="w-full max-w-sm shadow-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">
-            <h1 className="text-inherit font-inherit">Unlock your vault</h1>
+            <h1 className="text-inherit font-inherit">Sign in to Mediavault</h1>
           </CardTitle>
           <CardDescription>
-            <p>Enter the shared password to access Mediavault.</p>
+            <p>Enter your account credentials to continue.</p>
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="shared-password">Shared password</Label>
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="shared-password"
+                id="username"
+                autoComplete="username"
+                disabled={isSubmitting}
+                onChange={event => setUsername(event.target.value)}
+                placeholder="Enter username"
+                required
+                type="text"
+                value={username}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
                 autoComplete="current-password"
-                disabled={isSubmitting || !authConfigured}
+                disabled={isSubmitting}
                 onChange={event => setPassword(event.target.value)}
                 placeholder="Enter password"
                 required
@@ -92,15 +99,6 @@ export function LoginPage({
               />
             </div>
 
-            {!authConfigured && (
-              <Alert aria-live="polite" variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {configurationError || 'Shared-password auth is not configured. Set AUTH_SHARED_PASSWORD and restart the server.'}
-                </AlertDescription>
-              </Alert>
-            )}
-
             {error && (
               <Alert aria-live="polite" variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -108,8 +106,8 @@ export function LoginPage({
               </Alert>
             )}
 
-            <Button className="w-full" disabled={isSubmitting || !authConfigured} type="submit">
-              {isSubmitting ? 'Unlocking...' : 'Unlock'}
+            <Button className="w-full" disabled={isSubmitting} type="submit">
+              {isSubmitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
         </CardContent>

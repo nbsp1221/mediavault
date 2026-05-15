@@ -6,7 +6,6 @@ async function importAuthClientIdentity() {
 
 describe('auth-client identity helpers', () => {
   test('uses the leftmost X-Forwarded-For hop as the trusted IP fallback when proxy trust is enabled', async () => {
-    process.env.AUTH_SHARED_PASSWORD = 'vault-password';
     process.env.AUTH_TRUST_PROXY_HEADERS = 'true';
 
     const { getLoginAttemptKey, getTrustedClientIP } = await importAuthClientIdentity();
@@ -22,7 +21,6 @@ describe('auth-client identity helpers', () => {
   });
 
   test('prefers a valid signed client cookie over trusted proxy headers', async () => {
-    process.env.AUTH_SHARED_PASSWORD = 'vault-password';
     process.env.AUTH_TRUST_PROXY_HEADERS = 'true';
 
     const {
@@ -43,7 +41,6 @@ describe('auth-client identity helpers', () => {
   });
 
   test('ignores malformed auth-client cookies and falls back to anonymous identity', async () => {
-    process.env.AUTH_SHARED_PASSWORD = 'vault-password';
     delete process.env.AUTH_TRUST_PROXY_HEADERS;
 
     const {

@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createPlaylistRuntimeTestWorkspace, PLAYLIST_OWNER_ID } from '../../support/create-playlist-runtime-test-workspace';
 
-const requireProtectedApiSessionMock = vi.fn();
-const resolveSiteViewerMock = vi.fn();
+const requireProtectedApiSessionValueMock = vi.fn();
 
 async function importPlaylistDetailApiRoute() {
   return import('../../../app/routes/api.playlists.$id');
@@ -54,16 +53,10 @@ describe('playlist composition ownership boundary', () => {
 
       return {
         ...actual,
-        requireProtectedApiSession: requireProtectedApiSessionMock,
-        resolveSiteViewer: resolveSiteViewerMock,
+        requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
       };
     });
-    requireProtectedApiSessionMock.mockResolvedValue(null);
-    resolveSiteViewerMock.mockResolvedValue({
-      email: 'admin@example.com',
-      id: PLAYLIST_OWNER_ID,
-      role: 'admin',
-    });
+    requireProtectedApiSessionValueMock.mockResolvedValue({ id: 'session-1', userId: PLAYLIST_OWNER_ID });
   });
 
   afterEach(async () => {

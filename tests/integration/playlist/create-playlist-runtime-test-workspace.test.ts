@@ -2,9 +2,6 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { createPlaylistRuntimeTestWorkspace } from '../../support/create-playlist-runtime-test-workspace';
 
 const ENV_KEYS = [
-  'AUTH_OWNER_EMAIL',
-  'AUTH_OWNER_ID',
-  'AUTH_SHARED_PASSWORD',
   'DATABASE_SQLITE_PATH',
   'STORAGE_DIR',
   'VIDEO_JWT_SECRET',
@@ -34,9 +31,6 @@ describe('createPlaylistRuntimeTestWorkspace', () => {
   });
 
   test('restores previous env values during cleanup', async () => {
-    process.env.AUTH_OWNER_EMAIL = 'previous-owner@example.com';
-    process.env.AUTH_OWNER_ID = 'previous-owner';
-    process.env.AUTH_SHARED_PASSWORD = 'previous-password';
     process.env.DATABASE_SQLITE_PATH = '/tmp/previous-db.sqlite';
     process.env.STORAGE_DIR = '/tmp/previous-storage';
     process.env.VIDEO_JWT_SECRET = 'previous-jwt-secret';
@@ -44,8 +38,6 @@ describe('createPlaylistRuntimeTestWorkspace', () => {
 
     const workspace = await createPlaylistRuntimeTestWorkspace();
 
-    expect(process.env.AUTH_OWNER_EMAIL).toBe('admin@example.com');
-    expect(process.env.AUTH_OWNER_ID).not.toBe('previous-owner');
     expect(process.env.DATABASE_SQLITE_PATH).toBe(workspace.databasePath);
     expect(process.env.STORAGE_DIR).toBe(workspace.storageDir);
     expect(process.env.VIDEO_JWT_SECRET).toBeUndefined();
@@ -53,9 +45,6 @@ describe('createPlaylistRuntimeTestWorkspace', () => {
 
     await workspace.cleanup();
 
-    expect(process.env.AUTH_OWNER_EMAIL).toBe('previous-owner@example.com');
-    expect(process.env.AUTH_OWNER_ID).toBe('previous-owner');
-    expect(process.env.AUTH_SHARED_PASSWORD).toBe('previous-password');
     expect(process.env.DATABASE_SQLITE_PATH).toBe('/tmp/previous-db.sqlite');
     expect(process.env.STORAGE_DIR).toBe('/tmp/previous-storage');
     expect(process.env.VIDEO_JWT_SECRET).toBe('previous-jwt-secret');

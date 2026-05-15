@@ -17,6 +17,7 @@ interface AuthSessionRow {
   ip_address: string | null;
   is_revoked: number;
   last_accessed_at: string;
+  user_id: string;
   user_agent: string | null;
 }
 
@@ -52,6 +53,7 @@ export class SqliteSessionRepository implements AuthSessionRepository {
           ip_address,
           is_revoked,
           last_accessed_at,
+          user_id,
           user_agent
         FROM auth_sessions
         WHERE id = ?
@@ -69,6 +71,7 @@ export class SqliteSessionRepository implements AuthSessionRepository {
       ipAddress: row.ip_address ?? undefined,
       isRevoked: row.is_revoked === 1,
       lastAccessedAt: new Date(row.last_accessed_at),
+      userId: row.user_id,
       userAgent: row.user_agent ?? undefined,
     };
   }
@@ -90,16 +93,18 @@ export class SqliteSessionRepository implements AuthSessionRepository {
       .prepare(`
         INSERT OR REPLACE INTO auth_sessions (
           id,
+          user_id,
           created_at,
           expires_at,
           ip_address,
           is_revoked,
           last_accessed_at,
           user_agent
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         session.id,
+        session.userId,
         session.createdAt.toISOString(),
         session.expiresAt.toISOString(),
         session.ipAddress ?? null,

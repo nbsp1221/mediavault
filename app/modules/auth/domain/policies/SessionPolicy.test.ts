@@ -10,6 +10,7 @@ describe('SessionPolicy', () => {
       ipAddress: '127.0.0.1',
       now,
       ttlMs: 60_000,
+      userId: 'user-1',
       userAgent: 'vitest',
     });
 
@@ -20,6 +21,7 @@ describe('SessionPolicy', () => {
       ipAddress: '127.0.0.1',
       isRevoked: false,
       lastAccessedAt: now,
+      userId: 'user-1',
       userAgent: 'vitest',
     });
   });
@@ -29,6 +31,7 @@ describe('SessionPolicy', () => {
       id: 'session-2',
       now: new Date('2026-03-07T00:00:00.000Z'),
       ttlMs: 1_000,
+      userId: 'user-1',
     });
 
     const decision = SessionPolicy.validate({
@@ -42,12 +45,30 @@ describe('SessionPolicy', () => {
     });
   });
 
+  test('treats a session expiring exactly now as expired', () => {
+    const session = SessionPolicy.create({
+      id: 'session-expiring-now',
+      now: new Date('2026-03-07T00:00:00.000Z'),
+      ttlMs: 1_000,
+      userId: 'user-1',
+    });
+
+    expect(SessionPolicy.validate({
+      now: new Date('2026-03-07T00:00:01.000Z'),
+      session,
+    })).toEqual({
+      allowed: false,
+      reason: 'AUTH_SESSION_EXPIRED',
+    });
+  });
+
   test('treats revoked sessions as invalid', () => {
     const session = {
       ...SessionPolicy.create({
         id: 'session-3',
         now: new Date('2026-03-07T00:00:00.000Z'),
         ttlMs: 60_000,
+        userId: 'user-1',
       }),
       isRevoked: true,
     };
@@ -68,6 +89,7 @@ describe('SessionPolicy', () => {
       id: 'session-4',
       now: new Date('2026-03-07T00:00:00.000Z'),
       ttlMs: 60_000,
+      userId: 'user-1',
     });
 
     const decision = SessionPolicy.validate({

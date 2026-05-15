@@ -1,4 +1,5 @@
 import { type Page, expect } from '@playwright/test';
+import { E2E_AUTH_PASSWORD, E2E_AUTH_USERNAME } from '../../support/auth-account';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -7,7 +8,6 @@ function escapeRegExp(value: string): string {
 export async function loginToPath(page: Page, input: {
   expectedUrl?: RegExp;
   redirectTo: string;
-  sharedPassword: string;
 }) {
   const expectedUrl = input.expectedUrl ?? new RegExp(`${escapeRegExp(input.redirectTo)}$`);
 
@@ -17,14 +17,15 @@ export async function loginToPath(page: Page, input: {
   await page.waitForFunction(() => (
     document.documentElement.dataset.localStreamerHydrated === 'true'
   ));
-  await page.getByLabel('Shared password').fill(input.sharedPassword);
+  await page.getByLabel('Username').fill(E2E_AUTH_USERNAME);
+  await page.getByLabel('Password').fill(E2E_AUTH_PASSWORD);
 
   const loginResponsePromise = page.waitForResponse(response => (
     response.url().endsWith('/api/auth/login') &&
     response.request().method() === 'POST'
   ));
 
-  await page.getByRole('button', { name: 'Unlock' }).click();
+  await page.getByRole('button', { name: 'Sign in' }).click();
 
   const loginResponse = await loginResponsePromise;
   const loginBody = await loginResponse.json().catch(() => null) as unknown;

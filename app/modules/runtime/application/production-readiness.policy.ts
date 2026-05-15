@@ -1,5 +1,4 @@
 export const CRITICAL_PRODUCTION_SECRET_KEYS = [
-  'AUTH_SHARED_PASSWORD',
   'VIDEO_JWT_SECRET',
   'VIDEO_MASTER_ENCRYPTION_SEED',
 ] as const;
@@ -11,6 +10,7 @@ export type RuntimeEnvironment = Record<string, string | undefined>;
 export type ProductionReadinessIssueCode =
   | 'database-unavailable'
   | 'media-tool-unavailable'
+  | 'missing-auth-user'
   | 'missing-critical-secret'
   | 'non-production-runtime'
   | 'storage-unavailable';
@@ -68,6 +68,19 @@ export function collectCriticalProductionSecretIssues(
       subject: key,
     } satisfies ProductionReadinessIssue];
   });
+}
+
+export function collectAuthAccountIssues(input: { authUserCount: number }): ProductionReadinessIssue[] {
+  if (input.authUserCount > 0) {
+    return [];
+  }
+
+  return [{
+    code: 'missing-auth-user',
+    message: 'Production startup preflight failed: no auth users exist; create one with bun run auth:add-user',
+    severity: 'startup-blocking',
+    subject: 'auth_users',
+  }];
 }
 
 export function classifyStorageProbeResults(

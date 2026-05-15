@@ -128,7 +128,7 @@ bun run test:smoke:bun-auth
 Use for:
 
 - built server startup under Bun
-- shared-password login
+- account login
 - protected page redirect
 - playback token access
 - protected thumbnail access
@@ -143,7 +143,7 @@ bun run test:smoke:dev-auth
 
 Use for:
 
-- shared-password login under `bun run dev`
+- account login under `bun run dev`
 - catching dev-only loader/runtime regressions such as unsupported `bun:` imports
 - validating that the local development server can complete the basic auth happy path
 
@@ -169,8 +169,8 @@ Use `bun run verify:e2e-smoke` for the required hermetic browser smoke path.
 
 Use:
 
-- **Shared Password:** the hermetic browser path defaults to the helper value from `tests/support/shared-password.ts`
-- **Ambient auth env:** `AUTH_SHARED_PASSWORD` is only needed when you intentionally run manual local QA outside the hermetic helper flow
+- **Auth account:** hermetic browser paths seed a SQLite-backed account through `tests/support/auth-account.ts`
+- **Manual local QA:** create a local account with `bun run auth:add-user` before signing in through the browser
 
 ## Test Assets
 
@@ -191,7 +191,7 @@ Run `bun run backfill:browser-playback-fixtures` manually only when you are inve
 ## Important Notes
 
 - **Security:** All video content is encrypted with AES-128
-- **Authentication:** Page access, token issuance, and thumbnail access must all be protected by the shared-password session
+- **Authentication:** Page access, token issuance, and thumbnail access must all be protected by the account session
 - **Runtime split:** Node/Vitest passing does not prove Bun runtime correctness
 - **Browser checks:** Use Playwright for playback and UI flows after the lower layers pass
 - **Playback triage:** When `/player/:id` fails in-browser, inspect the browser console and confirm the request mix includes manifest, video, and audio segment requests. Missing video requests usually indicates a codec/package compatibility issue, while missing manifest or token requests points to auth/session wiring.

@@ -114,9 +114,7 @@ values are valid.
 
 Runtime auth uses:
 
-- `AUTH_SHARED_PASSWORD`
-- `AUTH_OWNER_ID` with default `site-owner`
-- `AUTH_OWNER_EMAIL` with default `owner@local`
+- username/password auth users in the primary SQLite database
 - auth sessions in the primary SQLite database
 
 Runtime auth must not document `users.json`, `vault@local`, or a separate `auth.sqlite`
@@ -158,8 +156,8 @@ claims still match the codebase.
 - Add optional `STORAGE_DIR` and `DATABASE_SQLITE_PATH` examples.
 - Do not ship copy-pasteable public placeholders that satisfy secret presence checks while
   being weak known secrets.
-- Keep `AUTH_OWNER_ID=site-owner` and `AUTH_OWNER_EMAIL=owner@local` aligned with runtime
-  defaults and README.
+- Document account creation through `bun run auth:add-user` instead of environment-backed
+  shared password auth.
 - Document `VIDEO_MASTER_ENCRYPTION_SEED` as a required free-form secret string. Recommend
   generating a strong random value, but do not document a required length or encoding that
   the runtime does not enforce.
@@ -241,8 +239,8 @@ The production image must not rely on ignored local binaries or repo-local gener
 Required deployment alignment:
 
 - `NODE_ENV=production` enables the production full-vault preflight contract.
-- Production startup must fail before listening when `AUTH_SHARED_PASSWORD`,
-  `VIDEO_JWT_SECRET`, or `VIDEO_MASTER_ENCRYPTION_SEED` is absent or blank.
+- Production startup must fail before listening when no auth account exists or when
+  `VIDEO_JWT_SECRET` or `VIDEO_MASTER_ENCRYPTION_SEED` is absent or blank.
 - Production startup must fail before listening when the configured `STORAGE_DIR` or
   primary SQLite database path cannot support app-owned writes.
 - Production readiness must fail when FFmpeg, ffprobe, or Shaka Packager is missing,

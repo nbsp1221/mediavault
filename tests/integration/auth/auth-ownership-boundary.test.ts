@@ -9,7 +9,6 @@ const ACTIVE_AUTH_FILES = [
   'app/routes/api.auth.login.ts',
   'app/routes/api.auth.me.ts',
   'app/composition/server/auth.ts',
-  'app/modules/auth/infrastructure/viewer/config-site-viewer.resolver.ts',
 ] as const;
 
 describe('auth ownership boundary', () => {

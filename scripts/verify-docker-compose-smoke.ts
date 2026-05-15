@@ -1,6 +1,7 @@
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { addAuthUser } from './auth-add-user';
 
 const POLL_TIMEOUT_MS = 90_000;
 const POLL_INTERVAL_MS = 1_000;
@@ -290,6 +291,23 @@ async function createStorageDir(rootDir: string, name: string): Promise<string> 
   return storageDir;
 }
 
+async function createSeededStorageDir(rootDir: string, name: string): Promise<string> {
+  const storageDir = await createStorageDir(rootDir, name);
+  const result = await addAuthUser({
+    confirmPassword: 'compose-test-password',
+    dbPath: path.join(storageDir, 'db.sqlite'),
+    password: 'compose-test-password',
+    userId: 'compose-test-owner',
+    username: 'owner',
+  });
+
+  if (!result.ok) {
+    throw new Error(`Failed to seed Compose auth user: ${result.reason}`);
+  }
+
+  return storageDir;
+}
+
 async function main(): Promise<void> {
   const rootDir = await mkdtemp(path.join(tmpdir(), 'mediavault-docker-compose-smoke-'));
   const imageTag = `mediavault-docker-compose-smoke:${Date.now()}`;
@@ -311,7 +329,6 @@ async function main(): Promise<void> {
     }
 
     const baseEnv = {
-      AUTH_SHARED_PASSWORD: 'compose-test-auth-password',
       NODE_ENV: 'production',
       PORT: '3000',
       STORAGE_DIR: '/app/storage',
@@ -319,7 +336,6 @@ async function main(): Promise<void> {
       VIDEO_MASTER_ENCRYPTION_SEED: 'compose-test-master-encryption-seed',
     };
     const forbiddenSecretLogValues = [
-      baseEnv.AUTH_SHARED_PASSWORD,
       baseEnv.VIDEO_JWT_SECRET,
       baseEnv.VIDEO_MASTER_ENCRYPTION_SEED,
     ];
@@ -330,7 +346,7 @@ async function main(): Promise<void> {
         expectedFinalState: 'healthy',
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'configured',
-        storageDir: await createStorageDir(rootDir, 'configured'),
+        storageDir: await createSeededStorageDir(rootDir, 'configured'),
       },
       {
         env: {
@@ -364,7 +380,7 @@ async function main(): Promise<void> {
         expectedFinalState: 'unhealthy',
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'missing-media-tool',
-        storageDir: await createStorageDir(rootDir, 'missing-media-tool'),
+        storageDir: await createSeededStorageDir(rootDir, 'missing-media-tool'),
       },
     ];
 

@@ -1,9 +1,6 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { getE2ESharedPassword } from '../support/shared-password';
 import { loginToPath } from './support/auth';
-
-const sharedPassword = getE2ESharedPassword(process.env.AUTH_SHARED_PASSWORD);
 const uploadFixturePath = path.resolve('tests/fixtures/upload/smoke-upload.mp4');
 
 test.describe('add-videos owner upload smoke', () => {
@@ -24,7 +21,6 @@ test.describe('add-videos owner upload smoke', () => {
     await loginToPath(page, {
       expectedUrl: /\/add-videos$/,
       redirectTo: '/add-videos',
-      sharedPassword,
     });
     await page.locator('#choose-video-input').setInputFiles(uploadFixturePath);
 

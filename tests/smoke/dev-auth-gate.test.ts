@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import { createNoEnvFileBunCommand } from '../../scripts/no-env-file-bun';
 import { toRequestCookieHeader } from '../helpers/cookies';
+import { E2E_AUTH_PASSWORD, E2E_AUTH_USERNAME, seedRuntimeAuthUser } from '../support/auth-account';
 import { createRuntimeTestEnv } from '../support/create-runtime-test-env';
 
 const repoRoot = process.cwd();
@@ -27,9 +28,9 @@ const serverLogReaders: Promise<void>[] = [];
 
 function expectAdminViewerShape(viewer: unknown) {
   expect(viewer).toEqual(expect.objectContaining({
-    email: expect.stringMatching(/\S/),
     id: expect.stringMatching(/\S/),
     role: 'admin',
+    username: E2E_AUTH_USERNAME,
   }));
 }
 
@@ -86,7 +87,7 @@ function seedRepoLocalSensitiveCanary() {
     join(repoLocalCanaryStorageDir, 'videos', repoLocalCanaryVideoId, 'key.bin'),
     '0123456789abcdef',
   );
-  writeFileSync(repoLocalEnvCanaryPath, 'AUTH_SHARED_PASSWORD=do-not-serve');
+  writeFileSync(repoLocalEnvCanaryPath, 'VIDEO_JWT_SECRET=do-not-serve');
 }
 
 async function waitForServerReady(url: string) {
@@ -115,7 +116,10 @@ async function waitForServerReady(url: string) {
 
 async function loginAndGetCookie() {
   const response = await fetch(`${baseUrl}/api/auth/login`, {
-    body: JSON.stringify({ password: 'vault-password' }),
+    body: JSON.stringify({
+      password: E2E_AUTH_PASSWORD,
+      username: E2E_AUTH_USERNAME,
+    }),
     headers: {
       'Content-Type': 'application/json',
     },
@@ -155,13 +159,11 @@ async function expectSensitivePathDenied(path: string, forbiddenBodyFragment: st
 beforeAll(async () => {
   seedSmokeStorage(storageDir);
   seedRepoLocalSensitiveCanary();
+  await seedRuntimeAuthUser(databasePath);
 
   server = Bun.spawn(createNoEnvFileBunCommand(['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(port)]), {
     cwd: repoRoot,
     env: createRuntimeTestEnv({
-      AUTH_OWNER_EMAIL: 'admin@example.com',
-      AUTH_OWNER_ID: 'seeded-owner-1',
-      AUTH_SHARED_PASSWORD: 'vault-password',
       DATABASE_SQLITE_PATH: databasePath,
       STORAGE_DIR: storageDir,
     }),
@@ -208,7 +210,7 @@ describe('Dev auth gate smoke', () => {
 
   test('does not anonymously serve repo-local env or binary files in dev', async () => {
     const sensitivePaths: Array<[string, string]> = [
-      ['/.env.dev-smoke-sensitive-canary', 'AUTH_SHARED_PASSWORD=do-not-serve'],
+      ['/.env.dev-smoke-sensitive-canary', 'VIDEO_JWT_SECRET=do-not-serve'],
       ['/binaries/dev-smoke-sensitive-canary/tool', 'fake binary'],
     ];
 
@@ -222,8 +224,8 @@ describe('Dev auth gate smoke', () => {
       ['/app/shared/config/auth.server.ts', 'DEFAULT_FAILED_LOGIN_BLOCK_DURATION_MS'],
       ['/app/composition/server/playback.ts', 'getServerPlaybackServices'],
       [
-        '/app/modules/auth/infrastructure/password/env-shared-password.verifier.ts',
-        'EnvSharedPasswordVerifier',
+        '/app/modules/auth/infrastructure/password/argon2-password-hash.service.ts',
+        'Argon2PasswordHashService',
       ],
     ];
 
@@ -232,9 +234,12 @@ describe('Dev auth gate smoke', () => {
     }
   });
 
-  test('invalid shared password is rejected in dev', async () => {
+  test('invalid password is rejected in dev', async () => {
     const response = await fetch(`${baseUrl}/api/auth/login`, {
-      body: JSON.stringify({ password: 'wrong-password' }),
+      body: JSON.stringify({
+        password: 'wrong-password',
+        username: E2E_AUTH_USERNAME,
+      }),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -244,7 +249,7 @@ describe('Dev auth gate smoke', () => {
     expect(response.status).toBe(401);
   });
 
-  test('valid shared password logs in successfully in dev', async () => {
+  test('valid password logs in successfully in dev', async () => {
     const cookie = await loginAndGetCookie();
     const response = await fetch(`${baseUrl}/api/auth/me`, {
       headers: new Headers([

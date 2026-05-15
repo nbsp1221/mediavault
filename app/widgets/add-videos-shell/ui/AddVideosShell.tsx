@@ -186,7 +186,7 @@ function AddVideosHeader({
                   <div className="flex flex-col gap-1">
                     <p className="text-sm font-medium leading-none">Account</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
+                      {user.username}
                     </p>
                   </div>
                 </DropdownMenuLabel>

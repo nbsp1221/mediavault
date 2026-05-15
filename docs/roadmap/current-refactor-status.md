@@ -25,7 +25,7 @@ Use the target architecture document for the stable north star, and use dated pl
 
 The product is currently a personal encrypted video vault with these owner-facing flows working in the active application structure:
 
-- shared-password login
+- account login
 - protected home library browsing
 - title search and tag filtering
 - quick-view metadata editing and deletion from home
@@ -54,7 +54,7 @@ High-signal facts:
 | Phase | Status | High-signal note |
 | --- | --- | --- |
 | 0. Legacy Fence | complete | historical isolation step; the old tree has now been removed |
-| 1. Auth Gate + SQLite Foundation | complete | auth gate, SQLite sessions, and config-owned viewer identity are live |
+| 1. Auth Gate + SQLite Foundation | complete | auth gate, SQLite account users, and user-bound sessions are live |
 | 2. Playback Slice | complete | player surface and routes are migrated, active playback infrastructure owns the path, and CI verifies hermetic playback/browser fixtures |
 | 3. Library Slice | complete | home read/write ownership and canonical metadata ownership live in the active structure |
 | 4. Ingest Slice | complete | upload, processing, transcoder, and thumbnail-finalization ownership live in active ingest/thumbnail infrastructure |
@@ -64,11 +64,11 @@ High-signal facts:
 
 The legacy tree is gone, and these current runtime contracts remain intentionally active-owned:
 
-### Config-owned auth runtime
+### Account-owned auth runtime
 
 - runtime auth uses the primary SQLite database
-- runtime owner identity is config-owned through `AUTH_OWNER_ID` and `AUTH_OWNER_EMAIL`
-- default runtime owner values still come from those config defaults when the env vars are not overridden
+- runtime owner identity comes from the authenticated account session
+- local accounts are created and deleted through `bun run auth:add-user` and `bun run auth:delete-user`
 
 ### Active-owned SQLite persistence
 
@@ -98,8 +98,7 @@ These are no longer open rearchitecture tasks:
 
 The rearchitecture is no longer blocked on repository cleanup. The next useful work is narrow active-owned polish:
 
-1. keep `AUTH_OWNER_ID` and `AUTH_OWNER_EMAIL` defaults aligned across runtime config, docs, and deployment examples
-2. simplify remaining wrapper duplication in `app/composition/server/playlist.ts` only if it produces clearer route-facing contracts
-3. finish browser-visible playlist polish such as play-all, add-to-playlist entry points, and edit flows without reopening migration boundaries
-4. keep browser/runtime verification aligned as playback behavior evolves
-5. finish current documentation and deployment example alignment against `docs/current-runtime-documentation-spec.md`
+1. simplify remaining wrapper duplication in `app/composition/server/playlist.ts` only if it produces clearer route-facing contracts
+2. finish browser-visible playlist polish such as play-all, add-to-playlist entry points, and edit flows without reopening migration boundaries
+3. keep browser/runtime verification aligned as playback behavior evolves
+4. finish current documentation and deployment example alignment against `docs/current-runtime-documentation-spec.md`
