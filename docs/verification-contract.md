@@ -48,8 +48,8 @@ appropriate Docker gate.
 - `test:coverage:regression` compares `coverage/coverage-summary.json` against `tests/coverage-regression-baseline.json` and fails when any calibrated project metric drops more than 0.25 percentage points below the committed baseline.
 - `test:coverage:changed` is the local changed-file coverage gate. It discovers staged, unstaged, and untracked local production files relative to `HEAD`, filters them through the same calibrated production coverage scope as `vite.config.ts`, and invokes Vitest with explicit `--coverage.include` arguments plus the 80% threshold values. It is changed-file aggregate coverage for eligible changed files, not line-level patch coverage.
 - `test:coverage:update-baseline` explicitly ratchets improved baseline metrics upward. It is reviewable, mutating, and must not run inside `bun run test:coverage` or `bun run check`.
-- `test:mutation` runs the full configured StrykerJS mutation audit. It is a manual or periodic quality audit and is not part of `bun run check` in this phase.
-- `test:mutation:changed` is the local changed-file mutation gate. It discovers staged, unstaged, and untracked local production files relative to `HEAD`, filters them through the calibrated changed-file production scope, and invokes StrykerJS with `--mutate <comma-separated-files>`. It does not use Stryker incremental mode because the local Git change set is this gate's source of truth and the report must describe the current changed-file scope only. When no eligible changed production files remain after filtering, it exits successfully without running Stryker and prints `No changed production files require mutation validation.` This phase forces the Stryker execution signal into `check`, but does not enforce a mutation-score break threshold.
+- `test:mutation` runs the full configured StrykerJS mutation audit with the calibrated `thresholds.break: 70` floor. It is a manual or periodic quality audit and is not part of `bun run check` in this phase.
+- `test:mutation:changed` is the local changed-file mutation gate. It discovers staged, unstaged, and untracked local production files relative to `HEAD`, filters them through the calibrated changed-file production scope, and invokes StrykerJS with `scripts/config/stryker.changed.config.mjs` plus `--mutate <comma-separated-files>`. It does not use Stryker incremental mode because the local Git change set is this gate's source of truth and the report must describe the current changed-file scope only. When no eligible changed production files remain after filtering, it exits successfully without running Stryker and prints `No changed production files require mutation validation.` This phase forces the Stryker execution signal into `check`, but does not enforce a mutation-score break threshold.
 - `build` verifies the production build succeeds.
 - `bun run verify:e2e-smoke` is the required browser smoke layer for browser-visible changes. It currently covers the home owner path, the add-videos owner upload flow, the playlist owner flow, player layout, and protected playback compatibility.
   This required smoke command is the stability boundary and may use stricter worker settings than ad hoc `bun run test:e2e` runs. Parallel browser stress runs are diagnostic, not the default required gate, until the harness owns per-worker runtime isolation.
@@ -155,10 +155,12 @@ standard mechanism if the project later needs exact changed-line coverage.
 `bun run test:mutation:changed` is part of `bun run check`. It is also local-first
 in semantics: the command reads staged tracked changes, unstaged tracked changes,
 and untracked files relative to `HEAD`; filters that list to eligible production
-mutation inputs; then runs StrykerJS against those files only. It reuses the shared
-Stryker runner, TypeScript checker, Vitest runner, and reporter configuration from
-`stryker.config.mjs`, but the changed-file wrapper supplies its own mutation target
-through CLI `--mutate` and intentionally does not use Stryker incremental mode. The
+mutation inputs; then runs StrykerJS against those files only. It inherits the
+shared Stryker runner, TypeScript checker, Vitest runner, and reporter configuration
+from `stryker.config.mjs` through `scripts/config/stryker.changed.config.mjs`,
+but the changed-file wrapper supplies its own mutation target through CLI `--mutate`,
+overrides the mutation-score break threshold to `null`, and intentionally does not
+use Stryker incremental mode. The
 eligible production scope is `app/**/*.{ts,tsx}` minus
 tests/specs, app entrypoints, `app/routes.ts`, `app/server.ts`, generated
 `app/shared/ui/**/*`, and generated `app/components/ui/**/*`. When no eligible

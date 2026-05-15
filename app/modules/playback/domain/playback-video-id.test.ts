@@ -6,6 +6,7 @@ describe('playback video id contract', () => {
 
     expect(isValidPlaybackVideoId('video-1')).toBe(true);
     expect(isValidPlaybackVideoId('68e5f819-15e8-41ef-90ee-8a96769311b7')).toBe(true);
+    expect(isValidPlaybackVideoId('video.1')).toBe(true);
     expect(isValidPlaybackVideoId('test_video-1')).toBe(true);
   });
 
@@ -17,5 +18,10 @@ describe('playback video id contract', () => {
     expect(isValidPlaybackVideoId('video/1')).toBe(false);
     expect(isValidPlaybackVideoId('video 1')).toBe(false);
     expect(isValidPlaybackVideoId('video\0id')).toBe(false);
+    expect(isValidPlaybackVideoId('.hidden-video')).toBe(false);
+    expect(isValidPlaybackVideoId('-video-1')).toBe(false);
+    expect(isValidPlaybackVideoId('_video-1')).toBe(false);
+    expect(isValidPlaybackVideoId('video-1!')).toBe(false);
+    expect(isValidPlaybackVideoId('video-1\n')).toBe(false);
   });
 });

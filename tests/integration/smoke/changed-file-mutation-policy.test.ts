@@ -144,6 +144,7 @@ describe('changed-file mutation CLI policy', () => {
       'x',
       'stryker',
       'run',
+      'scripts/config/stryker.changed.config.mjs',
       '--mutate',
       'app/modules/library/domain/video-tag.ts,app/widgets/home/ui/HomeLibraryWidget.tsx',
     ]);
@@ -196,6 +197,7 @@ describe('changed-file mutation CLI policy', () => {
       'x',
       'stryker',
       'run',
+      'scripts/config/stryker.changed.config.mjs',
       '--mutate',
       'app/modules/library/domain/video-tag.ts',
     ]]);
@@ -246,13 +248,15 @@ describe('changed-file mutation package and contract policy', () => {
     expect(isMutationEligibleChangedProductionFile('app/features/upload/ui/UploadDropzone.tsx')).toBe(true);
   });
 
-  test('keeps phase-one mutation score non-blocking in Stryker config', async () => {
+  test('enforces the full mutation score threshold while changed mutation stays non-blocking', async () => {
     const strykerConfig = await readFile('stryker.config.mjs', 'utf8');
+    const changedStrykerConfig = await readFile('scripts/config/stryker.changed.config.mjs', 'utf8');
 
     expect(strykerConfig).toContain('thresholds: {');
     expect(strykerConfig).toContain('high: 80');
     expect(strykerConfig).toContain('low: 60');
-    expect(strykerConfig).toContain('break: null');
+    expect(strykerConfig).toContain('break: 70');
+    expect(changedStrykerConfig).toContain('break: null');
   });
 
   test('wires changed-file mutation into check without adding full mutation to check', async () => {

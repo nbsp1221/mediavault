@@ -31,6 +31,10 @@ describe('PlaylistAccessPolicy', () => {
       ownerId: 'other-user',
       playlist: createPlaylist(),
     })).toBe(false);
+    expect(PlaylistAccessPolicy.canAccess({
+      ownerId: undefined,
+      playlist: createPlaylist(),
+    })).toBe(false);
   });
 
   test('derives permissions from owner access and public visibility', async () => {
@@ -54,6 +58,16 @@ describe('PlaylistAccessPolicy', () => {
       canDelete: false,
       canEdit: false,
       canShare: true,
+    });
+
+    expect(PlaylistAccessPolicy.describePermissions({
+      ownerId: 'viewer-2',
+      playlist: createPlaylist(),
+    })).toEqual({
+      canAddVideos: false,
+      canDelete: false,
+      canEdit: false,
+      canShare: false,
     });
   });
 });

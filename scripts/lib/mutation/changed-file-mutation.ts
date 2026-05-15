@@ -75,6 +75,7 @@ export function buildChangedFileMutationStrykerArgs(options: BuildChangedFileMut
     'x',
     'stryker',
     'run',
+    'scripts/config/stryker.changed.config.mjs',
     '--mutate',
     options.files.join(','),
   ];
