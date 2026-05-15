@@ -363,9 +363,11 @@ The expanded base sequence is:
 bun run verify:hermetic-inputs
 bun run lint
 bun run typecheck
-bun run test
+bun run test:smoke:dev-auth
 bun run test:coverage
+bun run test:mutation:changed
 bun run build
+bun run test:smoke:bun-auth:run
 ```
 
 Docs may still describe the individual commands, but they must not omit the hermetic input

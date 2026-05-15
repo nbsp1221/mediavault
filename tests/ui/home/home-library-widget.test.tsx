@@ -37,6 +37,27 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
   };
 }
 
+function renderHomeLibraryWidget(videoOverrides: Partial<HomeLibraryVideo> = {}) {
+  render(
+    <MemoryRouter>
+      <HomeLibraryWidget
+        initialFilters={{
+          includeTags: [],
+          query: '',
+        }}
+        videos={[
+          createVideo(videoOverrides),
+        ]}
+      />
+    </MemoryRouter>,
+  );
+}
+
+async function openQuickView(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Open actions menu' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Quick view' }));
+}
+
 describe('HomeLibraryWidget', () => {
   test('filters by search text and tag toggles, keeps semantically equal filter sync stable, and resyncs when incoming videos change', async () => {
     const user = userEvent.setup();
@@ -168,12 +189,22 @@ describe('HomeLibraryWidget', () => {
     expect(screen.queryByRole('button', { name: 'Remove required Drama tag' })).not.toBeInTheDocument();
   });
 
-  test('opens and closes quick view, surfaces delete/update failures, and preserves state on action failures', async () => {
+  test('opens the quick view from the action menu', async () => {
+    const user = userEvent.setup();
+    renderHomeLibraryWidget({
+      description: 'Original description',
+    });
+
+    await openQuickView(user);
+
+    expect(screen.getByRole('heading', { name: 'Catalog Fixture' })).toBeInTheDocument();
+  });
+
+  test('surfaces update failures and preserves draft state before a successful save', async () => {
     const user = userEvent.setup();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     deleteVideoMock.mockReset();
     updateVideoMock.mockReset();
-    deleteVideoMock.mockResolvedValue(undefined);
     updateVideoMock
       .mockRejectedValueOnce(new Error('update failed'))
       .mockResolvedValueOnce({
@@ -187,54 +218,67 @@ describe('HomeLibraryWidget', () => {
         videoUrl: '/videos/video-1/manifest.mpd',
       });
 
-    render(
-      <MemoryRouter>
-        <HomeLibraryWidget
-          initialFilters={{
-            includeTags: [],
-            query: '',
-          }}
-          videos={[
-            createVideo({
-              description: 'Original description',
-            }),
-          ]}
-        />
-      </MemoryRouter>,
-    );
+    try {
+      renderHomeLibraryWidget({
+        description: 'Original description',
+      });
 
-    await user.click(screen.getByRole('button', { name: 'Open actions menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Quick view' }));
-    expect(screen.getByRole('heading', { name: 'Catalog Fixture' })).toBeInTheDocument();
+      await openQuickView(user);
+      expect(screen.getByRole('heading', { name: 'Catalog Fixture' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Edit Info' }));
-    await user.clear(screen.getByLabelText('Title'));
-    await user.type(screen.getByLabelText('Title'), 'Updated Fixture');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+      await user.click(screen.getByRole('button', { name: 'Edit Info' }));
+      await user.clear(screen.getByLabelText('Title'));
+      await user.type(screen.getByLabelText('Title'), 'Updated Fixture');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(updateVideoMock).toHaveBeenCalledOnce();
-    expect(screen.getByRole('alert')).toHaveTextContent('update failed');
-    expect(screen.getByLabelText('Title')).toHaveValue('Updated Fixture');
+      expect(updateVideoMock).toHaveBeenCalledOnce();
+      expect(screen.getByRole('alert')).toHaveTextContent('update failed');
+      expect(screen.getByLabelText('Title')).toHaveValue('Updated Fixture');
 
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(screen.getByRole('heading', { name: 'Canonical Fixture' })).toBeInTheDocument();
-    expect(screen.getByText('Canonical description')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      expect(screen.getByRole('heading', { name: 'Canonical Fixture' })).toBeInTheDocument();
+      expect(screen.getByText('Canonical description')).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    }
+    finally {
+      consoleError.mockRestore();
+    }
+  });
 
-    deleteVideoMock.mockRejectedValueOnce(new Error('delete failed'));
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
-    const failedDeleteDialog = screen.getByRole('dialog', { name: 'Delete Video' });
-    await user.click(within(failedDeleteDialog).getByRole('button', { name: 'Delete' }));
-    expect(within(failedDeleteDialog).getByRole('alert')).toHaveTextContent('delete failed');
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByRole('heading', { name: 'Canonical Fixture' })).toBeInTheDocument();
+  test('surfaces delete failures and removes the quick view after a successful delete', async () => {
+    const user = userEvent.setup();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    deleteVideoMock.mockReset();
+    updateVideoMock.mockReset();
+    deleteVideoMock
+      .mockRejectedValueOnce(new Error('delete failed'))
+      .mockResolvedValueOnce(undefined);
 
-    deleteVideoMock.mockResolvedValueOnce(undefined);
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
-    const successfulDeleteDialog = screen.getByRole('dialog', { name: 'Delete Video' });
-    await user.click(within(successfulDeleteDialog).getByRole('button', { name: 'Delete' }));
+    try {
+      renderHomeLibraryWidget({
+        description: 'Canonical description',
+        tags: ['Action', 'Neo'],
+        title: 'Canonical Fixture',
+      });
 
-    expect(screen.queryByRole('heading', { name: 'Canonical Fixture' })).not.toBeInTheDocument();
-    consoleError.mockRestore();
+      await openQuickView(user);
+      expect(screen.getByRole('heading', { name: 'Canonical Fixture' })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Delete' }));
+      const failedDeleteDialog = screen.getByRole('dialog', { name: 'Delete Video' });
+      await user.click(within(failedDeleteDialog).getByRole('button', { name: 'Delete' }));
+      expect(within(failedDeleteDialog).getByRole('alert')).toHaveTextContent('delete failed');
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(screen.getByRole('heading', { name: 'Canonical Fixture' })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Delete' }));
+      const successfulDeleteDialog = screen.getByRole('dialog', { name: 'Delete Video' });
+      await user.click(within(successfulDeleteDialog).getByRole('button', { name: 'Delete' }));
+
+      expect(screen.queryByRole('heading', { name: 'Canonical Fixture' })).not.toBeInTheDocument();
+    }
+    finally {
+      consoleError.mockRestore();
+    }
   });
 });

@@ -110,7 +110,6 @@ export default defineConfig(({ command }) => {
     test: {
       globals: true,
       exclude: ['node_modules', 'build', 'public'],
-      fileParallelism: false,
       coverage: {
         provider: 'v8',
         reporter: ['text-summary', 'json-summary', 'html'],

@@ -36,6 +36,17 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
   };
 }
 
+function renderHomeShell() {
+  render(
+    <MemoryRouter>
+      <HomePage
+        initialFilters={{ query: '' }}
+        videos={[createVideo()]}
+      />
+    </MemoryRouter>,
+  );
+}
+
 describe('Home shell contract', () => {
   test('renders the approved sidebar, header, and shell affordances in the correct order', () => {
     render(
@@ -119,16 +130,9 @@ describe('Home shell contract', () => {
     expect(nextSearch.getAll('genre')).toEqual(['action']);
   });
 
-  test('opens an accessible mobile navigation drawer and closes it again', async () => {
+  test('opens an accessible mobile navigation drawer', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <HomePage
-          initialFilters={{ query: '' }}
-          videos={[createVideo()]}
-        />
-      </MemoryRouter>,
-    );
+    renderHomeShell();
 
     const toggleButton = screen.getByRole('button', { name: 'Toggle sidebar menu' });
     expect(toggleButton).toHaveAttribute('aria-expanded', 'false');
@@ -138,6 +142,15 @@ describe('Home shell contract', () => {
 
     expect(toggleButton).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
+  });
+
+  test('closes the mobile navigation drawer through navigation links', async () => {
+    const user = userEvent.setup();
+    renderHomeShell();
+
+    const toggleButton = screen.getByRole('button', { name: 'Toggle sidebar menu' });
+    await user.click(toggleButton);
+    expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('link', { name: 'All Videos' }));
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
@@ -146,13 +159,25 @@ describe('Home shell contract', () => {
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Mediavault' }));
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
+  });
 
+  test('closes the mobile navigation drawer with Escape', async () => {
+    const user = userEvent.setup();
+    renderHomeShell();
+
+    const toggleButton = screen.getByRole('button', { name: 'Toggle sidebar menu' });
     await user.click(toggleButton);
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
+
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
+  });
 
-    await user.click(toggleButton);
+  test('closes the mobile navigation drawer when resized to desktop width', async () => {
+    const user = userEvent.setup();
+    renderHomeShell();
+
+    await user.click(screen.getByRole('button', { name: 'Toggle sidebar menu' }));
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
 
     Object.defineProperty(window, 'innerWidth', {

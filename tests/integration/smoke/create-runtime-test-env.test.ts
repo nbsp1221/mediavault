@@ -30,6 +30,7 @@ describe('createRuntimeTestEnv', () => {
       expect(env.PORT).toBe('4173');
       expect(env.STORAGE_DIR).toBe('/tmp/storage');
       expect(env.LOCAL_STREAMER_DISABLE_VITE_ENV_FILES).toBe('true');
+      expect(env.AUTH_FAILED_LOGIN_DELAY_MS).toBe('1');
       expect(env.TZ).toBe('Etc/UTC');
       expect(env.LANG).toBe('C.UTF-8');
       expect(env.LC_ALL).toBe('C.UTF-8');

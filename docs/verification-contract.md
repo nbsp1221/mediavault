@@ -10,10 +10,11 @@ The expanded base sequence is:
 bun run verify:hermetic-inputs
 bun run lint
 bun run typecheck
-bun run test
+bun run test:smoke:dev-auth
 bun run test:coverage
 bun run test:mutation:changed
 bun run build
+bun run test:smoke:bun-auth:run
 ```
 
 ## Required Verification Matrix
@@ -37,9 +38,13 @@ appropriate Docker gate.
 
 - `lint` checks static lint rules.
 - `typecheck` checks React Router type generation plus TypeScript contracts.
-- `test` covers Vitest plus the Bun auth smoke layers under env-scrubbed conditions.
+- `test` covers Vitest plus the Bun auth smoke layers under env-scrubbed conditions for standalone local test runs.
+- `check` uses `test:coverage` as the full Vitest gate because Vitest coverage is a test execution mode and fails on test failures. It does not run `test:run` separately, so the base gate does not execute the full Vitest suite twice.
+- `check` composes the lower-level Bun smoke scripts directly so the required production build is performed once and reused by the Bun production smoke.
+- Test-facing Vitest, Stryker, and runtime smoke helpers set `AUTH_FAILED_LOGIN_DELAY_MS=1` unless explicitly overridden so invalid-login verification does not spend most of its runtime waiting on the production slowdown. The production default remains owned by `app/shared/config/auth.server.ts`.
+- Vitest uses its default file-level parallelism. Do not add a global `fileParallelism: false` override unless a measured concurrency defect requires a narrower follow-up design.
 - `test:coverage` runs `test:coverage:collect`, `test:coverage:regression`, and `test:coverage:changed`.
-- `test:coverage:collect` runs Vitest coverage through `@vitest/coverage-v8`, writes `coverage/coverage-summary.json`, and enforces the calibrated 80% thresholds through `vite.config.ts`.
+- `test:coverage:collect` runs the full Vitest suite in coverage mode through `@vitest/coverage-v8`, writes `coverage/coverage-summary.json`, fails on test failures, and enforces the calibrated 80% thresholds through `vite.config.ts`.
 - `test:coverage:regression` compares `coverage/coverage-summary.json` against `tests/coverage-regression-baseline.json` and fails when any calibrated project metric drops more than 0.25 percentage points below the committed baseline.
 - `test:coverage:changed` is the local changed-file coverage gate. It discovers staged, unstaged, and untracked local production files relative to `HEAD`, filters them through the same calibrated production coverage scope as `vite.config.ts`, and invokes Vitest with explicit `--coverage.include` arguments plus the 80% threshold values. It is changed-file aggregate coverage for eligible changed files, not line-level patch coverage.
 - `test:coverage:update-baseline` explicitly ratchets improved baseline metrics upward. It is reviewable, mutating, and must not run inside `bun run test:coverage` or `bun run check`.
@@ -124,7 +129,7 @@ GitHub Actions should run dedicated jobs for:
 
 CI may split the base verification surfaces into dedicated jobs, but the required base
 surface must include the same checks as `bun run check`, including hermetic inputs,
-lint, typecheck, test, coverage collection, coverage regression validation, changed-file mutation execution, and build. Local base verification should use
+lint, typecheck, the full Vitest coverage-mode run, Bun auth smoke coverage, coverage collection, coverage regression validation, changed-file mutation execution, and build. Local base verification should use
 `bun run check` so the hermetic input and coverage guards cannot be skipped.
 
 The coverage regression baseline is `tests/coverage-regression-baseline.json`. It records

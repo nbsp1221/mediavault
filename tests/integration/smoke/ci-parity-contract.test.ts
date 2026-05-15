@@ -52,6 +52,7 @@ describe('CI parity contract', () => {
     expect(packageJson.scripts['test:coverage:changed']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-coverage-changed.ts');
     expect(packageJson.scripts['test:coverage:update-baseline']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/update-coverage-baseline.ts');
     expect(packageJson.scripts.check).toContain('bun run test:coverage');
+    expect(packageJson.scripts.check).not.toContain('bun run test:run');
     expect(packageJson.scripts.check).not.toContain('test:coverage:update-baseline');
     expect(workflow).not.toContain('test:coverage:changed');
     expect(workflow).toContain('coverage:');
@@ -68,6 +69,8 @@ describe('CI parity contract', () => {
     }));
     expect(baseline).not.toHaveProperty('minimumFloorPercentage');
     expect(viteConfig).toContain('provider: \'v8\'');
+    expect(viteConfig).not.toContain('fileParallelism: false');
+    expect(viteConfig).toContain('name: \'modules\'');
     expect(viteConfig).toContain('include: [\'app/**/*.{ts,tsx}\']');
     expect(viteConfig).toContain('lines: 80');
     expect(viteConfig).toContain('branches: 80');
@@ -95,17 +98,29 @@ describe('CI parity contract', () => {
       scripts: Record<string, string>;
     };
     const verificationContract = await readFile('docs/verification-contract.md', 'utf8');
+    const vitestEntrypoint = await readFile('scripts/run-vitest.ts', 'utf8');
     const changedFileMutationEntrypoint = await readFile('scripts/test-mutation-changed.ts', 'utf8');
     const changedFileMutationModule = await readFile('scripts/lib/mutation/changed-file-mutation.ts', 'utf8');
     const sharedChangedFilesModule = await readFile('scripts/lib/git/local-changed-files.ts', 'utf8');
 
+    expect(vitestEntrypoint).toContain('process.env.AUTH_FAILED_LOGIN_DELAY_MS ??= \'1\'');
+    expect(vitestEntrypoint).toContain('env: process.env');
     expect(packageJson.scripts['test:mutation']).toBe(
-      'LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file x stryker run',
+      'AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file x stryker run',
     );
     expect(packageJson.scripts['test:mutation:changed']).toBe(
-      'LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-mutation-changed.ts',
+      'AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-mutation-changed.ts',
     );
+    expect(packageJson.scripts['test:smoke:bun-auth']).toContain('bun --no-env-file run build');
+    expect(packageJson.scripts['test:smoke:bun-auth']).toContain('bun --no-env-file run test:smoke:bun-auth:run');
+    expect(packageJson.scripts['test:smoke:bun-auth:run']).toBe(
+      'LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file test ./tests/smoke/bun-auth-gate.test.ts',
+    );
+    expect(packageJson.scripts.check).not.toContain('bun run test &&');
+    expect(packageJson.scripts.check).toContain('bun run typecheck && bun run test:smoke:dev-auth');
+    expect(packageJson.scripts.check).toContain('bun run test:smoke:dev-auth && bun run test:coverage');
     expect(packageJson.scripts.check).toContain('bun run test:coverage && bun run test:mutation:changed && bun run build');
+    expect(packageJson.scripts.check).toContain('bun run build && bun run test:smoke:bun-auth:run');
     expect(packageJson.scripts.check).not.toContain('bun run test:mutation &&');
     expect(changedFileMutationEntrypoint).toContain('runChangedFileMutation');
     expect(changedFileMutationEntrypoint).toContain('./lib/mutation/changed-file-mutation');
@@ -117,6 +132,7 @@ describe('CI parity contract', () => {
     expect(changedFileMutationModule).toContain('options.files.join(\',\')');
     expect(sharedChangedFilesModule).toContain('--diff-filter=ACMRT');
     expect(verificationContract).toContain('bun run test:mutation:changed');
+    expect(verificationContract).toContain('Test-facing Vitest, Stryker, and runtime smoke helpers set `AUTH_FAILED_LOGIN_DELAY_MS=1`');
     expect(verificationContract).toContain('does not enforce a mutation-score break threshold');
   });
 
