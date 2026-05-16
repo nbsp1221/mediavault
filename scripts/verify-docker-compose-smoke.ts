@@ -1,12 +1,12 @@
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { addAuthUser } from './auth-add-user';
 
 const POLL_TIMEOUT_MS = 90_000;
 const POLL_INTERVAL_MS = 1_000;
 
 interface ComposeScenario {
+  afterHealthy?: (composeFile: string, projectName: string) => Promise<void>;
   command?: string[];
   env: Record<string, string | undefined>;
   forbiddenLogIncludes?: string[];
@@ -75,6 +75,14 @@ async function runCompose(
   args: string[],
 ) {
   return runCommand(['docker', 'compose', '-p', projectName, '-f', composeFile, ...args]);
+}
+
+async function runComposeExec(
+  composeFile: string,
+  projectName: string,
+  args: string[],
+) {
+  return runCompose(composeFile, projectName, ['exec', '-T', ...args]);
 }
 
 function envBlock(env: Record<string, string | undefined>): string {
@@ -273,6 +281,10 @@ async function runScenario(rootDir: string, imageTag: string, scenario: ComposeS
     }
 
     const state = await waitForExpectedState(composeFile, projectName, scenario);
+    if (scenario.expectedFinalState === 'healthy') {
+      await scenario.afterHealthy?.(composeFile, projectName);
+    }
+
     const logs = await readLogs(composeFile, projectName);
     assertScenarioLogs(scenario, logs);
 
@@ -291,21 +303,69 @@ async function createStorageDir(rootDir: string, name: string): Promise<string> 
   return storageDir;
 }
 
-async function createSeededStorageDir(rootDir: string, name: string): Promise<string> {
-  const storageDir = await createStorageDir(rootDir, name);
-  const result = await addAuthUser({
-    confirmPassword: 'compose-test-password',
-    dbPath: path.join(storageDir, 'db.sqlite'),
-    password: 'compose-test-password',
-    userId: 'compose-test-owner',
-    username: 'owner',
-  });
+async function assertContainerFetchStatus(
+  composeFile: string,
+  projectName: string,
+  name: string,
+  expectedStatus: number,
+  fetchExpression: string,
+): Promise<void> {
+  const result = await runComposeExec(composeFile, projectName, [
+    'mediavault',
+    'bun',
+    '-e',
+    `
+      const response = await (${fetchExpression});
+      if (response.status !== ${expectedStatus}) {
+        const body = await response.text();
+        console.error(\`Expected ${name} status ${expectedStatus}, got \${response.status}: \${body}\`);
+        process.exit(1);
+      }
+    `,
+  ]);
 
-  if (!result.ok) {
-    throw new Error(`Failed to seed Compose auth user: ${result.reason}`);
+  if (result.exitCode !== 0) {
+    throw new Error(`${name} failed:\n${result.stdout}\n${result.stderr}`);
   }
+}
 
-  return storageDir;
+async function verifyBootstrapAdminApi(composeFile: string, projectName: string): Promise<void> {
+  const createUserFetch = `fetch('http://localhost:3000/api/admin/users', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + process.env.MEDIAVAULT_ADMIN_TOKEN,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username: 'owner', password: 'compose-test-password' })
+  })`;
+
+  await assertContainerFetchStatus(
+    composeFile,
+    projectName,
+    'admin bootstrap create user',
+    201,
+    createUserFetch,
+  );
+
+  await assertContainerFetchStatus(
+    composeFile,
+    projectName,
+    'bootstrap create user after first account',
+    403,
+    createUserFetch,
+  );
+
+  await assertContainerFetchStatus(
+    composeFile,
+    projectName,
+    'login with bootstrap-created user',
+    200,
+    `fetch('http://localhost:3000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'owner', password: 'compose-test-password' })
+    })`,
+  );
 }
 
 async function main(): Promise<void> {
@@ -329,6 +389,8 @@ async function main(): Promise<void> {
     }
 
     const baseEnv = {
+      MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
+      MEDIAVAULT_ADMIN_TOKEN: 'compose-test-admin-token',
       NODE_ENV: 'production',
       PORT: '3000',
       STORAGE_DIR: '/app/storage',
@@ -336,17 +398,19 @@ async function main(): Promise<void> {
       VIDEO_MASTER_ENCRYPTION_SEED: 'compose-test-master-encryption-seed',
     };
     const forbiddenSecretLogValues = [
+      baseEnv.MEDIAVAULT_ADMIN_TOKEN,
       baseEnv.VIDEO_JWT_SECRET,
       baseEnv.VIDEO_MASTER_ENCRYPTION_SEED,
     ];
 
     const scenarios: ComposeScenario[] = [
       {
+        afterHealthy: verifyBootstrapAdminApi,
         env: baseEnv,
         expectedFinalState: 'healthy',
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'configured',
-        storageDir: await createSeededStorageDir(rootDir, 'configured'),
+        storageDir: await createStorageDir(rootDir, 'configured'),
       },
       {
         env: {
@@ -380,7 +444,7 @@ async function main(): Promise<void> {
         expectedFinalState: 'unhealthy',
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'missing-media-tool',
-        storageDir: await createSeededStorageDir(rootDir, 'missing-media-tool'),
+        storageDir: await createStorageDir(rootDir, 'missing-media-tool'),
       },
     ];
 

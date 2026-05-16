@@ -87,6 +87,17 @@ export class SqliteSessionRepository implements AuthSessionRepository {
       .run(id);
   }
 
+  async revokeByUserId(userId: string): Promise<void> {
+    const database = await this.getDatabase();
+    await database
+      .prepare(`
+        UPDATE auth_sessions
+        SET is_revoked = 1
+        WHERE user_id = ?
+      `)
+      .run(userId);
+  }
+
   async save(session: AuthSession): Promise<void> {
     const database = await this.getDatabase();
     await database

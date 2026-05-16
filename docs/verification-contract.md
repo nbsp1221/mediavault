@@ -30,6 +30,11 @@ Use this matrix to decide what must run before reporting a task complete.
 | Auth, playback, route wiring, storage, or other runtime-sensitive behavior | base verification bundle + Docker CI-like verification |
 | Runtime-sensitive and browser-visible flow | base verification bundle + Docker CI-like verification + required browser smoke + Playwright MCP or equivalent isolated browser QA when HTTP checks are insufficient |
 
+Account-management changes are auth and runtime-sensitive. If they affect user
+creation, deletion, startup bootstrap, admin tokens, or production readiness, they
+must include Docker smoke coverage of the real operator path rather than relying on
+host-side SQLite seeding.
+
 The base verification bundle is `bun run check`. If a change is both
 storage-sensitive and Docker-sensitive, run both `bun run verify:data-integrity` and the
 appropriate Docker gate.

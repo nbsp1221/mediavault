@@ -11,7 +11,7 @@ export interface CreateAuthUserInput {
 
 export interface AuthUserRepository {
   count: () => Promise<number>;
-  create: (input: CreateAuthUserInput) => Promise<AuthUser>;
+  create: (input: CreateAuthUserInput, options?: { requireFirstUser?: boolean }) => Promise<AuthUser | null>;
   deleteByUsernameKey: (usernameKey: string) => Promise<boolean>;
   findById: (id: string) => Promise<AuthUser | null>;
   findByUsernameKey: (usernameKey: string) => Promise<AuthUser | null>;

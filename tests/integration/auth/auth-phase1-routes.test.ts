@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
-import { addAuthUser } from '../../../scripts/auth-add-user';
 import { getCookieMap, toRequestCookieHeader } from '../../helpers/cookies';
+import { seedRuntimeAuthUser } from '../../support/auth-account';
 
 const VALID_JPEG_FIXTURE_PATH = join(process.cwd(), 'public', 'images', 'video-placeholder.jpg');
 
@@ -135,9 +135,7 @@ describe('auth gate routes', () => {
     storageDir = join(tempDir, 'storage');
     await seedStorage(storageDir);
     databasePath = join(storageDir, 'db.sqlite');
-    await addAuthUser({
-      confirmPassword: 'vault-password',
-      dbPath: databasePath,
+    await seedRuntimeAuthUser(databasePath, {
       password: 'vault-password',
       userId: SEEDED_OWNER_ID,
       username: SEEDED_USERNAME,

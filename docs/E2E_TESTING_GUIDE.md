@@ -170,7 +170,7 @@ Use `bun run verify:e2e-smoke` for the required hermetic browser smoke path.
 Use:
 
 - **Auth account:** hermetic browser paths seed a SQLite-backed account through `tests/support/auth-account.ts`
-- **Manual local QA:** create a local account with `bun run auth:add-user` before signing in through the browser
+- **Manual local QA:** start the app with `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and `MEDIAVAULT_ADMIN_TOKEN`, then create a local account through `POST /api/admin/users` before signing in through the browser
 
 ## Test Assets
 

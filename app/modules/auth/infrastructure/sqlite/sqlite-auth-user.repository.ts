@@ -64,33 +64,61 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
     return row?.count ?? 0;
   }
 
-  async create(input: CreateAuthUserInput): Promise<AuthUser> {
+  async create(
+    input: CreateAuthUserInput,
+    options: { requireFirstUser?: boolean } = {},
+  ): Promise<AuthUser | null> {
     const database = await this.getDatabase();
+    let created = false;
 
-    await database.prepare(`
-      INSERT INTO auth_users (
-        id,
-        username,
-        username_key,
-        password_hash,
-        role,
-        created_at
-      ) VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      input.id,
-      input.username,
-      input.usernameKey,
-      input.passwordHash,
-      input.role,
-      input.createdAt.toISOString(),
-    );
+    await database.transaction(async (transaction) => {
+      const userCount = await transaction.prepare<{ count: number }>(`
+        SELECT COUNT(*) AS count
+        FROM auth_users
+      `).get();
+      const isFirstUser = (userCount?.count ?? 0) === 0;
 
-    const created = await this.findById(input.id);
+      if (options.requireFirstUser && !isFirstUser) {
+        return;
+      }
+
+      await transaction.prepare(`
+        INSERT INTO auth_users (
+          id,
+          username,
+          username_key,
+          password_hash,
+          role,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.username,
+        input.usernameKey,
+        input.passwordHash,
+        input.role,
+        input.createdAt.toISOString(),
+      );
+      created = true;
+
+      if (isFirstUser) {
+        await transaction.prepare(`
+          UPDATE playlists
+          SET owner_id = ?
+        `).run(input.id);
+      }
+    });
+
     if (!created) {
+      return null;
+    }
+
+    const createdUser = await this.findById(input.id);
+    if (!createdUser) {
       throw new Error(`Failed to create auth user ${input.id}`);
     }
 
-    return created;
+    return createdUser;
   }
 
   async deleteByUsernameKey(usernameKey: string): Promise<boolean> {

@@ -70,14 +70,21 @@ export function collectCriticalProductionSecretIssues(
   });
 }
 
-export function collectAuthAccountIssues(input: { authUserCount: number }): ProductionReadinessIssue[] {
+export function collectAuthAccountIssues(input: {
+  adminApiConfig?: AdminApiConfig;
+  authUserCount: number;
+}): ProductionReadinessIssue[] {
   if (input.authUserCount > 0) {
+    return [];
+  }
+
+  if (input.adminApiConfig?.mode === 'bootstrap' && input.adminApiConfig.token) {
     return [];
   }
 
   return [{
     code: 'missing-auth-user',
-    message: 'Production startup preflight failed: no auth users exist; create one with bun run auth:add-user',
+    message: 'Production startup preflight failed: no auth users exist and MEDIAVAULT_ADMIN_API_MODE=bootstrap with MEDIAVAULT_ADMIN_TOKEN is not configured',
     severity: 'startup-blocking',
     subject: 'auth_users',
   }];
@@ -135,3 +142,4 @@ export function createProductionReadinessReport(
     startupBlocked: input.issues.some(issue => issue.severity === 'startup-blocking'),
   };
 }
+import type { AdminApiConfig } from '~/modules/auth/domain/admin-api-config';

@@ -85,13 +85,14 @@ describe('production startup preflight', () => {
   test('readiness changes from ready to not ready when storage probes begin failing after startup', async () => {
     const root = await createTempRoot();
     let storageAvailable = true;
+    const logger = { error: vi.fn(), warn: vi.fn() };
     const services = createRuntimeReadinessServices({
       env: createProductionEnv(),
       getStorageConfig: () => ({
         databasePath: path.join(root, 'storage', 'db.sqlite'),
         storageDir: path.join(root, 'storage'),
       }),
-      logger: { error: vi.fn(), warn: vi.fn() },
+      logger,
       countAuthUsers: async () => 1,
       probeMediaTools: async () => [
         { ok: true, tool: 'ffmpeg' },
@@ -111,6 +112,7 @@ describe('production startup preflight', () => {
     });
 
     await expect(services.checkProductionReadiness()).resolves.toMatchObject({ ready: true });
+    expect(logger.warn).not.toHaveBeenCalled();
 
     storageAvailable = false;
 
@@ -118,6 +120,23 @@ describe('production startup preflight', () => {
       ready: false,
       startupBlocked: true,
     });
+    await expect(services.checkProductionReadiness()).resolves.toMatchObject({
+      ready: false,
+      startupBlocked: true,
+    });
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+
+    storageAvailable = true;
+
+    await expect(services.checkProductionReadiness()).resolves.toMatchObject({ ready: true });
+
+    storageAvailable = false;
+
+    await expect(services.checkProductionReadiness()).resolves.toMatchObject({
+      ready: false,
+      startupBlocked: true,
+    });
+    expect(logger.warn).toHaveBeenCalledTimes(2);
   });
 
   test('readiness rechecks storage on every request while caching expensive media probes briefly', async () => {
@@ -201,7 +220,7 @@ describe('production startup preflight', () => {
     expect(mediaProbeCalls).toBe(1);
   });
 
-  test('rejects production startup when the auth user table is empty', async () => {
+  test('rejects production startup when the auth user table is empty and bootstrap API is unavailable', async () => {
     const root = await createTempRoot();
     const services = createRuntimeReadinessServices({
       env: createProductionEnv(),
@@ -214,6 +233,45 @@ describe('production startup preflight', () => {
       runDatabaseStartupProbe: async () => {},
     });
 
-    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('auth users');
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('MEDIAVAULT_ADMIN_API_MODE');
+  });
+
+  test('allows production startup with zero users when bootstrap admin API has a token', async () => {
+    const root = await createTempRoot();
+    const services = createRuntimeReadinessServices({
+      env: createProductionEnv({
+        MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
+        MEDIAVAULT_ADMIN_TOKEN: 'admin-token',
+      }),
+      getStorageConfig: () => ({
+        databasePath: path.join(root, 'storage', 'db.sqlite'),
+        storageDir: path.join(root, 'storage'),
+      }),
+      countAuthUsers: async () => 0,
+      logger: { error: vi.fn(), warn: vi.fn() },
+      runDatabaseStartupProbe: async () => {},
+    });
+
+    await expect(services.assertProductionStartupPreflight()).resolves.toBeUndefined();
+  });
+
+  test('rejects invalid admin API mode without masking it as a database failure', async () => {
+    const root = await createTempRoot();
+    const services = createRuntimeReadinessServices({
+      env: createProductionEnv({
+        MEDIAVAULT_ADMIN_API_MODE: 'forever',
+        MEDIAVAULT_ADMIN_TOKEN: 'do-not-leak',
+      }),
+      getStorageConfig: () => ({
+        databasePath: path.join(root, 'storage', 'db.sqlite'),
+        storageDir: path.join(root, 'storage'),
+      }),
+      countAuthUsers: async () => 0,
+      logger: { error: vi.fn(), warn: vi.fn() },
+      runDatabaseStartupProbe: async () => {},
+    });
+
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('MEDIAVAULT_ADMIN_API_MODE');
+    await expect(services.assertProductionStartupPreflight()).rejects.not.toThrow('do-not-leak');
   });
 });

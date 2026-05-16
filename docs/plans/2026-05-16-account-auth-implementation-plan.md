@@ -1,5 +1,7 @@
 # Account Auth Implementation Plan
 
+> **Superseded on 2026-05-16:** Local CLI account management was replaced by the server-owned Admin API plan in `docs/plans/2026-05-16-admin-api-account-management-plan.md`. Keep this file as historical context only; do not use it as current implementation guidance.
+
 > **For Codex:** REQUIRED SUB-SKILL: Use `test-driven-development` while implementing this plan task-by-task. Do not create a worktree. Do not spawn subagents. Do not commit.
 
 **Goal:** Replace the shared-password auth gate with SQLite-backed username/password accounts managed by local CLI add/delete commands.

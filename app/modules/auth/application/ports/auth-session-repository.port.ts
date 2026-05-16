@@ -9,6 +9,7 @@ export interface TouchAuthSessionInput {
 export interface AuthSessionRepository {
   findById: (id: string) => Promise<AuthSession | null>;
   revoke: (id: string) => Promise<void>;
+  revokeByUserId: (userId: string) => Promise<void>;
   save: (session: AuthSession) => Promise<void>;
   touch: (input: TouchAuthSessionInput) => Promise<void>;
 }

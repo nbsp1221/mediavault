@@ -156,7 +156,7 @@ claims still match the codebase.
 - Add optional `STORAGE_DIR` and `DATABASE_SQLITE_PATH` examples.
 - Do not ship copy-pasteable public placeholders that satisfy secret presence checks while
   being weak known secrets.
-- Document account creation through `bun run auth:add-user` instead of environment-backed
+- Document account creation through the operator-only `POST /api/admin/users` bootstrap API instead of environment-backed
   shared password auth.
 - Document `VIDEO_MASTER_ENCRYPTION_SEED` as a required free-form secret string. Recommend
   generating a strong random value, but do not document a required length or encoding that

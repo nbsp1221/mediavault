@@ -1,3 +1,4 @@
+import { getAdminApiConfig } from '~/modules/auth/domain/admin-api-config';
 import { SqliteAuthUserRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-auth-user.repository';
 import {
   type MediaToolProbeResult,
@@ -145,9 +146,11 @@ export function createRuntimeReadinessServices(
       return [...secretIssues, ...storageIssues];
     }
 
+    const adminApiConfig = getAdminApiConfig(env);
     try {
       await runDatabaseStartupProbe(storageConfig.databasePath);
       return collectAuthAccountIssues({
+        adminApiConfig,
         authUserCount: await countAuthUsers(storageConfig.databasePath),
       });
     }
@@ -181,6 +184,7 @@ export function createRuntimeReadinessServices(
       const authAccountIssues = secretIssues.length > 0 || storageIssues.length > 0
         ? []
         : collectAuthAccountIssues({
+            adminApiConfig: getAdminApiConfig(env),
             authUserCount: await countAuthUsers(storageConfig.databasePath),
           });
       const startupIssues = [...secretIssues, ...storageIssues, ...authAccountIssues];

@@ -32,7 +32,9 @@ describe('production readiness config contract', () => {
     const runtimeSpec = await readFile('docs/current-runtime-documentation-spec.md', 'utf8');
     const combinedDocs = `${envExample}\n${readme}\n${runtimeSpec}`;
 
-    expect(combinedDocs).toContain('auth:add-user');
+    expect(combinedDocs).toContain('MEDIAVAULT_ADMIN_API_MODE');
+    expect(combinedDocs).toContain('MEDIAVAULT_ADMIN_TOKEN');
+    expect(combinedDocs).toContain('/api/admin/users');
     expect(combinedDocs).toContain('VIDEO_JWT_SECRET');
     expect(combinedDocs).toContain('VIDEO_MASTER_ENCRYPTION_SEED');
     expect(combinedDocs).toContain('Back up');

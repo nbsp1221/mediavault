@@ -22,14 +22,26 @@ bun install
 # Create local environment config
 cp .env.example .env
 
-# Create the first login account
-bun run auth:add-user
-
 # Start development server
 bun run dev
 ```
 
 Access at http://localhost:5173
+
+Create the first local login account after the server starts by enabling the
+operator-only admin API for bootstrap and calling it with a bearer token:
+
+```bash
+MEDIAVAULT_ADMIN_API_MODE=bootstrap \
+MEDIAVAULT_ADMIN_TOKEN=dev-admin-token \
+bun run dev
+
+curl -fsS \
+  -H "Authorization: Bearer dev-admin-token" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"owner","password":"vault-password"}' \
+  http://localhost:5173/api/admin/users
+```
 
 `bun run dev` is for trusted local development only. Do not expose the Vite
 development server through a public tunnel, reverse proxy, or untrusted LAN. Use
@@ -48,13 +60,16 @@ bun run build
 bun start
 ```
 
-Create login accounts with `bun run auth:add-user`; remove them with
-`bun run auth:delete-user`. For protected playback routes, set `VIDEO_JWT_SECRET`.
+Create login accounts through the operator-only admin API. For first-run
+production bootstrap, set `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and
+`MEDIAVAULT_ADMIN_TOKEN` to a deployment-specific random value, start the
+server, and call `POST /api/admin/users` with `Authorization: Bearer <token>`.
+For protected playback routes, set `VIDEO_JWT_SECRET`.
 For ingest and encrypted playback packaging, also set `VIDEO_MASTER_ENCRYPTION_SEED`.
 When `NODE_ENV=production`, Mediavault runs a startup preflight and refuses to start
 without the full vault requirements: at least one auth account in the primary SQLite
-database, `VIDEO_JWT_SECRET`, `VIDEO_MASTER_ENCRYPTION_SEED`, and usable configured
-storage.
+database or a bootstrap admin API token, `VIDEO_JWT_SECRET`,
+`VIDEO_MASTER_ENCRYPTION_SEED`, and usable configured storage.
 
 ## Docker Deployment
 
@@ -144,11 +159,11 @@ Required for the full vault feature set:
 
 - `VIDEO_JWT_SECRET`: signing secret for protected playback token issuance
 - `VIDEO_MASTER_ENCRYPTION_SEED`: master seed for deriving per-video encryption keys
-- at least one SQLite auth account created with `bun run auth:add-user`
+- at least one SQLite auth account, or first-run bootstrap through `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and `MEDIAVAULT_ADMIN_TOKEN`
 
 Generate deployment-specific secret values before starting the full vault path. The
-encryption seed and playback JWT secret are free-form strings, but they should be
-cryptographically random. They do not need to be hex-encoded.
+encryption seed, playback JWT secret, and admin API token are free-form strings, but
+they should be cryptographically random. They do not need to be hex-encoded.
 
 In production, both secret values must be present and non-blank before the app starts.
 Runtime preflight does not score secret strength, so weak values are an operator mistake,
@@ -165,6 +180,8 @@ Optional:
 - `STORAGE_DIR`: override the unified storage root for `db.sqlite`, committed media, and staged uploads
 - `DATABASE_SQLITE_PATH`: override path for the primary SQLite database without moving media artifacts
 - `MEDIAVAULT_STORAGE_MOUNT`: Docker Compose storage mount source for `/app/storage`
+- `MEDIAVAULT_ADMIN_API_MODE`: account management API mode, one of `disabled`, `bootstrap`, or `always`
+- `MEDIAVAULT_ADMIN_TOKEN`: bearer token for the operator-only account management API
 - `AUTH_CLIENT_COOKIE_NAME`: override the client identity cookie name
 - `AUTH_SESSION_COOKIE_NAME`: override the auth session cookie name
 - `AUTH_SESSION_TTL_MS`: session lifetime in milliseconds
@@ -181,7 +198,12 @@ Notes:
 
 - Use `/login` for the site auth flow.
 - Production Docker readiness requires the full vault configuration, writable storage,
-  at least one auth account, and runnable FFmpeg, ffprobe, and Shaka Packager.
+  at least one auth account or bootstrap admin API token, and runnable FFmpeg,
+  ffprobe, and Shaka Packager.
+- In `bootstrap` mode, `POST /api/admin/users` is available only until the first
+  account exists. Use `always` only when you intentionally want ongoing account
+  automation. Rotate the token by updating the environment and restarting the
+  container.
 - Back up `VIDEO_MASTER_ENCRYPTION_SEED` with the storage volume and primary SQLite
   database. Existing encrypted media depends on preserving that value.
 - `KEY_SALT_PREFIX` is optional. If you customize it, preserve it with the encryption seed

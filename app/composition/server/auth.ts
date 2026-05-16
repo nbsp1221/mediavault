@@ -2,10 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { redirect } from 'react-router';
 import type { AuthSession } from '~/modules/auth/domain/auth-session';
 import type { SiteViewer } from '~/modules/auth/domain/site-viewer';
+import { type AdminApiOperation, evaluateAdminApiAccess } from '~/modules/auth/application/policies/admin-api-access.policy';
 import { CreateAuthSessionUseCase } from '~/modules/auth/application/use-cases/create-auth-session.usecase';
+import { CreateAuthUserUseCase } from '~/modules/auth/application/use-cases/create-auth-user.usecase';
+import { DeleteAuthUserUseCase } from '~/modules/auth/application/use-cases/delete-auth-user.usecase';
 import { DestroyAuthSessionUseCase } from '~/modules/auth/application/use-cases/destroy-auth-session.usecase';
 import { EvaluateSiteAccessUseCase } from '~/modules/auth/application/use-cases/evaluate-site-access.usecase';
 import { ResolveAuthSessionUseCase } from '~/modules/auth/application/use-cases/resolve-auth-session.usecase';
+import { getAdminApiConfig } from '~/modules/auth/domain/admin-api-config';
 import { Argon2PasswordHashService } from '~/modules/auth/infrastructure/password/argon2-password-hash.service';
 import { InMemoryLoginAttemptGuard } from '~/modules/auth/infrastructure/security/in-memory-login-attempt-guard';
 import { SqliteAuthUserRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-auth-user.repository';
@@ -33,7 +37,23 @@ interface ServerAuthServices extends ServerSessionServices {
   createAuthSession: CreateAuthSessionUseCase;
 }
 
+export interface ServerAdminAuthServices {
+  countAuthUsers: () => Promise<number>;
+  createAuthUser: CreateAuthUserUseCase;
+  deleteAuthUser: DeleteAuthUserUseCase;
+  evaluateAdminApiAccess: (input: {
+    authorizationHeader: string | null;
+    operation: AdminApiOperation;
+  }) => Promise<ReturnType<typeof evaluateAdminApiAccess>>;
+}
+
+interface CreateServerAdminAuthServicesInput {
+  createUserId?: () => string;
+  dbPath?: string;
+}
+
 let cachedAuthServices: ServerAuthServices | null = null;
+let cachedAdminAuthServices: ServerAdminAuthServices | null = null;
 let cachedSessionServices: CachedServerSessionServices | null = null;
 
 function getCachedServerSessionServices(): CachedServerSessionServices {
@@ -126,6 +146,44 @@ export function getServerAuthServices(): ServerAuthServices {
   };
 
   return cachedAuthServices;
+}
+
+export function createServerAdminAuthServices(
+  input: CreateServerAdminAuthServicesInput = {},
+): ServerAdminAuthServices {
+  const dbPath = input.dbPath ?? getPrimaryStorageConfig().databasePath;
+  const authUserRepository = new SqliteAuthUserRepository({
+    dbPath,
+  });
+
+  return {
+    countAuthUsers: () => authUserRepository.count(),
+    createAuthUser: new CreateAuthUserUseCase({
+      authUserRepository,
+      createUserId: input.createUserId ?? randomUUID,
+      passwordHashService: new Argon2PasswordHashService(),
+    }),
+    deleteAuthUser: new DeleteAuthUserUseCase({
+      authUserRepository,
+      sessionRepository: new SqliteSessionRepository({
+        dbPath,
+      }),
+    }),
+    evaluateAdminApiAccess: async input => evaluateAdminApiAccess({
+      authUserCount: await authUserRepository.count(),
+      authorizationHeader: input.authorizationHeader,
+      config: getAdminApiConfig(),
+      operation: input.operation,
+    }),
+  };
+}
+
+export function getServerAdminAuthServices(): ServerAdminAuthServices {
+  if (!cachedAdminAuthServices) {
+    cachedAdminAuthServices = createServerAdminAuthServices();
+  }
+
+  return cachedAdminAuthServices;
 }
 
 export function getSiteSessionId(request: Request): string | null {

@@ -68,7 +68,7 @@ The legacy tree is gone, and these current runtime contracts remain intentionall
 
 - runtime auth uses the primary SQLite database
 - runtime owner identity comes from the authenticated account session
-- local accounts are created and deleted through `bun run auth:add-user` and `bun run auth:delete-user`
+- accounts are created and deleted through the operator-only admin API protected by `MEDIAVAULT_ADMIN_TOKEN`
 
 ### Active-owned SQLite persistence
 

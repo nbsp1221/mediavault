@@ -6,8 +6,6 @@
     "preinstall": "bun --no-env-file ./scripts/verify-bun-version.ts",
     "build": "react-router build",
     "backfill:browser-playback-fixtures": "bun scripts/backfill-browser-compatible-playback.ts --video-id 68e5f819-15e8-41ef-90ee-8a96769311b7 --video-id 754c6828-621c-4df6-9cf8-a3d77297b85a",
-    "auth:add-user": "bun scripts/auth-add-user.ts",
-    "auth:delete-user": "bun scripts/auth-delete-user.ts",
     "dev": "react-router dev",
     "download:ffmpeg": "bash scripts/download-ffmpeg.sh",
     "download:shaka": "bash scripts/download-shaka-packager.sh",
@@ -47,7 +45,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@inquirer/prompts": "^8.4.3",
     "@libsql/client": "^0.17.2",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
     "@radix-ui/react-collapsible": "^1.1.11",

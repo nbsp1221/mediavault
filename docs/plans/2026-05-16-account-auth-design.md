@@ -1,12 +1,16 @@
 # Account Auth Design
 
-Status: Approved design
+Status: Superseded by `docs/plans/2026-05-16-admin-api-account-management-plan.md`
 Date: 2026-05-16
 Owner: Project maintainer
 
 ## Purpose
 
 Replace the current environment-backed shared-password gate with a database-backed account login system.
+
+This document records the first account-login phase. Account management is now owned
+by the admin API plan, which replaces local CLI account management with a
+server-owned operator API.
 
 Mediavault should authenticate users with a username and password stored in the primary SQLite database. Account registration is not exposed on the web. Accounts are managed only through local CLI tools.
 

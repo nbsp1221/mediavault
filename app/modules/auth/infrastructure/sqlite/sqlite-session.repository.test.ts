@@ -79,10 +79,27 @@ class InMemorySqliteDatabase {
           throw new Error('get() is not supported for UPDATE statements in this test adapter');
         },
         run: async (...params: unknown[]) => {
-          const [id] = params as [string];
-          const row = this.rows.get(id);
+          const [lookup] = params as [string];
+
+          if (sql.includes('WHERE user_id = ?')) {
+            let changes = 0;
+
+            for (const [id, row] of this.rows) {
+              if (row.user_id === lookup) {
+                this.rows.set(id, {
+                  ...row,
+                  is_revoked: 1,
+                });
+                changes += 1;
+              }
+            }
+
+            return { changes };
+          }
+
+          const row = this.rows.get(lookup);
           if (row) {
-            this.rows.set(id, {
+            this.rows.set(lookup, {
               ...row,
               is_revoked: 1,
             });
@@ -188,6 +205,46 @@ describe('SqliteSessionRepository', () => {
       ...session,
       isRevoked: true,
     });
+  });
+
+  test('revokes all sessions for a user', async () => {
+    const repository = new SqliteSessionRepository({
+      createDatabase: async () => new InMemorySqliteDatabase(),
+      dbPath,
+    });
+    const firstSession = SessionPolicy.create({
+      id: 'session-1',
+      now: new Date('2026-03-07T00:00:00.000Z'),
+      ttlMs: 60_000,
+      userId: 'user-1',
+    });
+    const secondSession = SessionPolicy.create({
+      id: 'session-2',
+      now: new Date('2026-03-07T00:00:00.000Z'),
+      ttlMs: 60_000,
+      userId: 'user-1',
+    });
+    const otherSession = SessionPolicy.create({
+      id: 'session-3',
+      now: new Date('2026-03-07T00:00:00.000Z'),
+      ttlMs: 60_000,
+      userId: 'user-2',
+    });
+
+    await repository.save(firstSession);
+    await repository.save(secondSession);
+    await repository.save(otherSession);
+    await repository.revokeByUserId('user-1');
+
+    await expect(repository.findById('session-1')).resolves.toEqual({
+      ...firstSession,
+      isRevoked: true,
+    });
+    await expect(repository.findById('session-2')).resolves.toEqual({
+      ...secondSession,
+      isRevoked: true,
+    });
+    await expect(repository.findById('session-3')).resolves.toEqual(otherSession);
   });
 
   test('touch updates last accessed and expiry', async () => {

@@ -51,6 +51,7 @@ describe('CreateAuthSessionUseCase', () => {
       sessionRepository: {
         findById: async () => null,
         revoke: async () => {},
+        revokeByUserId: async () => {},
         save: async (session) => {
           savedSessions.push(session);
         },
@@ -95,6 +96,7 @@ describe('CreateAuthSessionUseCase', () => {
       sessionRepository: {
         findById: async () => null,
         revoke: async () => {},
+        revokeByUserId: async () => {},
         save,
         touch: async () => {},
       },
@@ -132,6 +134,7 @@ describe('CreateAuthSessionUseCase', () => {
       sessionRepository: {
         findById: async () => null,
         revoke: async () => {},
+        revokeByUserId: async () => {},
         save: async () => {},
         touch: async () => {},
       },
@@ -165,6 +168,7 @@ describe('CreateAuthSessionUseCase', () => {
       sessionRepository: {
         findById: async () => null,
         revoke: async () => {},
+        revokeByUserId: async () => {},
         save: async () => {},
         touch: async () => {},
       },
@@ -219,6 +223,7 @@ describe('CreateAuthSessionUseCase', () => {
       sessionRepository: {
         findById: async () => null,
         revoke: async () => {},
+        revokeByUserId: async () => {},
         save: async () => {},
         touch: async () => {},
       },
@@ -271,6 +276,7 @@ describe('CreateAuthSessionUseCase', () => {
       sessionRepository: {
         findById: async () => null,
         revoke: async () => {},
+        revokeByUserId: async () => {},
         save: async () => {},
         touch: async () => {},
       },
@@ -318,6 +324,7 @@ describe('CreateAuthSessionUseCase', () => {
       sessionRepository: {
         findById: async () => null,
         revoke: async () => {},
+        revokeByUserId: async () => {},
         save: async () => {},
         touch: async () => {},
       },

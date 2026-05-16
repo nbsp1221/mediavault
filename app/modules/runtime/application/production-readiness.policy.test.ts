@@ -60,12 +60,30 @@ describe('production readiness policy', () => {
   test('reports a startup-blocking issue when production has no auth users', () => {
     expect(collectAuthAccountIssues({ authUserCount: 0 })).toEqual([{
       code: 'missing-auth-user',
-      message: 'Production startup preflight failed: no auth users exist; create one with bun run auth:add-user',
+      message: 'Production startup preflight failed: no auth users exist and MEDIAVAULT_ADMIN_API_MODE=bootstrap with MEDIAVAULT_ADMIN_TOKEN is not configured',
       severity: 'startup-blocking',
       subject: 'auth_users',
     }]);
 
     expect(collectAuthAccountIssues({ authUserCount: 1 })).toEqual([]);
+  });
+
+  test('allows zero-user startup when bootstrap admin API has a token', () => {
+    expect(collectAuthAccountIssues({
+      adminApiConfig: {
+        mode: 'bootstrap',
+        token: 'admin-token',
+      },
+      authUserCount: 0,
+    })).toEqual([]);
+
+    expect(collectAuthAccountIssues({
+      adminApiConfig: {
+        mode: 'bootstrap',
+        token: null,
+      },
+      authUserCount: 0,
+    })).toHaveLength(1);
   });
 
   test('classifies storage and database probe failures as startup-blocking production issues', () => {
