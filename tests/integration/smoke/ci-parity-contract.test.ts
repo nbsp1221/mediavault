@@ -133,7 +133,7 @@ describe('CI parity contract', () => {
     expect(sharedChangedFilesModule).toContain('--diff-filter=ACMRT');
     expect(verificationContract).toContain('bun run test:mutation:changed');
     expect(verificationContract).toContain('Test-facing Vitest, Stryker, and runtime smoke helpers set `AUTH_FAILED_LOGIN_DELAY_MS=1`');
-    expect(verificationContract).toContain('does not enforce a mutation-score break threshold');
+    expect(verificationContract).toContain('inherits the shared `thresholds.break: 70` mutation-score floor');
   });
 
   test('keeps Bun version enforcement at install time instead of repeating a custom prefix across every verification script', async () => {

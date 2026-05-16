@@ -144,7 +144,6 @@ describe('changed-file mutation CLI policy', () => {
       'x',
       'stryker',
       'run',
-      'scripts/config/stryker.changed.config.mjs',
       '--mutate',
       'app/modules/library/domain/video-tag.ts,app/widgets/home/ui/HomeLibraryWidget.tsx',
     ]);
@@ -197,7 +196,6 @@ describe('changed-file mutation CLI policy', () => {
       'x',
       'stryker',
       'run',
-      'scripts/config/stryker.changed.config.mjs',
       '--mutate',
       'app/modules/library/domain/video-tag.ts',
     ]]);
@@ -248,15 +246,15 @@ describe('changed-file mutation package and contract policy', () => {
     expect(isMutationEligibleChangedProductionFile('app/features/upload/ui/UploadDropzone.tsx')).toBe(true);
   });
 
-  test('enforces the full mutation score threshold while changed mutation stays non-blocking', async () => {
+  test('enforces the shared mutation score threshold for full and changed mutation', async () => {
     const strykerConfig = await readFile('stryker.config.mjs', 'utf8');
-    const changedStrykerConfig = await readFile('scripts/config/stryker.changed.config.mjs', 'utf8');
+    const changedFileMutationModule = await readFile('scripts/lib/mutation/changed-file-mutation.ts', 'utf8');
 
     expect(strykerConfig).toContain('thresholds: {');
     expect(strykerConfig).toContain('high: 80');
     expect(strykerConfig).toContain('low: 60');
     expect(strykerConfig).toContain('break: 70');
-    expect(changedStrykerConfig).toContain('break: null');
+    expect(changedFileMutationModule).not.toContain('scripts/config/stryker.changed.config.mjs');
   });
 
   test('wires changed-file mutation into check without adding full mutation to check', async () => {
@@ -280,6 +278,6 @@ describe('changed-file mutation package and contract policy', () => {
     expect(contract).toContain('test:mutation:changed');
     expect(contract).toContain('staged, unstaged, and untracked local production files relative to `HEAD`');
     expect(contract).toContain('No changed production files require mutation validation.');
-    expect(contract).toContain('does not enforce a mutation-score break threshold');
+    expect(contract).toContain('inherits the shared `thresholds.break: 70` mutation-score floor');
   });
 });
