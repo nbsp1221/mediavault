@@ -34,7 +34,7 @@
     "typecheck": "react-router typegen && tsc",
     "ui:add": "bunx --bun shadcn@4.0.0 add",
     "verify:hermetic-inputs": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/verify-hermetic-test-inputs.ts",
-    "verify:data-integrity": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/verify-data-integrity.ts",
+    "verify:data-integrity": "MEDIAVAULT_DATABASE_ENCRYPTION_KEY=${MEDIAVAULT_DATABASE_ENCRYPTION_KEY:-mediavault-local-data-integrity-key} LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/verify-data-integrity.ts",
     "check": "bun run verify:hermetic-inputs && bun run lint && bun run typecheck && bun run test:smoke:dev-auth && bun run test:coverage && bun run test:mutation:changed && bun run build && bun run test:smoke:bun-auth:run",
     "verify:docker-compose-smoke": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/verify-docker-compose-smoke.ts",
     "verify:e2e-smoke": "bun run verify:hermetic-inputs && bun run download:ffmpeg && bun run download:shaka && if [ \"${LOCAL_STREAMER_PLAYWRIGHT_INSTALL_DEPS:-}\" = \"true\" ]; then bunx playwright install --with-deps chromium; else bunx playwright install chromium; fi && bun run test:e2e -- tests/e2e/home-library-owner-smoke.spec.ts tests/e2e/add-videos-owner-upload-smoke.spec.ts tests/e2e/playlist-owner-smoke.spec.ts tests/e2e/player-layout.spec.ts tests/e2e/player-playback-compatibility.spec.ts",

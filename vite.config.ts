@@ -137,6 +137,9 @@ export default defineConfig(({ command }) => {
           test: {
             name: 'modules',
             environment: 'node',
+            setupFiles: [
+              'tests/setup/runtime-test-env.setup.ts',
+            ],
             include: [
               'app/modules/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
             ],
@@ -147,6 +150,9 @@ export default defineConfig(({ command }) => {
           test: {
             name: 'integration',
             environment: 'node',
+            setupFiles: [
+              'tests/setup/runtime-test-env.setup.ts',
+            ],
             include: [
               'tests/integration/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
             ],

@@ -1,7 +1,9 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createClient } from '@libsql/client';
 import { afterEach, describe, expect, test } from 'vitest';
+import { TEST_DATABASE_ENCRYPTION_KEY } from '../../../../../tests/support/database-encryption-key';
 import { createPrimarySqliteDatabase } from './primary-sqlite.database';
 
 interface EventRow {
@@ -33,8 +35,14 @@ describe('createPrimarySqliteDatabase', () => {
     const workspace = await mkdtemp(join(tmpdir(), 'local-streamer-primary-sqlite-'));
     workspaces.push(workspace);
     const dbPath = join(workspace, 'storage', 'db.sqlite');
-    const firstDatabase = await createPrimarySqliteDatabase({ dbPath });
-    const secondDatabase = await createPrimarySqliteDatabase({ dbPath });
+    const firstDatabase = await createPrimarySqliteDatabase({
+      dbPath,
+      encryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
+    });
+    const secondDatabase = await createPrimarySqliteDatabase({
+      dbPath,
+      encryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
+    });
     const firstStarted = deferred();
     const releaseFirst = deferred();
     let secondEntered = false;
@@ -86,5 +94,44 @@ describe('createPrimarySqliteDatabase', () => {
       { id: 'first', position: 1 },
       { id: 'second', position: 2 },
     ]);
+  });
+
+  test('opens encrypted database files normally when the key is supplied', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'local-streamer-primary-sqlite-'));
+    workspaces.push(workspace);
+    const dbPath = join(workspace, 'storage', 'db.sqlite');
+    const database = await createPrimarySqliteDatabase({
+      dbPath,
+      encryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
+    });
+
+    await database.exec(`
+      CREATE TABLE secrets (
+        id TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      ) STRICT
+    `);
+    await database.prepare('INSERT INTO secrets (id, value) VALUES (?, ?)').run('secret-1', 'encrypted-value');
+
+    await expect(database.prepare<{ value: string }>('SELECT value FROM secrets WHERE id = ?').get('secret-1'))
+      .resolves.toEqual({ value: 'encrypted-value' });
+  });
+
+  test('does not allow keyless standard opens of encrypted database files', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'local-streamer-primary-sqlite-'));
+    workspaces.push(workspace);
+    const dbPath = join(workspace, 'storage', 'db.sqlite');
+    const database = await createPrimarySqliteDatabase({
+      dbPath,
+      encryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
+    });
+
+    await database.exec('CREATE TABLE encrypted_probe (id TEXT PRIMARY KEY) STRICT');
+
+    const keylessClient = createClient({
+      url: `file:${dbPath}`,
+    });
+
+    await expect(keylessClient.execute('SELECT * FROM encrypted_probe')).rejects.toThrow();
   });
 });

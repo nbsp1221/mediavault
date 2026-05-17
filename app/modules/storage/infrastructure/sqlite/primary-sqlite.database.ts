@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import type { Client, InValue, Transaction } from '@libsql/client';
 import { createClient } from '@libsql/client';
 import { Mutex } from 'async-mutex';
+import { getRequiredDatabaseEncryptionKey } from '../config/storage-config.server';
 
 export interface SqliteRunResult {
   changes: number;
@@ -24,6 +25,7 @@ export interface SqliteDatabaseAdapter {
 
 export interface CreatePrimarySqliteDatabaseInput {
   dbPath: string;
+  encryptionKey?: string;
 }
 
 const writeMutexes = new Map<string, Mutex>();
@@ -137,8 +139,10 @@ export async function createPrimarySqliteDatabase(
   input: CreatePrimarySqliteDatabaseInput,
 ): Promise<SqliteDatabaseAdapter> {
   mkdirSync(dirname(input.dbPath), { recursive: true });
+  const encryptionKey = input.encryptionKey ?? getRequiredDatabaseEncryptionKey();
 
   const client = createClient({
+    encryptionKey,
     url: toFileDatabaseUrl(input.dbPath),
   });
   const database = createLibsqlAdapter(client, getWriteMutex(input.dbPath));

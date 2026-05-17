@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createRuntimeReadinessServices } from '../../../app/composition/server/runtime-readiness';
+import { TEST_DATABASE_ENCRYPTION_KEY } from '../../support/database-encryption-key';
 
 const tempRoots: string[] = [];
 
@@ -14,6 +15,7 @@ async function createTempRoot(): Promise<string> {
 
 function createProductionEnv(overrides: Record<string, string | undefined> = {}) {
   return {
+    MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
     NODE_ENV: 'production',
     VIDEO_JWT_SECRET: 'test-video-jwt-secret',
     VIDEO_MASTER_ENCRYPTION_SEED: 'test-master-encryption-seed',
@@ -30,6 +32,7 @@ describe('production startup preflight', () => {
   test.each([
     'VIDEO_JWT_SECRET',
     'VIDEO_MASTER_ENCRYPTION_SEED',
+    'MEDIAVAULT_DATABASE_ENCRYPTION_KEY',
   ])('rejects production startup when %s is missing', async (missingKey) => {
     const root = await createTempRoot();
     const env = createProductionEnv({
@@ -80,6 +83,34 @@ describe('production startup preflight', () => {
     });
 
     await expect(services.assertProductionStartupPreflight()).rejects.toThrow('DATABASE_SQLITE_PATH');
+  });
+
+  test('does not leak raw encrypted database open failures through startup errors', async () => {
+    const root = await createTempRoot();
+    const logger = { error: vi.fn(), warn: vi.fn() };
+    const secretValue = TEST_DATABASE_ENCRYPTION_KEY;
+    const services = createRuntimeReadinessServices({
+      env: createProductionEnv(),
+      getStorageConfig: () => ({
+        databasePath: path.join(root, 'storage', 'db.sqlite'),
+        storageDir: path.join(root, 'storage'),
+      }),
+      countAuthUsers: async () => 1,
+      logger,
+      probeStorage: async () => [
+        { ok: true, target: 'storage-root' },
+        { ok: true, target: 'database-path' },
+      ],
+      runDatabaseStartupProbe: async () => {
+        throw new Error(`SQLITE_NOTADB ${secretValue} /srv/mediavault/storage/db.sqlite`);
+      },
+    });
+
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('DATABASE_SQLITE_PATH');
+    await expect(services.assertProductionStartupPreflight()).rejects.not.toThrow('SQLITE_NOTADB');
+    await expect(services.assertProductionStartupPreflight()).rejects.not.toThrow(secretValue);
+    expect(logger.error.mock.calls.map(call => call.join(' ')).join('\n')).not.toContain('SQLITE_NOTADB');
+    expect(logger.error.mock.calls.map(call => call.join(' ')).join('\n')).not.toContain(secretValue);
   });
 
   test('readiness changes from ready to not ready when storage probes begin failing after startup', async () => {
@@ -137,6 +168,47 @@ describe('production startup preflight', () => {
       startupBlocked: true,
     });
     expect(logger.warn).toHaveBeenCalledTimes(2);
+  });
+
+  test('readiness reports a generic database issue when auth user counting fails', async () => {
+    const root = await createTempRoot();
+    const logger = { error: vi.fn(), warn: vi.fn() };
+    const secretValue = TEST_DATABASE_ENCRYPTION_KEY;
+    const services = createRuntimeReadinessServices({
+      env: createProductionEnv(),
+      getStorageConfig: () => ({
+        databasePath: path.join(root, 'storage', 'db.sqlite'),
+        storageDir: path.join(root, 'storage'),
+      }),
+      logger,
+      countAuthUsers: async () => {
+        throw new Error(`SQLITE_NOTADB ${secretValue} /srv/mediavault/storage/db.sqlite`);
+      },
+      probeMediaTools: async () => [
+        { ok: true, tool: 'ffmpeg' },
+        { ok: true, tool: 'ffprobe' },
+        { ok: true, tool: 'packager' },
+      ],
+      probeStorage: async () => [
+        { ok: true, target: 'storage-root' },
+        { ok: true, target: 'database-path' },
+      ],
+      runDatabaseStartupProbe: async () => {},
+    });
+
+    const report = await services.checkProductionReadiness();
+
+    expect(report).toMatchObject({
+      ready: false,
+      startupBlocked: true,
+    });
+    expect(report.issues).toContainEqual(expect.objectContaining({
+      code: 'database-unavailable',
+      subject: 'DATABASE_SQLITE_PATH',
+    }));
+    const warningOutput = logger.warn.mock.calls.map(call => call.join(' ')).join('\n');
+    expect(warningOutput).not.toContain('SQLITE_NOTADB');
+    expect(warningOutput).not.toContain(secretValue);
   });
 
   test('readiness rechecks storage on every request while caching expensive media probes briefly', async () => {

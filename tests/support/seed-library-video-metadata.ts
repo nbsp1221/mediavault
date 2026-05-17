@@ -2,6 +2,7 @@ import { normalizeVideoTags } from '~/modules/library/domain/video-tag';
 import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from '~/modules/library/domain/video-taxonomy';
 import { SqliteLibraryVideoMetadataRepository } from '~/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
 import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { installTestDatabaseEncryptionKey } from './database-encryption-key';
 
 export interface SeedLibraryVideoInput {
   addedAt?: string;
@@ -30,6 +31,7 @@ export async function seedLibraryVideoMetadata(
   dbPath: string,
   videos: SeedLibraryVideoInput[],
 ): Promise<void> {
+  installTestDatabaseEncryptionKey();
   const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
   const database = await createMigratedPrimarySqliteDatabase({ dbPath });
   const existingVideos = await repository.findAll();

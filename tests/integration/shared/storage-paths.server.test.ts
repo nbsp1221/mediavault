@@ -3,9 +3,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { TEST_DATABASE_ENCRYPTION_KEY } from '../../support/database-encryption-key';
 
 const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
 const ORIGINAL_DATABASE_SQLITE_PATH = process.env.DATABASE_SQLITE_PATH;
+const ORIGINAL_DATABASE_ENCRYPTION_KEY = process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 const workspaces: string[] = [];
 
@@ -18,6 +20,7 @@ function createWorkspacePath(name: string) {
 function clearPathEnv() {
   delete process.env.DATABASE_SQLITE_PATH;
   delete process.env.STORAGE_DIR;
+  process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = TEST_DATABASE_ENCRYPTION_KEY;
 }
 
 function getExpectedDevelopmentStorageDir() {
@@ -54,6 +57,13 @@ afterEach(() => {
     process.env.DATABASE_SQLITE_PATH = ORIGINAL_DATABASE_SQLITE_PATH;
   }
 
+  if (ORIGINAL_DATABASE_ENCRYPTION_KEY === undefined) {
+    delete process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
+  }
+  else {
+    process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = ORIGINAL_DATABASE_ENCRYPTION_KEY;
+  }
+
   if (ORIGINAL_NODE_ENV === undefined) {
     delete process.env.NODE_ENV;
   }
@@ -76,6 +86,7 @@ describe('shared storage paths', () => {
       videosDir: path.join(storageRoot, 'videos'),
     });
     expect(getPrimaryStorageConfig()).toEqual({
+      databaseEncryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
       databasePath: path.join(storageRoot, 'db.sqlite'),
       stagingDir: path.join(storageRoot, 'staging'),
       stagingTempDir: path.join(storageRoot, 'staging', 'temp'),
@@ -97,6 +108,7 @@ describe('shared storage paths', () => {
       videosDir: path.resolve(process.cwd(), 'storage', 'videos'),
     });
     expect(getPrimaryStorageConfig()).toEqual({
+      databaseEncryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
       databasePath: path.resolve(process.cwd(), 'storage', 'db.sqlite'),
       stagingDir: path.resolve(process.cwd(), 'storage', 'staging'),
       stagingTempDir: path.resolve(process.cwd(), 'storage', 'staging', 'temp'),
@@ -120,6 +132,7 @@ describe('shared storage paths', () => {
       videosDir: path.join(storageDir, 'videos'),
     });
     expect(getPrimaryStorageConfig()).toEqual({
+      databaseEncryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
       databasePath: path.join(storageDir, 'db.sqlite'),
       stagingDir: path.join(storageDir, 'staging'),
       stagingTempDir: path.join(storageDir, 'staging', 'temp'),
@@ -145,11 +158,22 @@ describe('shared storage paths', () => {
       videosDir: path.join(storageRoot, 'videos'),
     });
     expect(getPrimaryStorageConfig()).toEqual({
+      databaseEncryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
       databasePath,
       stagingDir: path.join(storageRoot, 'staging'),
       stagingTempDir: path.join(storageRoot, 'staging', 'temp'),
       storageDir: storageRoot,
       videosDir: path.join(storageRoot, 'videos'),
     });
+  });
+
+  test('requires a database encryption key without validating strength or format', async () => {
+    process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = '  a  ';
+    const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
+
+    expect(getPrimaryStorageConfig().databaseEncryptionKey).toBe('  a  ');
+
+    process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = '   ';
+    expect(() => getPrimaryStorageConfig()).toThrow('MEDIAVAULT_DATABASE_ENCRYPTION_KEY');
   });
 });

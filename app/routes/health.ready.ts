@@ -6,9 +6,14 @@ interface HealthReadyLoaderDependencies {
 
 export function createHealthReadyLoader(deps: HealthReadyLoaderDependencies) {
   return async function loader() {
-    const report = await deps.checkProductionReadiness();
+    try {
+      const report = await deps.checkProductionReadiness();
 
-    return new Response(null, { status: report.ready ? 204 : 503 });
+      return new Response(null, { status: report.ready ? 204 : 503 });
+    }
+    catch {
+      return new Response(null, { status: 503 });
+    }
   };
 }
 

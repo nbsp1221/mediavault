@@ -7,7 +7,6 @@ import {
   collectAuthAccountIssues,
   collectCriticalProductionSecretIssues,
   createProductionReadinessReport,
-  CRITICAL_PRODUCTION_SECRET_KEYS,
   isProductionRuntime,
 } from './production-readiness.policy';
 
@@ -21,6 +20,7 @@ describe('production readiness policy', () => {
 
   test('reports all missing or blank critical production secrets without leaking values', () => {
     const issues = collectCriticalProductionSecretIssues({
+      MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'secret-db-key',
       NODE_ENV: 'production',
       VIDEO_JWT_SECRET: '\n\t',
     });
@@ -34,13 +34,17 @@ describe('production readiness policy', () => {
       'startup-blocking',
       'startup-blocking',
     ]);
-    expect(issues.map(issue => issue.subject)).toEqual(CRITICAL_PRODUCTION_SECRET_KEYS);
+    expect(issues.map(issue => issue.subject)).toEqual([
+      'VIDEO_JWT_SECRET',
+      'VIDEO_MASTER_ENCRYPTION_SEED',
+    ]);
     expect(issues.map(issue => issue.message).join('\n')).not.toContain('   ');
     expect(issues.map(issue => issue.message).join('\n')).not.toContain('\n\t');
   });
 
   test('does not enforce secret strength, length, format, or placeholder-like content at runtime', () => {
     const issues = collectCriticalProductionSecretIssues({
+      MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'a',
       NODE_ENV: 'production',
       VIDEO_JWT_SECRET: 'short',
       VIDEO_MASTER_ENCRYPTION_SEED: 'example',

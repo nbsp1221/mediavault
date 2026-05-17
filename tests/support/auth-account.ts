@@ -1,4 +1,5 @@
 import { createServerAdminAuthServices } from '../../app/composition/server/auth';
+import { installTestDatabaseEncryptionKey } from './database-encryption-key';
 
 export const E2E_AUTH_USERNAME = 'owner';
 export const E2E_AUTH_PASSWORD = 'vault-password';
@@ -9,6 +10,7 @@ export async function seedRuntimeAuthUser(databasePath: string, input: {
   userId?: string;
   username?: string;
 } = {}) {
+  installTestDatabaseEncryptionKey();
   const username = input.username ?? E2E_AUTH_USERNAME;
   const password = input.password ?? E2E_AUTH_PASSWORD;
   const userId = input.userId ?? E2E_AUTH_USER_ID;

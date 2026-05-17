@@ -389,6 +389,7 @@ async function main(): Promise<void> {
     }
 
     const baseEnv = {
+      MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'compose-test-database-encryption-key',
       MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
       MEDIAVAULT_ADMIN_TOKEN: 'compose-test-admin-token',
       NODE_ENV: 'production',
@@ -398,6 +399,7 @@ async function main(): Promise<void> {
       VIDEO_MASTER_ENCRYPTION_SEED: 'compose-test-master-encryption-seed',
     };
     const forbiddenSecretLogValues = [
+      baseEnv.MEDIAVAULT_DATABASE_ENCRYPTION_KEY,
       baseEnv.MEDIAVAULT_ADMIN_TOKEN,
       baseEnv.VIDEO_JWT_SECRET,
       baseEnv.VIDEO_MASTER_ENCRYPTION_SEED,
@@ -422,6 +424,17 @@ async function main(): Promise<void> {
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'missing-secret',
         storageDir: await createStorageDir(rootDir, 'missing-secret'),
+      },
+      {
+        env: {
+          ...baseEnv,
+          MEDIAVAULT_DATABASE_ENCRYPTION_KEY: undefined,
+        },
+        expectLogIncludes: ['MEDIAVAULT_DATABASE_ENCRYPTION_KEY'],
+        expectedFinalState: 'exited',
+        forbiddenLogIncludes: forbiddenSecretLogValues,
+        name: 'missing-database-encryption-key',
+        storageDir: await createStorageDir(rootDir, 'missing-database-encryption-key'),
       },
       {
         command: [

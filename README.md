@@ -34,6 +34,7 @@ operator-only admin API for bootstrap and calling it with a bearer token:
 ```bash
 MEDIAVAULT_ADMIN_API_MODE=bootstrap \
 MEDIAVAULT_ADMIN_TOKEN=dev-admin-token \
+MEDIAVAULT_DATABASE_ENCRYPTION_KEY=dev-database-key \
 bun run dev
 
 curl -fsS \
@@ -64,12 +65,14 @@ Create login accounts through the operator-only admin API. For first-run
 production bootstrap, set `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and
 `MEDIAVAULT_ADMIN_TOKEN` to a deployment-specific random value, start the
 server, and call `POST /api/admin/users` with `Authorization: Bearer <token>`.
-For protected playback routes, set `VIDEO_JWT_SECRET`.
+Set `MEDIAVAULT_DATABASE_ENCRYPTION_KEY` before starting the app so the primary
+SQLite database can be opened. For protected playback routes, set `VIDEO_JWT_SECRET`.
 For ingest and encrypted playback packaging, also set `VIDEO_MASTER_ENCRYPTION_SEED`.
 When `NODE_ENV=production`, Mediavault runs a startup preflight and refuses to start
 without the full vault requirements: at least one auth account in the primary SQLite
 database or a bootstrap admin API token, `VIDEO_JWT_SECRET`,
-`VIDEO_MASTER_ENCRYPTION_SEED`, and usable configured storage.
+`VIDEO_MASTER_ENCRYPTION_SEED`, `MEDIAVAULT_DATABASE_ENCRYPTION_KEY`, and usable
+configured storage.
 
 ## Docker Deployment
 
@@ -157,15 +160,19 @@ cp .env.example .env
 
 Required for the full vault feature set:
 
+- `MEDIAVAULT_DATABASE_ENCRYPTION_KEY`: encryption key for the primary SQLite database at rest
 - `VIDEO_JWT_SECRET`: signing secret for protected playback token issuance
 - `VIDEO_MASTER_ENCRYPTION_SEED`: master seed for deriving per-video encryption keys
 - at least one SQLite auth account, or first-run bootstrap through `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and `MEDIAVAULT_ADMIN_TOKEN`
 
 Generate deployment-specific secret values before starting the full vault path. The
-encryption seed, playback JWT secret, and admin API token are free-form strings, but
-they should be cryptographically random. They do not need to be hex-encoded.
+database encryption key, media encryption seed, playback JWT secret, and admin API
+token are free-form strings, but they should be cryptographically random. They do not
+need to be hex-encoded.
 
-In production, both secret values must be present and non-blank before the app starts.
+The app requires the database encryption key before opening the primary SQLite
+database. In production, all secret values must be present and non-blank before the
+app starts.
 Runtime preflight does not score secret strength, so weak values are an operator mistake,
 not something the app can reliably fix at startup.
 
@@ -206,6 +213,8 @@ Notes:
   container.
 - Back up `VIDEO_MASTER_ENCRYPTION_SEED` with the storage volume and primary SQLite
   database. Existing encrypted media depends on preserving that value.
+- Back up `MEDIAVAULT_DATABASE_ENCRYPTION_KEY` with the primary SQLite database.
+  Existing database contents cannot be opened if that value is lost or changed.
 - `KEY_SALT_PREFIX` is optional. If you customize it, preserve it with the encryption seed
   and storage backup.
 - Video segments use DASH/CENC/ClearKey with a per-video `key.bin`. Thumbnails use the

@@ -7,11 +7,13 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import { seedDemoStorage } from '../../../scripts/seed-demo-storage';
 import { verifyPrimaryStorageIntegrity } from '../../../scripts/verify-data-integrity';
+import { TEST_DATABASE_ENCRYPTION_KEY } from '../../support/database-encryption-key';
 
 const REPO_ROOT = process.cwd();
 const DEMO_SEED_SCRIPT = './scripts/seed-demo-storage.ts';
 const TEST_MASTER_SEED = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const ORIGINAL_DATABASE_SQLITE_PATH = process.env.DATABASE_SQLITE_PATH;
+const ORIGINAL_DATABASE_ENCRYPTION_KEY = process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
 const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
 const ORIGINAL_VIDEO_MASTER_ENCRYPTION_SEED = process.env.VIDEO_MASTER_ENCRYPTION_SEED;
 
@@ -47,6 +49,13 @@ afterEach(async () => {
     process.env.DATABASE_SQLITE_PATH = ORIGINAL_DATABASE_SQLITE_PATH;
   }
 
+  if (ORIGINAL_DATABASE_ENCRYPTION_KEY === undefined) {
+    delete process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
+  }
+  else {
+    process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = ORIGINAL_DATABASE_ENCRYPTION_KEY;
+  }
+
   if (ORIGINAL_STORAGE_DIR === undefined) {
     delete process.env.STORAGE_DIR;
   }
@@ -70,6 +79,7 @@ describe('demo storage seed script', () => {
 
     const result = runSeedScript(['--dry-run'], {
       DATABASE_SQLITE_PATH: databasePath,
+      MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
       STORAGE_DIR: storageDir,
       VIDEO_MASTER_ENCRYPTION_SEED: TEST_MASTER_SEED,
     });
@@ -120,6 +130,7 @@ describe('demo storage seed script', () => {
 
     const result = runSeedScript([], {
       DATABASE_SQLITE_PATH: path.join(storageDir, 'db.sqlite'),
+      MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
       STORAGE_DIR: storageDir,
       VIDEO_MASTER_ENCRYPTION_SEED: undefined,
     });
@@ -141,6 +152,7 @@ describe('demo storage seed script', () => {
     let startCalls = 0;
 
     process.env.DATABASE_SQLITE_PATH = databasePath;
+    process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = TEST_DATABASE_ENCRYPTION_KEY;
     process.env.STORAGE_DIR = storageDir;
     process.env.VIDEO_MASTER_ENCRYPTION_SEED = TEST_MASTER_SEED;
 

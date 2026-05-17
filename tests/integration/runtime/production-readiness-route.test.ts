@@ -49,6 +49,7 @@ describe('production readiness route', () => {
 
     expect(response.status).toBe(503);
     expect(body).toBe('');
+    expect(body).not.toContain('MEDIAVAULT_DATABASE_ENCRYPTION_KEY');
     expect(body).not.toContain('VIDEO_JWT_SECRET');
     expect(body).not.toContain('VIDEO_MASTER_ENCRYPTION_SEED');
     expect(body).not.toContain(secretValue);
@@ -60,5 +61,22 @@ describe('production readiness route', () => {
     expect(body).not.toContain('ffmpeg');
     expect(body).not.toContain('ffprobe');
     expect(body).not.toContain('packager');
+  });
+
+  test('returns 503 with an empty body when production readiness rejects', async () => {
+    const secretValue = 'do-not-leak-secret-value';
+    const loader = createHealthReadyLoader({
+      checkProductionReadiness: async () => {
+        throw new Error(`SQLITE_NOTADB ${secretValue} /srv/mediavault/storage/db.sqlite`);
+      },
+    });
+
+    const response = await loader();
+    const body = await response.text();
+
+    expect(response.status).toBe(503);
+    expect(body).toBe('');
+    expect(body).not.toContain('SQLITE_NOTADB');
+    expect(body).not.toContain(secretValue);
   });
 });

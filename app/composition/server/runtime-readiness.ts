@@ -139,11 +139,15 @@ export function createRuntimeReadinessServices(
     }
 
     const secretIssues = collectCriticalProductionSecretIssues(env);
+    if (secretIssues.length > 0) {
+      return secretIssues;
+    }
+
     const storageConfig = getStorageConfig();
     const storageIssues = classifyStorageProbeResults(await runStorageProbe(storageConfig));
 
-    if (secretIssues.length > 0 || storageIssues.length > 0) {
-      return [...secretIssues, ...storageIssues];
+    if (storageIssues.length > 0) {
+      return storageIssues;
     }
 
     const adminApiConfig = getAdminApiConfig(env);
@@ -179,15 +183,33 @@ export function createRuntimeReadinessServices(
       }
 
       const secretIssues = collectCriticalProductionSecretIssues(env);
+      if (secretIssues.length > 0) {
+        const report = createProductionReadinessReport({
+          issues: secretIssues,
+        });
+        const signature = createIssueSignature(report.issues);
+        if (signature !== lastLoggedReadinessIssueSignature) {
+          logger.warn(formatIssueSummary(report.issues));
+          lastLoggedReadinessIssueSignature = signature;
+        }
+        return report;
+      }
+
       const storageConfig = getStorageConfig();
       const storageIssues = classifyStorageProbeResults(await runStorageProbe(storageConfig));
-      const authAccountIssues = secretIssues.length > 0 || storageIssues.length > 0
-        ? []
-        : collectAuthAccountIssues({
+      let authAccountIssues: ProductionReadinessIssue[] = [];
+      if (storageIssues.length === 0) {
+        try {
+          authAccountIssues = collectAuthAccountIssues({
             adminApiConfig: getAdminApiConfig(env),
             authUserCount: await countAuthUsers(storageConfig.databasePath),
           });
-      const startupIssues = [...secretIssues, ...storageIssues, ...authAccountIssues];
+        }
+        catch {
+          authAccountIssues = [createDatabaseStartupIssue()];
+        }
+      }
+      const startupIssues = [...storageIssues, ...authAccountIssues];
       const mediaIssues = startupIssues.length > 0
         ? []
         : classifyMediaToolProbeResults(await checkMediaTools());

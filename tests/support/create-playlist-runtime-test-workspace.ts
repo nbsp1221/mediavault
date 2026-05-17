@@ -2,6 +2,7 @@ import { createMigratedPrimarySqliteDatabase } from '../../app/modules/storage/i
 import { toRequestCookieHeader } from '../helpers/cookies';
 import { E2E_AUTH_PASSWORD, E2E_AUTH_USERNAME, seedRuntimeAuthUser } from './auth-account';
 import { createRuntimeTestWorkspace } from './create-runtime-test-workspace';
+import { TEST_DATABASE_ENCRYPTION_KEY } from './database-encryption-key';
 import { type SeedLibraryVideoInput, seedLibraryVideoMetadata } from './seed-library-video-metadata';
 
 export const PLAYLIST_OWNER_ID = 'seeded-owner-1';
@@ -72,6 +73,7 @@ interface PlaylistRuntimeWorkspace {
 
 const ENV_KEYS_TO_RESTORE = [
   'DATABASE_SQLITE_PATH',
+  'MEDIAVAULT_DATABASE_ENCRYPTION_KEY',
   'STORAGE_DIR',
   'VIDEO_JWT_SECRET',
   'VIDEO_MASTER_ENCRYPTION_SEED',
@@ -195,13 +197,13 @@ async function seedPlaylists(databasePath: string, input: {
 export async function createPlaylistRuntimeTestWorkspace(
   options: PlaylistRuntimeWorkspaceOptions = {},
 ): Promise<PlaylistRuntimeWorkspace> {
-  const workspace = await createRuntimeTestWorkspace();
-  const playlists = normalizePlaylistRows(options.playlists);
-  const playlistItems = normalizePlaylistItemRows(playlists, options.playlistItems);
   const previousEnv = ENV_KEYS_TO_RESTORE.reduce<PreviousEnvValues>((values, key) => {
     values[key] = process.env[key];
     return values;
   }, {} as PreviousEnvValues);
+  const workspace = await createRuntimeTestWorkspace();
+  const playlists = normalizePlaylistRows(options.playlists);
+  const playlistItems = normalizePlaylistItemRows(playlists, options.playlistItems);
 
   function restoreEnvValue(key: RestorableEnvKey): void {
     const value = previousEnv[key];
@@ -214,6 +216,7 @@ export async function createPlaylistRuntimeTestWorkspace(
   }
 
   process.env.DATABASE_SQLITE_PATH = workspace.databasePath;
+  process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = TEST_DATABASE_ENCRYPTION_KEY;
   process.env.STORAGE_DIR = workspace.storageDir;
   delete process.env.VIDEO_JWT_SECRET;
   delete process.env.VIDEO_MASTER_ENCRYPTION_SEED;
