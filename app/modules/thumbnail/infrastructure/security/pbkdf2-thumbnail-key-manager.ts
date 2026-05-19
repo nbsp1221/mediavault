@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
 import { getStoragePaths } from '~/shared/config/storage-paths.server';
 
 interface ThumbnailKeyGenerationResult {
@@ -29,13 +30,14 @@ export class Pbkdf2ThumbnailKeyManager {
       return;
     }
 
-    if (!env.VIDEO_MASTER_ENCRYPTION_SEED) {
-      throw new Error('VIDEO_MASTER_ENCRYPTION_SEED environment variable is required for video encryption');
+    const masterSeed = env[PUBLIC_ENV_KEYS.mediaKeyDerivationSecret];
+    if (!masterSeed) {
+      throw new Error(`${PUBLIC_ENV_KEYS.mediaKeyDerivationSecret} environment variable is required for video encryption`);
     }
 
-    this.masterSeed = env.VIDEO_MASTER_ENCRYPTION_SEED;
+    this.masterSeed = masterSeed;
     this.rounds = 100000;
-    this.saltPrefix = env.KEY_SALT_PREFIX || 'local-streamer-video-v1';
+    this.saltPrefix = env[PUBLIC_ENV_KEYS.mediaKeyDerivationSalt] || 'local-streamer-video-v1';
   }
 
   async generateAndStoreKey(videoId: string): Promise<ThumbnailKeyGenerationResult> {

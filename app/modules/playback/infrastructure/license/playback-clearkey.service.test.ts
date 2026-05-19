@@ -4,24 +4,24 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
+const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 
 afterEach(() => {
   vi.resetModules();
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
     return;
   }
 
-  process.env.STORAGE_DIR = ORIGINAL_STORAGE_DIR;
+  process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
 });
 
 describe('PlaybackClearKeyService', () => {
   test('reads key.bin from the active playback storage path and preserves the ClearKey response contract', async () => {
     const { PlaybackClearKeyService } = await import('./playback-clearkey.service');
     const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-clearkey-'));
-    process.env.STORAGE_DIR = rootDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = rootDir;
     await mkdir(path.join(rootDir, 'videos', 'video-1'), { recursive: true });
     const keyBuffer = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
     await writeFile(path.join(rootDir, 'videos', 'video-1', 'key.bin'), keyBuffer);
@@ -69,7 +69,7 @@ describe('PlaybackClearKeyService', () => {
   test('throws when the packaged key file is missing', async () => {
     const { PlaybackClearKeyService } = await import('./playback-clearkey.service');
     const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-clearkey-'));
-    process.env.STORAGE_DIR = rootDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = rootDir;
     await mkdir(path.join(rootDir, 'videos', 'video-1'), { recursive: true });
 
     const service = new PlaybackClearKeyService();

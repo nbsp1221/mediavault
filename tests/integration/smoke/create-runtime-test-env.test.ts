@@ -4,33 +4,32 @@ import { createRuntimeTestEnv } from '../../support/create-runtime-test-env';
 describe('createRuntimeTestEnv', () => {
   test('builds a deterministic runtime test env without ambient auth or playback secrets', () => {
     const originalPath = process.env.PATH;
-    const originalVideoJwtSecret = process.env.VIDEO_JWT_SECRET;
-    const originalVideoSeed = process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+    const originalVideoJwtSecret = process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
+    const originalVideoSeed = process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
     const originalNoise = process.env.LOCAL_STREAMER_SMOKE_NOISE;
 
     process.env.PATH = '/tmp/test-bin';
-    process.env.VIDEO_JWT_SECRET = 'ambient-secret';
-    process.env.VIDEO_MASTER_ENCRYPTION_SEED = 'ambient-seed';
+    process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = 'ambient-secret';
+    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = 'ambient-seed';
     process.env.LOCAL_STREAMER_SMOKE_NOISE = 'ambient-noise';
 
     try {
       const env = createRuntimeTestEnv({
-        DATABASE_SQLITE_PATH: '/tmp/storage/db.sqlite',
         PORT: '4173',
-        STORAGE_DIR: '/tmp/storage',
+        MEDIAVAULT_STORAGE_DIR: '/tmp/storage',
       });
 
       expect(env.PATH).toBe('/tmp/test-bin');
-      expect(env.DATABASE_SQLITE_PATH).toBe('/tmp/storage/db.sqlite');
       expect(env.PORT).toBe('4173');
-      expect(env.STORAGE_DIR).toBe('/tmp/storage');
+      expect(env.MEDIAVAULT_STORAGE_DIR).toBe('/tmp/storage');
       expect(env.LOCAL_STREAMER_DISABLE_VITE_ENV_FILES).toBe('true');
-      expect(env.AUTH_FAILED_LOGIN_DELAY_MS).toBe('1');
+      expect(env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS).toBe('1');
+      expect(env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET).toBe('smoke-auth-client-cookie-secret');
       expect(env.TZ).toBe('Etc/UTC');
       expect(env.LANG).toBe('C.UTF-8');
       expect(env.LC_ALL).toBe('C.UTF-8');
-      expect(env.VIDEO_JWT_SECRET).toBe('smoke-video-jwt-secret');
-      expect(env.VIDEO_MASTER_ENCRYPTION_SEED).toBe(
+      expect(env.MEDIAVAULT_PLAYBACK_JWT_SECRET).toBe('smoke-video-jwt-secret');
+      expect(env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET).toBe(
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
       );
       expect(env.LOCAL_STREAMER_SMOKE_NOISE).toBeUndefined();
@@ -44,17 +43,17 @@ describe('createRuntimeTestEnv', () => {
       }
 
       if (originalVideoJwtSecret === undefined) {
-        delete process.env.VIDEO_JWT_SECRET;
+        delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
       }
       else {
-        process.env.VIDEO_JWT_SECRET = originalVideoJwtSecret;
+        process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = originalVideoJwtSecret;
       }
 
       if (originalVideoSeed === undefined) {
-        delete process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+        delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
       }
       else {
-        process.env.VIDEO_MASTER_ENCRYPTION_SEED = originalVideoSeed;
+        process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = originalVideoSeed;
       }
 
       if (originalNoise === undefined) {

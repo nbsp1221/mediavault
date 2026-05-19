@@ -263,10 +263,10 @@ describe('changed-file mutation package and contract policy', () => {
     };
 
     expect(packageJson.scripts['test:mutation']).toBe(
-      'AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file x stryker run',
+      'MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file x stryker run',
     );
     expect(packageJson.scripts['test:mutation:changed']).toBe(
-      'AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-mutation-changed.ts',
+      'MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-mutation-changed.ts',
     );
     expect(packageJson.scripts.check).toContain('bun run test:mutation:changed');
     expect(packageJson.scripts.check).not.toContain('bun run test:mutation &&');

@@ -9,18 +9,18 @@ describe('filesystem library video artifact removal adapter', () => {
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'local-streamer-library-artifacts-'));
-    previousStorageDir = process.env.STORAGE_DIR;
-    process.env.STORAGE_DIR = tempDir;
+    previousStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
+    process.env.MEDIAVAULT_STORAGE_DIR = tempDir;
     vi.resetModules();
     vi.clearAllMocks();
   });
 
   afterEach(async () => {
     if (previousStorageDir === undefined) {
-      delete process.env.STORAGE_DIR;
+      delete process.env.MEDIAVAULT_STORAGE_DIR;
     }
     else {
-      process.env.STORAGE_DIR = previousStorageDir;
+      process.env.MEDIAVAULT_STORAGE_DIR = previousStorageDir;
     }
 
     vi.resetModules();

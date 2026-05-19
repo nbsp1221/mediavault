@@ -1,4 +1,5 @@
 import type { SignOptions } from 'jsonwebtoken';
+import { PUBLIC_ENV_KEYS } from './public-env.server';
 
 interface PlaybackConfig {
   jwtAudience: string;
@@ -12,10 +13,10 @@ const DEFAULT_PLAYBACK_JWT_EXPIRY = '15m';
 const DEFAULT_PLAYBACK_JWT_ISSUER = 'mediavault';
 
 export function getPlaybackConfig(): PlaybackConfig {
-  const jwtSecret = process.env.VIDEO_JWT_SECRET?.trim();
+  const jwtSecret = process.env[PUBLIC_ENV_KEYS.playbackJwtSecret]?.trim();
 
   if (!jwtSecret) {
-    throw new Error('VIDEO_JWT_SECRET environment variable is required for playback authentication');
+    throw new Error(`${PUBLIC_ENV_KEYS.playbackJwtSecret} environment variable is required for playback authentication`);
   }
 
   return {

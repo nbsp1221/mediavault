@@ -333,7 +333,7 @@ async function verifyBootstrapAdminApi(composeFile: string, projectName: string)
   const createUserFetch = `fetch('http://localhost:3000/api/admin/users', {
     method: 'POST',
     headers: {
-      Authorization: 'Bearer ' + process.env.MEDIAVAULT_ADMIN_TOKEN,
+      Authorization: 'Bearer ' + process.env.MEDIAVAULT_ADMIN_API_TOKEN,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ username: 'owner', password: 'compose-test-password' })
@@ -391,18 +391,20 @@ async function main(): Promise<void> {
     const baseEnv = {
       MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'compose-test-database-encryption-key',
       MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
-      MEDIAVAULT_ADMIN_TOKEN: 'compose-test-admin-token',
+      MEDIAVAULT_ADMIN_API_TOKEN: 'compose-test-admin-token',
       NODE_ENV: 'production',
       PORT: '3000',
-      STORAGE_DIR: '/app/storage',
-      VIDEO_JWT_SECRET: 'compose-test-video-jwt-secret',
-      VIDEO_MASTER_ENCRYPTION_SEED: 'compose-test-master-encryption-seed',
+      MEDIAVAULT_STORAGE_DIR: '/app/storage',
+      MEDIAVAULT_PLAYBACK_JWT_SECRET: 'compose-test-video-jwt-secret',
+      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: 'compose-test-master-encryption-seed',
+      MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: 'compose-test-auth-client-cookie-secret',
     };
     const forbiddenSecretLogValues = [
       baseEnv.MEDIAVAULT_DATABASE_ENCRYPTION_KEY,
-      baseEnv.MEDIAVAULT_ADMIN_TOKEN,
-      baseEnv.VIDEO_JWT_SECRET,
-      baseEnv.VIDEO_MASTER_ENCRYPTION_SEED,
+      baseEnv.MEDIAVAULT_ADMIN_API_TOKEN,
+      baseEnv.MEDIAVAULT_PLAYBACK_JWT_SECRET,
+      baseEnv.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET,
+      baseEnv.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET,
     ];
 
     const scenarios: ComposeScenario[] = [
@@ -417,9 +419,9 @@ async function main(): Promise<void> {
       {
         env: {
           ...baseEnv,
-          VIDEO_JWT_SECRET: undefined,
+          MEDIAVAULT_PLAYBACK_JWT_SECRET: undefined,
         },
-        expectLogIncludes: ['VIDEO_JWT_SECRET'],
+        expectLogIncludes: ['MEDIAVAULT_PLAYBACK_JWT_SECRET'],
         expectedFinalState: 'exited',
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'missing-secret',
@@ -437,13 +439,24 @@ async function main(): Promise<void> {
         storageDir: await createStorageDir(rootDir, 'missing-database-encryption-key'),
       },
       {
+        env: {
+          ...baseEnv,
+          MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: undefined,
+        },
+        expectLogIncludes: ['MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET'],
+        expectedFinalState: 'exited',
+        forbiddenLogIncludes: forbiddenSecretLogValues,
+        name: 'missing-auth-client-cookie-secret',
+        storageDir: await createStorageDir(rootDir, 'missing-auth-client-cookie-secret'),
+      },
+      {
         command: [
           'bun',
           '-e',
-          'import { writeFileSync } from \'node:fs\'; writeFileSync(\'/tmp/blocked-storage\', \'blocked\'); process.env.STORAGE_DIR = \'/tmp/blocked-storage\'; await import(\'./build/server/index.js\');',
+          'import { writeFileSync } from \'node:fs\'; writeFileSync(\'/tmp/blocked-storage\', \'blocked\'); process.env.MEDIAVAULT_STORAGE_DIR = \'/tmp/blocked-storage\'; await import(\'./build/server/index.js\');',
         ],
         env: baseEnv,
-        expectLogIncludes: ['STORAGE_DIR'],
+        expectLogIncludes: ['MEDIAVAULT_STORAGE_DIR'],
         expectedFinalState: 'exited',
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'blocked-storage',

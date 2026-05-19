@@ -46,7 +46,7 @@ appropriate Docker gate.
 - `test` covers Vitest plus the Bun auth smoke layers under env-scrubbed conditions for standalone local test runs.
 - `check` uses `test:coverage` as the full Vitest gate because Vitest coverage is a test execution mode and fails on test failures. It does not run `test:run` separately, so the base gate does not execute the full Vitest suite twice.
 - `check` composes the lower-level Bun smoke scripts directly so the required production build is performed once and reused by the Bun production smoke.
-- Test-facing Vitest, Stryker, and runtime smoke helpers set `AUTH_FAILED_LOGIN_DELAY_MS=1` unless explicitly overridden so invalid-login verification does not spend most of its runtime waiting on the production slowdown. The production default remains owned by `app/shared/config/auth.server.ts`.
+- Test-facing Vitest, Stryker, and runtime smoke helpers set `MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1` unless explicitly overridden so invalid-login verification does not spend most of its runtime waiting on the production slowdown. The production default remains owned by `app/shared/config/auth.server.ts`.
 - Vitest uses its default file-level parallelism. Do not add a global `fileParallelism: false` override unless a measured concurrency defect requires a narrower follow-up design.
 - `test:coverage` runs `test:coverage:collect`, `test:coverage:regression`, and `test:coverage:changed`.
 - `test:coverage:collect` runs the full Vitest suite in coverage mode through `@vitest/coverage-v8`, writes `coverage/coverage-summary.json`, fails on test failures, and enforces the calibrated 80% thresholds through `vite.config.ts`.

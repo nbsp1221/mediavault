@@ -17,8 +17,9 @@ function createProductionEnv(overrides: Record<string, string | undefined> = {})
   return {
     MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
     NODE_ENV: 'production',
-    VIDEO_JWT_SECRET: 'test-video-jwt-secret',
-    VIDEO_MASTER_ENCRYPTION_SEED: 'test-master-encryption-seed',
+    MEDIAVAULT_PLAYBACK_JWT_SECRET: 'test-video-jwt-secret',
+    MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: 'test-master-encryption-seed',
+    MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: 'test-auth-client-cookie-secret',
     ...overrides,
   };
 }
@@ -30,9 +31,10 @@ afterEach(async () => {
 
 describe('production startup preflight', () => {
   test.each([
-    'VIDEO_JWT_SECRET',
-    'VIDEO_MASTER_ENCRYPTION_SEED',
+    'MEDIAVAULT_PLAYBACK_JWT_SECRET',
+    'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET',
     'MEDIAVAULT_DATABASE_ENCRYPTION_KEY',
+    'MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET',
   ])('rejects production startup when %s is missing', async (missingKey) => {
     const root = await createTempRoot();
     const env = createProductionEnv({
@@ -51,7 +53,7 @@ describe('production startup preflight', () => {
     await expect(services.assertProductionStartupPreflight()).rejects.toThrow(missingKey);
   });
 
-  test('rejects production startup when STORAGE_DIR is blocked by a regular file', async () => {
+  test('rejects production startup when MEDIAVAULT_STORAGE_DIR is blocked by a regular file', async () => {
     const root = await createTempRoot();
     const storageDir = path.join(root, 'storage');
     await writeFile(storageDir, 'not a directory');
@@ -65,10 +67,10 @@ describe('production startup preflight', () => {
       logger: { error: vi.fn(), warn: vi.fn() },
     });
 
-    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('STORAGE_DIR');
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('MEDIAVAULT_STORAGE_DIR');
   });
 
-  test('rejects production startup when DATABASE_SQLITE_PATH parent is blocked by a regular file', async () => {
+  test('rejects production startup when primary SQLite database parent is blocked by a regular file', async () => {
     const root = await createTempRoot();
     const blockedParent = path.join(root, 'blocked');
     await writeFile(blockedParent, 'not a directory');
@@ -82,7 +84,7 @@ describe('production startup preflight', () => {
       logger: { error: vi.fn(), warn: vi.fn() },
     });
 
-    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('DATABASE_SQLITE_PATH');
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('primary SQLite database path');
   });
 
   test('does not leak raw encrypted database open failures through startup errors', async () => {
@@ -106,7 +108,7 @@ describe('production startup preflight', () => {
       },
     });
 
-    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('DATABASE_SQLITE_PATH');
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('primary SQLite database path');
     await expect(services.assertProductionStartupPreflight()).rejects.not.toThrow('SQLITE_NOTADB');
     await expect(services.assertProductionStartupPreflight()).rejects.not.toThrow(secretValue);
     expect(logger.error.mock.calls.map(call => call.join(' ')).join('\n')).not.toContain('SQLITE_NOTADB');
@@ -204,7 +206,7 @@ describe('production startup preflight', () => {
     });
     expect(report.issues).toContainEqual(expect.objectContaining({
       code: 'database-unavailable',
-      subject: 'DATABASE_SQLITE_PATH',
+      subject: 'primary_database_path',
     }));
     const warningOutput = logger.warn.mock.calls.map(call => call.join(' ')).join('\n');
     expect(warningOutput).not.toContain('SQLITE_NOTADB');
@@ -313,7 +315,7 @@ describe('production startup preflight', () => {
     const services = createRuntimeReadinessServices({
       env: createProductionEnv({
         MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
-        MEDIAVAULT_ADMIN_TOKEN: 'admin-token',
+        MEDIAVAULT_ADMIN_API_TOKEN: 'admin-token',
       }),
       getStorageConfig: () => ({
         databasePath: path.join(root, 'storage', 'db.sqlite'),
@@ -332,7 +334,7 @@ describe('production startup preflight', () => {
     const services = createRuntimeReadinessServices({
       env: createProductionEnv({
         MEDIAVAULT_ADMIN_API_MODE: 'forever',
-        MEDIAVAULT_ADMIN_TOKEN: 'do-not-leak',
+        MEDIAVAULT_ADMIN_API_TOKEN: 'do-not-leak',
       }),
       getStorageConfig: () => ({
         databasePath: path.join(root, 'storage', 'db.sqlite'),

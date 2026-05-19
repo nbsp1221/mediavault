@@ -3,7 +3,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
-const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
+const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 
 const mockDecryptThumbnail = vi.fn();
 
@@ -55,11 +55,11 @@ afterEach(() => {
   vi.doUnmock('~/modules/thumbnail/infrastructure/decryption/thumbnail-decryption.service');
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
     return;
   }
 
-  process.env.STORAGE_DIR = ORIGINAL_STORAGE_DIR;
+  process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
 });
 
 describe('thumbnail composition ownership', () => {

@@ -33,7 +33,7 @@ operator-only admin API for bootstrap and calling it with a bearer token:
 
 ```bash
 MEDIAVAULT_ADMIN_API_MODE=bootstrap \
-MEDIAVAULT_ADMIN_TOKEN=dev-admin-token \
+MEDIAVAULT_ADMIN_API_TOKEN=dev-admin-token \
 MEDIAVAULT_DATABASE_ENCRYPTION_KEY=dev-database-key \
 bun run dev
 
@@ -47,7 +47,7 @@ curl -fsS \
 `bun run dev` is for trusted local development only. Do not expose the Vite
 development server through a public tunnel, reverse proxy, or untrusted LAN. Use
 `bun run build` and `bun run start`, or the Docker production image, for
-deployment. When `STORAGE_DIR` is not set, development runtime storage defaults
+deployment. When `MEDIAVAULT_STORAGE_DIR` is not set, development runtime storage defaults
 to a checkout-specific directory outside this repository so Vite cannot serve
 runtime media, keys, or SQLite data from the project root.
 
@@ -63,16 +63,17 @@ bun start
 
 Create login accounts through the operator-only admin API. For first-run
 production bootstrap, set `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and
-`MEDIAVAULT_ADMIN_TOKEN` to a deployment-specific random value, start the
+`MEDIAVAULT_ADMIN_API_TOKEN` to a deployment-specific random value, start the
 server, and call `POST /api/admin/users` with `Authorization: Bearer <token>`.
 Set `MEDIAVAULT_DATABASE_ENCRYPTION_KEY` before starting the app so the primary
-SQLite database can be opened. For protected playback routes, set `VIDEO_JWT_SECRET`.
-For ingest and encrypted playback packaging, also set `VIDEO_MASTER_ENCRYPTION_SEED`.
+SQLite database can be opened. For protected playback routes, set `MEDIAVAULT_PLAYBACK_JWT_SECRET`.
+For ingest and encrypted playback packaging, also set `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET`.
+For signed client identity cookies, set `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET`.
 When `NODE_ENV=production`, Mediavault runs a startup preflight and refuses to start
 without the full vault requirements: at least one auth account in the primary SQLite
-database or a bootstrap admin API token, `VIDEO_JWT_SECRET`,
-`VIDEO_MASTER_ENCRYPTION_SEED`, `MEDIAVAULT_DATABASE_ENCRYPTION_KEY`, and usable
-configured storage.
+database or a bootstrap admin API token, `MEDIAVAULT_PLAYBACK_JWT_SECRET`,
+`MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET`, `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET`,
+`MEDIAVAULT_DATABASE_ENCRYPTION_KEY`, and usable configured storage.
 
 ## Docker Deployment
 
@@ -120,8 +121,9 @@ no diagnostic body when they fail. Detailed causes are written to container logs
 The app writes to `/app/storage` inside the container.
 
 By default, Docker Compose backs that path with the named volume
-`mediavault-storage`. If you want the files to appear in this checkout, set
-`MEDIAVAULT_STORAGE_MOUNT=./storage` in `.env` before running Compose.
+`mediavault-storage`. If you want a host-visible bind mount, edit
+`docker-compose.yaml` and replace the named volume with a path such as
+`./storage:/app/storage`.
 
 - named volume: Docker-managed storage with fewer host permission issues
 - bind mount: host-visible files, but host ownership and write permissions matter
@@ -161,13 +163,14 @@ cp .env.example .env
 Required for the full vault feature set:
 
 - `MEDIAVAULT_DATABASE_ENCRYPTION_KEY`: encryption key for the primary SQLite database at rest
-- `VIDEO_JWT_SECRET`: signing secret for protected playback token issuance
-- `VIDEO_MASTER_ENCRYPTION_SEED`: master seed for deriving per-video encryption keys
-- at least one SQLite auth account, or first-run bootstrap through `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and `MEDIAVAULT_ADMIN_TOKEN`
+- `MEDIAVAULT_PLAYBACK_JWT_SECRET`: signing secret for protected playback token issuance
+- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET`: secret used to derive per-video encryption keys
+- `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET`: signing secret for client identity cookies
+- at least one SQLite auth account, or first-run bootstrap through `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and `MEDIAVAULT_ADMIN_API_TOKEN`
 
 Generate deployment-specific secret values before starting the full vault path. The
-database encryption key, media encryption seed, playback JWT secret, and admin API
-token are free-form strings, but they should be cryptographically random. They do not
+database encryption key, media key derivation secret, playback JWT secret, auth client
+cookie secret, and admin API token are free-form strings, but they should be cryptographically random. They do not
 need to be hex-encoded.
 
 The app requires the database encryption key before opening the primary SQLite
@@ -183,20 +186,18 @@ bun -e "const { randomBytes } = await import('node:crypto'); console.log(randomB
 
 Optional:
 
-- `KEY_SALT_PREFIX`: salt prefix used during playback key derivation
-- `STORAGE_DIR`: override the unified storage root for `db.sqlite`, committed media, and staged uploads
-- `DATABASE_SQLITE_PATH`: override path for the primary SQLite database without moving media artifacts
-- `MEDIAVAULT_STORAGE_MOUNT`: Docker Compose storage mount source for `/app/storage`
+- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT`: salt value used during playback key derivation
+- `MEDIAVAULT_STORAGE_DIR`: override the unified storage root for `db.sqlite`, committed media, and staged uploads
 - `MEDIAVAULT_ADMIN_API_MODE`: account management API mode, one of `disabled`, `bootstrap`, or `always`
-- `MEDIAVAULT_ADMIN_TOKEN`: bearer token for the operator-only account management API
-- `AUTH_CLIENT_COOKIE_NAME`: override the client identity cookie name
-- `AUTH_SESSION_COOKIE_NAME`: override the auth session cookie name
-- `AUTH_SESSION_TTL_MS`: session lifetime in milliseconds
-- `AUTH_TRUST_PROXY_HEADERS`: trust forwarded client IP headers for rate limiting
-- `AUTH_FAILED_LOGIN_BLOCK_DURATION_MS`: failed-login block duration
-- `AUTH_FAILED_LOGIN_DELAY_MS`: invalid-login response delay
-- `AUTH_FAILED_LOGIN_WINDOW_MS`: failed-login tracking window
-- `AUTH_MAX_FAILED_LOGIN_ATTEMPTS`: failed-login threshold before blocking
+- `MEDIAVAULT_ADMIN_API_TOKEN`: bearer token for the operator-only account management API
+- `MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME`: override the client identity cookie name
+- `MEDIAVAULT_AUTH_SESSION_COOKIE_NAME`: override the auth session cookie name
+- `MEDIAVAULT_AUTH_SESSION_TTL_MS`: session lifetime in milliseconds
+- `MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS`: trust forwarded client IP headers for rate limiting
+- `MEDIAVAULT_AUTH_FAILED_LOGIN_BLOCK_DURATION_MS`: failed-login block duration
+- `MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS`: invalid-login response delay
+- `MEDIAVAULT_AUTH_FAILED_LOGIN_WINDOW_MS`: failed-login tracking window
+- `MEDIAVAULT_AUTH_MAX_FAILED_LOGIN_ATTEMPTS`: failed-login threshold before blocking
 - `FFMPEG_PATH`: override the FFmpeg binary path
 - `FFPROBE_PATH`: override the ffprobe binary path
 - `SHAKA_PACKAGER_PATH`: override the Shaka Packager binary path
@@ -211,11 +212,11 @@ Notes:
   account exists. Use `always` only when you intentionally want ongoing account
   automation. Rotate the token by updating the environment and restarting the
   container.
-- Back up `VIDEO_MASTER_ENCRYPTION_SEED` with the storage volume and primary SQLite
+- Back up `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET` with the storage volume and primary SQLite
   database. Existing encrypted media depends on preserving that value.
 - Back up `MEDIAVAULT_DATABASE_ENCRYPTION_KEY` with the primary SQLite database.
   Existing database contents cannot be opened if that value is lost or changed.
-- `KEY_SALT_PREFIX` is optional. If you customize it, preserve it with the encryption seed
+- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT` is optional. If you customize it, preserve it with the media key derivation secret
   and storage backup.
 - Video segments use DASH/CENC/ClearKey with a per-video `key.bin`. Thumbnails use the
   same per-video key and are stored at `thumbnail.jpg` as a Mediavault AES-128-GCM

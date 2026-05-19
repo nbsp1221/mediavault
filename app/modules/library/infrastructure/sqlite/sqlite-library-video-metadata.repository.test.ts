@@ -9,20 +9,20 @@ import { SqliteLibraryVideoMetadataRepository } from './sqlite-library-video-met
 describe('SqliteLibraryVideoMetadataRepository', () => {
   let dbPath: string;
   let tempDir: string;
-  const originalStorageDir = process.env.STORAGE_DIR;
+  const originalStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'local-streamer-video-metadata-'));
     dbPath = join(tempDir, 'db.sqlite');
-    process.env.STORAGE_DIR = tempDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = tempDir;
   });
 
   afterEach(async () => {
     if (originalStorageDir === undefined) {
-      delete process.env.STORAGE_DIR;
+      delete process.env.MEDIAVAULT_STORAGE_DIR;
     }
     else {
-      process.env.STORAGE_DIR = originalStorageDir;
+      process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
     }
 
     await rm(tempDir, { force: true, recursive: true });

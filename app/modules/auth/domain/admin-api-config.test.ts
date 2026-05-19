@@ -12,7 +12,7 @@ describe('getAdminApiConfig', () => {
   test('parses allowed modes and trims blank tokens', () => {
     expect(getAdminApiConfig({
       MEDIAVAULT_ADMIN_API_MODE: ' bootstrap ',
-      MEDIAVAULT_ADMIN_TOKEN: '  secret-token  ',
+      MEDIAVAULT_ADMIN_API_TOKEN: '  secret-token  ',
     })).toEqual({
       mode: 'bootstrap',
       token: 'secret-token',
@@ -20,7 +20,7 @@ describe('getAdminApiConfig', () => {
 
     expect(getAdminApiConfig({
       MEDIAVAULT_ADMIN_API_MODE: 'always',
-      MEDIAVAULT_ADMIN_TOKEN: '   ',
+      MEDIAVAULT_ADMIN_API_TOKEN: '   ',
     })).toEqual({
       mode: 'always',
       token: null,
@@ -30,13 +30,13 @@ describe('getAdminApiConfig', () => {
   test('throws without leaking token values for invalid modes', () => {
     expect(() => getAdminApiConfig({
       MEDIAVAULT_ADMIN_API_MODE: 'forever',
-      MEDIAVAULT_ADMIN_TOKEN: 'do-not-leak',
+      MEDIAVAULT_ADMIN_API_TOKEN: 'do-not-leak',
     })).toThrow('MEDIAVAULT_ADMIN_API_MODE');
 
     try {
       getAdminApiConfig({
         MEDIAVAULT_ADMIN_API_MODE: 'forever',
-        MEDIAVAULT_ADMIN_TOKEN: 'do-not-leak',
+        MEDIAVAULT_ADMIN_API_TOKEN: 'do-not-leak',
       });
     }
     catch (error) {

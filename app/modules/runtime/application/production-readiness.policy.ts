@@ -1,7 +1,10 @@
+import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
+
 export const CRITICAL_PRODUCTION_SECRET_KEYS = [
-  'MEDIAVAULT_DATABASE_ENCRYPTION_KEY',
-  'VIDEO_JWT_SECRET',
-  'VIDEO_MASTER_ENCRYPTION_SEED',
+  PUBLIC_ENV_KEYS.databaseEncryptionKey,
+  PUBLIC_ENV_KEYS.playbackJwtSecret,
+  PUBLIC_ENV_KEYS.mediaKeyDerivationSecret,
+  PUBLIC_ENV_KEYS.authClientCookieSecret,
 ] as const;
 
 export type CriticalProductionSecretKey = typeof CRITICAL_PRODUCTION_SECRET_KEYS[number];
@@ -85,7 +88,7 @@ export function collectAuthAccountIssues(input: {
 
   return [{
     code: 'missing-auth-user',
-    message: 'Production startup preflight failed: no auth users exist and MEDIAVAULT_ADMIN_API_MODE=bootstrap with MEDIAVAULT_ADMIN_TOKEN is not configured',
+    message: `Production startup preflight failed: no auth users exist and ${PUBLIC_ENV_KEYS.adminApiMode}=bootstrap with ${PUBLIC_ENV_KEYS.adminApiToken} is not configured`,
     severity: 'startup-blocking',
     subject: 'auth_users',
   }];
@@ -102,17 +105,17 @@ export function classifyStorageProbeResults(
     if (result.target === 'database-path') {
       return [{
         code: 'database-unavailable',
-        message: 'Production startup preflight failed: DATABASE_SQLITE_PATH is not usable',
+        message: 'Production startup preflight failed: primary SQLite database path is not usable',
         severity: 'startup-blocking',
-        subject: 'DATABASE_SQLITE_PATH',
+        subject: 'primary_database_path',
       } satisfies ProductionReadinessIssue];
     }
 
     return [{
       code: 'storage-unavailable',
-      message: 'Production startup preflight failed: STORAGE_DIR is not usable',
+      message: `Production startup preflight failed: ${PUBLIC_ENV_KEYS.storageDir} is not usable`,
       severity: 'startup-blocking',
-      subject: 'STORAGE_DIR',
+      subject: PUBLIC_ENV_KEYS.storageDir,
     } satisfies ProductionReadinessIssue];
   });
 }

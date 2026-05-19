@@ -72,11 +72,10 @@ interface PlaylistRuntimeWorkspace {
 }
 
 const ENV_KEYS_TO_RESTORE = [
-  'DATABASE_SQLITE_PATH',
   'MEDIAVAULT_DATABASE_ENCRYPTION_KEY',
-  'STORAGE_DIR',
-  'VIDEO_JWT_SECRET',
-  'VIDEO_MASTER_ENCRYPTION_SEED',
+  'MEDIAVAULT_STORAGE_DIR',
+  'MEDIAVAULT_PLAYBACK_JWT_SECRET',
+  'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET',
 ] as const;
 
 type RestorableEnvKey = typeof ENV_KEYS_TO_RESTORE[number];
@@ -215,11 +214,10 @@ export async function createPlaylistRuntimeTestWorkspace(
     process.env[key] = value;
   }
 
-  process.env.DATABASE_SQLITE_PATH = workspace.databasePath;
   process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = TEST_DATABASE_ENCRYPTION_KEY;
-  process.env.STORAGE_DIR = workspace.storageDir;
-  delete process.env.VIDEO_JWT_SECRET;
-  delete process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+  process.env.MEDIAVAULT_STORAGE_DIR = workspace.storageDir;
+  delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
+  delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
 
   await seedLibraryVideoMetadata(
     workspace.databasePath,

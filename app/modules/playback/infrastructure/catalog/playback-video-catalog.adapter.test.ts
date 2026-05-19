@@ -5,16 +5,16 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { SqliteLibraryVideoMetadataRepository } from '~/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
 import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 
-const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
+const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 
 afterEach(() => {
   vi.resetModules();
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
   }
   else {
-    process.env.STORAGE_DIR = ORIGINAL_STORAGE_DIR;
+    process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
   }
 });
 
@@ -144,7 +144,7 @@ describe('PlaybackVideoCatalogAdapter', () => {
     const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-catalog-'));
     const storageDir = path.join(rootDir, 'storage');
     const sqlitePath = path.join(storageDir, 'db.sqlite');
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     await seedReadyVideo(sqlitePath, {
       id: 'video-1',
       tags: ['Drama', 'Vault'],
@@ -172,7 +172,7 @@ describe('PlaybackVideoCatalogAdapter', () => {
     const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-catalog-'));
     const storageDir = path.join(rootDir, 'storage');
     const sqlitePath = path.join(storageDir, 'db.sqlite');
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath: sqlitePath });
     await repository.create({
       contentTypeSlug: 'movie',
@@ -201,7 +201,7 @@ describe('PlaybackVideoCatalogAdapter', () => {
     const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-catalog-'));
     const storageDir = path.join(rootDir, 'storage');
     const sqlitePath = path.join(storageDir, 'db.sqlite');
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     await seedReadyVideo(sqlitePath, {
       createdAt: new Date('2025-01-02T03:04:05.000Z'),
       id: 'video-1',

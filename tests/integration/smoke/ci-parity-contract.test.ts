@@ -103,13 +103,13 @@ describe('CI parity contract', () => {
     const changedFileMutationModule = await readFile('scripts/lib/mutation/changed-file-mutation.ts', 'utf8');
     const sharedChangedFilesModule = await readFile('scripts/lib/git/local-changed-files.ts', 'utf8');
 
-    expect(vitestEntrypoint).toContain('process.env.AUTH_FAILED_LOGIN_DELAY_MS ??= \'1\'');
+    expect(vitestEntrypoint).toContain('process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS ??= \'1\'');
     expect(vitestEntrypoint).toContain('env: process.env');
     expect(packageJson.scripts['test:mutation']).toBe(
-      'AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file x stryker run',
+      'MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file x stryker run',
     );
     expect(packageJson.scripts['test:mutation:changed']).toBe(
-      'AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-mutation-changed.ts',
+      'MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-mutation-changed.ts',
     );
     expect(packageJson.scripts['test:smoke:bun-auth']).toContain('bun --no-env-file run build');
     expect(packageJson.scripts['test:smoke:bun-auth']).toContain('bun --no-env-file run test:smoke:bun-auth:run');
@@ -132,7 +132,7 @@ describe('CI parity contract', () => {
     expect(changedFileMutationModule).toContain('options.files.join(\',\')');
     expect(sharedChangedFilesModule).toContain('--diff-filter=ACMRT');
     expect(verificationContract).toContain('bun run test:mutation:changed');
-    expect(verificationContract).toContain('Test-facing Vitest, Stryker, and runtime smoke helpers set `AUTH_FAILED_LOGIN_DELAY_MS=1`');
+    expect(verificationContract).toContain('Test-facing Vitest, Stryker, and runtime smoke helpers set `MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1`');
     expect(verificationContract).toContain('inherits the shared `thresholds.break: 70` mutation-score floor');
   });
 

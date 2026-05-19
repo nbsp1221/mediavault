@@ -4,6 +4,7 @@ import {
   getAuthRateLimitConfig,
   getAuthRuntimeState,
 } from '~/shared/config/auth.server';
+import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
 import { getCookieValue, serializeCookie } from '~/shared/lib/http/cookies.server';
 
 const authClientCookieFallbackSecret = randomBytes(32).toString('hex');
@@ -15,7 +16,7 @@ function signAuthClientId(clientId: string, secret: string): string {
 }
 
 function getAuthClientCookieSecret(): string {
-  return process.env.AUTH_CLIENT_COOKIE_SECRET?.trim() || authClientCookieFallbackSecret;
+  return process.env[PUBLIC_ENV_KEYS.authClientCookieSecret]?.trim() || authClientCookieFallbackSecret;
 }
 
 function createSignedAuthClientCookieValue(clientId: string): string {

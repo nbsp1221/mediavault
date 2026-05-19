@@ -3,24 +3,24 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
+const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 
 afterEach(() => {
   vi.resetModules();
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
     return;
   }
 
-  process.env.STORAGE_DIR = ORIGINAL_STORAGE_DIR;
+  process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
 });
 
 describe('PlaybackMediaSegmentService', () => {
   test('serves an entire DASH segment from the active playback storage path', async () => {
     const { PlaybackMediaSegmentService } = await import('./playback-media-segment.service');
     const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-segment-'));
-    process.env.STORAGE_DIR = rootDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = rootDir;
     await mkdir(path.join(rootDir, 'videos', 'video-1', 'video'), { recursive: true });
     await writeFile(path.join(rootDir, 'videos', 'video-1', 'video', 'segment-0001.m4s'), 'segment-data');
 
@@ -52,7 +52,7 @@ describe('PlaybackMediaSegmentService', () => {
   test('preserves range-response metadata and stream handles for partial segment reads', async () => {
     const { PlaybackMediaSegmentService } = await import('./playback-media-segment.service');
     const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-segment-'));
-    process.env.STORAGE_DIR = rootDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = rootDir;
     await mkdir(path.join(rootDir, 'videos', 'video-1', 'video'), { recursive: true });
     await writeFile(path.join(rootDir, 'videos', 'video-1', 'video', 'segment-0001.m4s'), 'segment-data');
 
@@ -87,7 +87,7 @@ describe('PlaybackMediaSegmentService', () => {
   test('throws a not-found error when the requested segment file is missing', async () => {
     const { PlaybackMediaSegmentService } = await import('./playback-media-segment.service');
     const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-segment-'));
-    process.env.STORAGE_DIR = rootDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = rootDir;
     await mkdir(path.join(rootDir, 'videos', 'video-1', 'video'), { recursive: true });
 
     const service = new PlaybackMediaSegmentService();
@@ -126,7 +126,7 @@ describe('PlaybackMediaSegmentService', () => {
   test('throws a range error with the current Content-Range header contract for invalid ranges', async () => {
     const { PlaybackMediaSegmentService } = await import('./playback-media-segment.service');
     const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-segment-'));
-    process.env.STORAGE_DIR = rootDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = rootDir;
     await mkdir(path.join(rootDir, 'videos', 'video-1', 'video'), { recursive: true });
     await writeFile(path.join(rootDir, 'videos', 'video-1', 'video', 'segment-0001.m4s'), 'segment-data');
 

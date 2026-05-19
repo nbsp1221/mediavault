@@ -22,21 +22,24 @@ describe('production readiness policy', () => {
     const issues = collectCriticalProductionSecretIssues({
       MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'secret-db-key',
       NODE_ENV: 'production',
-      VIDEO_JWT_SECRET: '\n\t',
+      MEDIAVAULT_PLAYBACK_JWT_SECRET: '\n\t',
     });
 
-    expect(issues).toHaveLength(2);
+    expect(issues).toHaveLength(3);
     expect(issues.map(issue => issue.code)).toEqual([
+      'missing-critical-secret',
       'missing-critical-secret',
       'missing-critical-secret',
     ]);
     expect(issues.map(issue => issue.severity)).toEqual([
       'startup-blocking',
       'startup-blocking',
+      'startup-blocking',
     ]);
     expect(issues.map(issue => issue.subject)).toEqual([
-      'VIDEO_JWT_SECRET',
-      'VIDEO_MASTER_ENCRYPTION_SEED',
+      'MEDIAVAULT_PLAYBACK_JWT_SECRET',
+      'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET',
+      'MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET',
     ]);
     expect(issues.map(issue => issue.message).join('\n')).not.toContain('   ');
     expect(issues.map(issue => issue.message).join('\n')).not.toContain('\n\t');
@@ -46,8 +49,9 @@ describe('production readiness policy', () => {
     const issues = collectCriticalProductionSecretIssues({
       MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'a',
       NODE_ENV: 'production',
-      VIDEO_JWT_SECRET: 'short',
-      VIDEO_MASTER_ENCRYPTION_SEED: 'example',
+      MEDIAVAULT_PLAYBACK_JWT_SECRET: 'short',
+      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: 'example',
+      MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: 'cookie',
     });
 
     expect(issues).toEqual([]);
@@ -64,7 +68,7 @@ describe('production readiness policy', () => {
   test('reports a startup-blocking issue when production has no auth users', () => {
     expect(collectAuthAccountIssues({ authUserCount: 0 })).toEqual([{
       code: 'missing-auth-user',
-      message: 'Production startup preflight failed: no auth users exist and MEDIAVAULT_ADMIN_API_MODE=bootstrap with MEDIAVAULT_ADMIN_TOKEN is not configured',
+      message: 'Production startup preflight failed: no auth users exist and MEDIAVAULT_ADMIN_API_MODE=bootstrap with MEDIAVAULT_ADMIN_API_TOKEN is not configured',
       severity: 'startup-blocking',
       subject: 'auth_users',
     }]);
@@ -101,9 +105,9 @@ describe('production readiness policy', () => {
     expect(issues).toEqual([
       {
         code: 'database-unavailable',
-        message: 'Production startup preflight failed: DATABASE_SQLITE_PATH is not usable',
+        message: 'Production startup preflight failed: primary SQLite database path is not usable',
         severity: 'startup-blocking',
-        subject: 'DATABASE_SQLITE_PATH',
+        subject: 'primary_database_path',
       },
     ]);
   });

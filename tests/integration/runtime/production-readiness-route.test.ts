@@ -50,8 +50,8 @@ describe('production readiness route', () => {
     expect(response.status).toBe(503);
     expect(body).toBe('');
     expect(body).not.toContain('MEDIAVAULT_DATABASE_ENCRYPTION_KEY');
-    expect(body).not.toContain('VIDEO_JWT_SECRET');
-    expect(body).not.toContain('VIDEO_MASTER_ENCRYPTION_SEED');
+    expect(body).not.toContain('MEDIAVAULT_PLAYBACK_JWT_SECRET');
+    expect(body).not.toContain('MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET');
     expect(body).not.toContain(secretValue);
     expect(body).not.toContain(localStoragePath);
     expect(body).not.toContain(binaryPath);

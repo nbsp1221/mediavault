@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
+const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
 function getExpectedDevelopmentStorageDir() {
@@ -19,10 +19,10 @@ afterEach(() => {
   vi.resetModules();
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
   }
   else {
-    process.env.STORAGE_DIR = ORIGINAL_STORAGE_DIR;
+    process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
   }
 
   if (ORIGINAL_NODE_ENV === undefined) {
@@ -34,8 +34,8 @@ afterEach(() => {
 });
 
 describe('getPlaybackStoragePaths', () => {
-  test('resolves playback videos directory from STORAGE_DIR when provided', async () => {
-    process.env.STORAGE_DIR = '/tmp/playback-storage-root';
+  test('resolves playback videos directory from MEDIAVAULT_STORAGE_DIR when provided', async () => {
+    process.env.MEDIAVAULT_STORAGE_DIR = '/tmp/playback-storage-root';
     const { getPlaybackStoragePaths } = await import('../../../app/modules/playback/infrastructure/storage/playback-storage-paths.server');
 
     expect(getPlaybackStoragePaths()).toEqual({
@@ -44,8 +44,8 @@ describe('getPlaybackStoragePaths', () => {
     });
   });
 
-  test('falls back to the repo storage directory when STORAGE_DIR is absent in production', async () => {
-    delete process.env.STORAGE_DIR;
+  test('falls back to the repo storage directory when MEDIAVAULT_STORAGE_DIR is absent in production', async () => {
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
     process.env.NODE_ENV = 'production';
     const { getPlaybackStoragePaths } = await import('../../../app/modules/playback/infrastructure/storage/playback-storage-paths.server');
 
@@ -55,8 +55,8 @@ describe('getPlaybackStoragePaths', () => {
     });
   });
 
-  test('falls back outside the repo storage directory when STORAGE_DIR is absent in development', async () => {
-    delete process.env.STORAGE_DIR;
+  test('falls back outside the repo storage directory when MEDIAVAULT_STORAGE_DIR is absent in development', async () => {
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
     process.env.NODE_ENV = 'development';
     const { getPlaybackStoragePaths } = await import('../../../app/modules/playback/infrastructure/storage/playback-storage-paths.server');
     const storageDir = getExpectedDevelopmentStorageDir();

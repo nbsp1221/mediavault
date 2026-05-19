@@ -52,10 +52,10 @@ async function seedStagedPlaybackPackage(input: {
 
 describe('backfillBrowserCompatiblePlayback', () => {
   const tempDirs: string[] = [];
-  const originalVideoMasterSeed = process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+  const originalVideoMasterSeed = process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
 
   beforeAll(() => {
-    process.env.VIDEO_MASTER_ENCRYPTION_SEED = 'browser-backfill-test-master-seed';
+    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = 'browser-backfill-test-master-seed';
   });
 
   afterEach(async () => {
@@ -66,11 +66,11 @@ describe('backfillBrowserCompatiblePlayback', () => {
 
   afterAll(() => {
     if (originalVideoMasterSeed === undefined) {
-      delete process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+      delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
       return;
     }
 
-    process.env.VIDEO_MASTER_ENCRYPTION_SEED = originalVideoMasterSeed;
+    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = originalVideoMasterSeed;
   });
 
   it('rebuilds HEVC-only manifests in a temporary workspace and promotes the browser-compatible package in place', async () => {

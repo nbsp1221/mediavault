@@ -7,7 +7,7 @@ import { decryptThumbnailEnvelope, encryptThumbnailEnvelope } from '~/modules/th
 
 describe('browser-compatible playback backfill module', () => {
   let rootDir = '';
-  const originalSeed = process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+  const originalSeed = process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
 
   afterEach(async () => {
     if (rootDir) {
@@ -16,15 +16,15 @@ describe('browser-compatible playback backfill module', () => {
     }
 
     if (originalSeed === undefined) {
-      delete process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+      delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
       return;
     }
 
-    process.env.VIDEO_MASTER_ENCRYPTION_SEED = originalSeed;
+    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = originalSeed;
   });
 
   test('rebuilds an incompatible manifest and re-keys the thumbnail with the canonical playback key', async () => {
-    process.env.VIDEO_MASTER_ENCRYPTION_SEED = 'browser-backfill-test-master-seed';
+    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = 'browser-backfill-test-master-seed';
     rootDir = await mkdtemp(path.join(tmpdir(), 'browser-backfill-module-'));
     const videosDir = path.join(rootDir, 'videos');
     const videoId = 'video-hevc-only';

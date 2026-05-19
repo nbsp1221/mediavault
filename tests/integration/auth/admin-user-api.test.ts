@@ -37,28 +37,24 @@ function adminRequest(url: string, input: {
 }
 
 describe('admin user API', () => {
-  let databasePath: string;
   let storageDir: string;
   let tempDir: string;
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'mediavault-admin-user-api-'));
     storageDir = join(tempDir, 'storage');
-    databasePath = join(storageDir, 'db.sqlite');
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     process.env.MEDIAVAULT_ADMIN_API_MODE = 'bootstrap';
-    process.env.MEDIAVAULT_ADMIN_TOKEN = 'admin-token';
-    process.env.AUTH_FAILED_LOGIN_DELAY_MS = '1';
+    process.env.MEDIAVAULT_ADMIN_API_TOKEN = 'admin-token';
+    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS = '1';
     vi.resetModules();
   });
 
   afterEach(async () => {
-    delete process.env.AUTH_FAILED_LOGIN_DELAY_MS;
-    delete process.env.DATABASE_SQLITE_PATH;
+    delete process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS;
     delete process.env.MEDIAVAULT_ADMIN_API_MODE;
-    delete process.env.MEDIAVAULT_ADMIN_TOKEN;
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_ADMIN_API_TOKEN;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
     vi.resetModules();
     await rm(tempDir, { force: true, recursive: true });
   });

@@ -6,22 +6,22 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 const VALID_JPEG_FIXTURE_PATH = join(process.cwd(), 'public', 'images', 'video-placeholder.jpg');
 
 describe('ThumbnailEncryptionService', () => {
-  const originalStorageDir = process.env.STORAGE_DIR;
+  const originalStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
   let rootDir: string;
   let storageDir: string;
 
   beforeEach(async () => {
     rootDir = await mkdtemp(join(tmpdir(), 'thumbnail-encryption-service-'));
     storageDir = join(rootDir, 'storage');
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
   });
 
   afterEach(async () => {
     if (originalStorageDir === undefined) {
-      delete process.env.STORAGE_DIR;
+      delete process.env.MEDIAVAULT_STORAGE_DIR;
     }
     else {
-      process.env.STORAGE_DIR = originalStorageDir;
+      process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
     }
 
     await rm(rootDir, { force: true, recursive: true });

@@ -378,8 +378,8 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
 
   test('preserves prepared assets when late metadata rollback fails', async () => {
     const storageRoot = await mkdtemp(path.join(tmpdir(), 'local-streamer-rollback-failure-'));
-    const originalStorageDir = process.env.STORAGE_DIR;
-    process.env.STORAGE_DIR = storageRoot;
+    const originalStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageRoot;
 
     try {
       const workspaceRoot = path.join(storageRoot, 'data', 'videos', 'video-123');
@@ -475,10 +475,10 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
     }
     finally {
       if (originalStorageDir === undefined) {
-        delete process.env.STORAGE_DIR;
+        delete process.env.MEDIAVAULT_STORAGE_DIR;
       }
       else {
-        process.env.STORAGE_DIR = originalStorageDir;
+        process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
       }
 
       await rm(storageRoot, { force: true, recursive: true });

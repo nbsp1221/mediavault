@@ -135,9 +135,8 @@ beforeAll(async () => {
   server = Bun.spawn(createNoEnvFileBunCommand(['./build/server/index.js']), {
     cwd: repoRoot,
     env: createRuntimeTestEnv({
-      DATABASE_SQLITE_PATH: databasePath,
       PORT: String(port),
-      STORAGE_DIR: storageDir,
+      MEDIAVAULT_STORAGE_DIR: storageDir,
     }),
     stderr: 'pipe',
     stdout: 'pipe',

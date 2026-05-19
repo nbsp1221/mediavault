@@ -5,8 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import { verifyPrimaryStorageIntegrity } from '../../../scripts/verify-data-integrity';
 
-const ORIGINAL_DATABASE_SQLITE_PATH = process.env.DATABASE_SQLITE_PATH;
-const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
+const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 const workspaces: string[] = [];
 
 function createWorkspace() {
@@ -31,8 +30,7 @@ function writeReadyMediaFiles(storageDir: string, videoId: string) {
 }
 
 beforeEach(() => {
-  delete process.env.DATABASE_SQLITE_PATH;
-  delete process.env.STORAGE_DIR;
+  delete process.env.MEDIAVAULT_STORAGE_DIR;
 });
 
 afterEach(() => {
@@ -40,18 +38,11 @@ afterEach(() => {
     rmSync(workspace, { force: true, recursive: true });
   }
 
-  if (ORIGINAL_DATABASE_SQLITE_PATH === undefined) {
-    delete process.env.DATABASE_SQLITE_PATH;
-  }
-  else {
-    process.env.DATABASE_SQLITE_PATH = ORIGINAL_DATABASE_SQLITE_PATH;
-  }
-
   if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
   }
   else {
-    process.env.STORAGE_DIR = ORIGINAL_STORAGE_DIR;
+    process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
   }
 });
 
@@ -61,8 +52,7 @@ describe('primary storage integrity verification', () => {
     const storageDir = path.join(workspace, 'storage');
     const databasePath = path.join(storageDir, 'db.sqlite');
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
     const report = await verifyPrimaryStorageIntegrity();
 
@@ -81,8 +71,7 @@ describe('primary storage integrity verification', () => {
     const databasePath = path.join(storageDir, 'db.sqlite');
     const videoId = 'integrity-video-1';
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
@@ -131,8 +120,7 @@ describe('primary storage integrity verification', () => {
     const databasePath = path.join(storageDir, 'db.sqlite');
     const videoId = 'missing-asset-video';
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
@@ -158,8 +146,7 @@ describe('primary storage integrity verification', () => {
     const databasePath = path.join(storageDir, 'db.sqlite');
     const videoId = 'escaped-ready-media-video';
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
@@ -231,8 +218,7 @@ describe('primary storage integrity verification', () => {
     const databasePath = path.join(storageDir, 'db.sqlite');
     const videoId = 'escaped-segment-glob-video';
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
@@ -304,8 +290,7 @@ describe('primary storage integrity verification', () => {
     const databasePath = path.join(storageDir, 'db.sqlite');
     const videoId = 'symlink-directory-video';
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
@@ -365,8 +350,7 @@ describe('primary storage integrity verification', () => {
     const databasePath = path.join(storageDir, 'db.sqlite');
     const videoId = 'symlink-glob-directory-video';
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
@@ -424,8 +408,7 @@ describe('primary storage integrity verification', () => {
     const databasePath = path.join(storageDir, 'db.sqlite');
     const videoId = 'symlink-segment-video';
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
@@ -482,8 +465,7 @@ describe('primary storage integrity verification', () => {
     const storageDir = path.join(workspace, 'storage');
     const databasePath = path.join(storageDir, 'db.sqlite');
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();

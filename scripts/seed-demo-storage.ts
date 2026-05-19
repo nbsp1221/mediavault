@@ -127,8 +127,8 @@ async function countExistingDemoVideos(): Promise<number> {
 }
 
 function assertSeedRuntimeEnv(): void {
-  if (!process.env.VIDEO_MASTER_ENCRYPTION_SEED?.trim()) {
-    throw new Error('VIDEO_MASTER_ENCRYPTION_SEED is required to seed encrypted demo media.');
+  if (!process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET?.trim()) {
+    throw new Error('MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET is required to seed encrypted demo media.');
   }
 }
 

@@ -5,32 +5,23 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { seedLibraryVideoMetadata } from '../../support/seed-library-video-metadata';
 
 const cleanupTasks: Array<() => Promise<void>> = [];
-const originalStorageDir = process.env.STORAGE_DIR;
-const originalDatabaseSqlitePath = process.env.DATABASE_SQLITE_PATH;
+const originalStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
 
 afterEach(async () => {
   vi.resetModules();
   await Promise.all(cleanupTasks.splice(0).map(task => task()));
 
   if (originalStorageDir === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
   }
   else {
-    process.env.STORAGE_DIR = originalStorageDir;
-  }
-
-  if (originalDatabaseSqlitePath === undefined) {
-    delete process.env.DATABASE_SQLITE_PATH;
-  }
-  else {
-    process.env.DATABASE_SQLITE_PATH = originalDatabaseSqlitePath;
+    process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
   }
 });
 
 async function seedWorkspace(storageDir: string, videoId: string) {
   await mkdir(storageDir, { recursive: true });
-  process.env.STORAGE_DIR = storageDir;
-  process.env.DATABASE_SQLITE_PATH = path.join(storageDir, 'db.sqlite');
+  process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
   await seedLibraryVideoMetadata(path.join(storageDir, 'db.sqlite'), [
     {
       createdAt: '2026-03-24T00:00:00.000Z',
@@ -46,7 +37,7 @@ async function seedWorkspace(storageDir: string, videoId: string) {
 }
 
 describe('active SQLite metadata path resolution', () => {
-  test('SqliteCanonicalVideoMetadataAdapter binds STORAGE_DIR and DATABASE_SQLITE_PATH at construction time', async () => {
+  test('SqliteCanonicalVideoMetadataAdapter binds MEDIAVAULT_STORAGE_DIR at construction time', async () => {
     const workspaceOne = await mkdtemp(path.join(tmpdir(), 'local-streamer-canonical-path-1-'));
     const workspaceTwo = await mkdtemp(path.join(tmpdir(), 'local-streamer-canonical-path-2-'));
     cleanupTasks.push(async () => rm(workspaceOne, { force: true, recursive: true }));
@@ -57,8 +48,7 @@ describe('active SQLite metadata path resolution', () => {
     await seedWorkspace(storageOne, 'workspace-one-video');
     await seedWorkspace(storageTwo, 'workspace-two-video');
 
-    process.env.STORAGE_DIR = storageOne;
-    process.env.DATABASE_SQLITE_PATH = path.join(storageOne, 'db.sqlite');
+    process.env.MEDIAVAULT_STORAGE_DIR = storageOne;
     vi.resetModules();
 
     const { SqliteCanonicalVideoMetadataAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter');
@@ -68,8 +58,7 @@ describe('active SQLite metadata path resolution', () => {
       expect.objectContaining({ id: 'workspace-one-video' }),
     ]);
 
-    process.env.STORAGE_DIR = storageTwo;
-    process.env.DATABASE_SQLITE_PATH = path.join(storageTwo, 'db.sqlite');
+    process.env.MEDIAVAULT_STORAGE_DIR = storageTwo;
 
     const secondAdapter = new SqliteCanonicalVideoMetadataAdapter();
 
@@ -89,8 +78,7 @@ describe('active SQLite metadata path resolution', () => {
     await seedWorkspace(storageOne, 'mutation-one-video');
     await seedWorkspace(storageTwo, 'mutation-two-video');
 
-    process.env.STORAGE_DIR = storageOne;
-    process.env.DATABASE_SQLITE_PATH = path.join(storageOne, 'db.sqlite');
+    process.env.MEDIAVAULT_STORAGE_DIR = storageOne;
     vi.resetModules();
 
     const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
@@ -100,8 +88,7 @@ describe('active SQLite metadata path resolution', () => {
       expect.objectContaining({ id: 'mutation-one-video' }),
     );
 
-    process.env.STORAGE_DIR = storageTwo;
-    process.env.DATABASE_SQLITE_PATH = path.join(storageTwo, 'db.sqlite');
+    process.env.MEDIAVAULT_STORAGE_DIR = storageTwo;
 
     const secondAdapter = new SqliteLibraryVideoMutationAdapter();
 
@@ -129,8 +116,7 @@ describe('active SQLite metadata path resolution', () => {
       },
     ], null, 2));
 
-    process.env.STORAGE_DIR = storageDir;
-    process.env.DATABASE_SQLITE_PATH = sqlitePath;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     vi.resetModules();
 
     const { SqliteCanonicalVideoMetadataAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter');

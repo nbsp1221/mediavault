@@ -5,22 +5,22 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 describe('Pbkdf2ThumbnailKeyManager', () => {
-  const originalStorageDir = process.env.STORAGE_DIR;
+  const originalStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
   let rootDir: string;
   let storageDir: string;
 
   beforeEach(async () => {
     rootDir = await mkdtemp(join(tmpdir(), 'thumbnail-key-manager-'));
     storageDir = join(rootDir, 'storage');
-    process.env.STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
   });
 
   afterEach(async () => {
     if (originalStorageDir === undefined) {
-      delete process.env.STORAGE_DIR;
+      delete process.env.MEDIAVAULT_STORAGE_DIR;
     }
     else {
-      process.env.STORAGE_DIR = originalStorageDir;
+      process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
     }
 
     await rm(rootDir, { force: true, recursive: true });
@@ -50,12 +50,12 @@ describe('Pbkdf2ThumbnailKeyManager', () => {
     expect(first.key).toEqual(second.key);
   });
 
-  test('non-test mode reads VIDEO_MASTER_ENCRYPTION_SEED and KEY_SALT_PREFIX with 100000 rounds', async () => {
+  test('non-test mode reads MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET and MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT with 100000 rounds', async () => {
     const { Pbkdf2ThumbnailKeyManager } = await import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager');
     const manager = new Pbkdf2ThumbnailKeyManager({
       env: {
-        KEY_SALT_PREFIX: 'vault-salt',
-        VIDEO_MASTER_ENCRYPTION_SEED: 'vault-seed',
+        MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT: 'vault-salt',
+        MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: 'vault-seed',
       },
       testMode: false,
     });

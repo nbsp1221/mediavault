@@ -1,0 +1,10 @@
+export const PUBLIC_ENV_KEYS = {
+  adminApiMode: 'MEDIAVAULT_ADMIN_API_MODE',
+  adminApiToken: 'MEDIAVAULT_ADMIN_API_TOKEN',
+  authClientCookieSecret: 'MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET',
+  databaseEncryptionKey: 'MEDIAVAULT_DATABASE_ENCRYPTION_KEY',
+  mediaKeyDerivationSecret: 'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET',
+  mediaKeyDerivationSalt: 'MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT',
+  playbackJwtSecret: 'MEDIAVAULT_PLAYBACK_JWT_SECRET',
+  storageDir: 'MEDIAVAULT_STORAGE_DIR',
+} as const;

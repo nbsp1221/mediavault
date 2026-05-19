@@ -5,25 +5,17 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { seedLibraryVideoMetadata } from '../../support/seed-library-video-metadata';
 
 const cleanupTasks: Array<() => Promise<void>> = [];
-const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
-const ORIGINAL_DATABASE_SQLITE_PATH = process.env.DATABASE_SQLITE_PATH;
+const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 
 afterEach(async () => {
   await Promise.all(cleanupTasks.splice(0).map(task => task()));
   vi.resetModules();
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
   }
   else {
-    process.env.STORAGE_DIR = ORIGINAL_STORAGE_DIR;
-  }
-
-  if (ORIGINAL_DATABASE_SQLITE_PATH === undefined) {
-    delete process.env.DATABASE_SQLITE_PATH;
-  }
-  else {
-    process.env.DATABASE_SQLITE_PATH = ORIGINAL_DATABASE_SQLITE_PATH;
+    process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
   }
 });
 
@@ -55,8 +47,7 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
     await seedStorage(storageOne, 'workspace-one-video');
     await seedStorage(storageTwo, 'workspace-two-video');
 
-    process.env.STORAGE_DIR = storageOne;
-    process.env.DATABASE_SQLITE_PATH = join(storageOne, 'db.sqlite');
+    process.env.MEDIAVAULT_STORAGE_DIR = storageOne;
     vi.resetModules();
 
     const { PlaybackVideoCatalogAdapter: FirstPlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
@@ -67,8 +58,7 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
       video: expect.objectContaining({ id: 'workspace-one-video' }),
     });
 
-    process.env.STORAGE_DIR = storageTwo;
-    process.env.DATABASE_SQLITE_PATH = join(storageTwo, 'db.sqlite');
+    process.env.MEDIAVAULT_STORAGE_DIR = storageTwo;
     vi.resetModules();
 
     const { PlaybackVideoCatalogAdapter: SecondPlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
@@ -86,7 +76,6 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
 
     const storageDir = join(workspace, 'storage');
     const dataDir = join(storageDir, 'data');
-    const sqlitePath = join(storageDir, 'db.sqlite');
     await mkdir(dataDir, { recursive: true });
     await writeFile(join(dataDir, 'videos.json'), JSON.stringify([
       {
@@ -99,8 +88,7 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
       },
     ], null, 2));
 
-    process.env.STORAGE_DIR = storageDir;
-    process.env.DATABASE_SQLITE_PATH = sqlitePath;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     vi.resetModules();
 
     const { PlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');

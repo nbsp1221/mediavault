@@ -77,9 +77,9 @@ async function countDefaultAuthUsers(databasePath: string): Promise<number> {
 function createDatabaseStartupIssue(): ProductionReadinessIssue {
   return {
     code: 'database-unavailable',
-    message: 'Production startup preflight failed: DATABASE_SQLITE_PATH is not usable',
+    message: 'Production startup preflight failed: primary SQLite database path is not usable',
     severity: 'startup-blocking',
-    subject: 'DATABASE_SQLITE_PATH',
+    subject: 'primary_database_path',
   };
 }
 

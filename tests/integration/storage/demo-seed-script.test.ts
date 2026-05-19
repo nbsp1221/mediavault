@@ -12,10 +12,9 @@ import { TEST_DATABASE_ENCRYPTION_KEY } from '../../support/database-encryption-
 const REPO_ROOT = process.cwd();
 const DEMO_SEED_SCRIPT = './scripts/seed-demo-storage.ts';
 const TEST_MASTER_SEED = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-const ORIGINAL_DATABASE_SQLITE_PATH = process.env.DATABASE_SQLITE_PATH;
 const ORIGINAL_DATABASE_ENCRYPTION_KEY = process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
-const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
-const ORIGINAL_VIDEO_MASTER_ENCRYPTION_SEED = process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
+const ORIGINAL_MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
 
 let workspace: string | null = null;
 
@@ -42,13 +41,6 @@ afterEach(async () => {
     workspace = null;
   }
 
-  if (ORIGINAL_DATABASE_SQLITE_PATH === undefined) {
-    delete process.env.DATABASE_SQLITE_PATH;
-  }
-  else {
-    process.env.DATABASE_SQLITE_PATH = ORIGINAL_DATABASE_SQLITE_PATH;
-  }
-
   if (ORIGINAL_DATABASE_ENCRYPTION_KEY === undefined) {
     delete process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
   }
@@ -57,17 +49,17 @@ afterEach(async () => {
   }
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
   }
   else {
-    process.env.STORAGE_DIR = ORIGINAL_STORAGE_DIR;
+    process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
   }
 
-  if (ORIGINAL_VIDEO_MASTER_ENCRYPTION_SEED === undefined) {
-    delete process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+  if (ORIGINAL_MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET === undefined) {
+    delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
   }
   else {
-    process.env.VIDEO_MASTER_ENCRYPTION_SEED = ORIGINAL_VIDEO_MASTER_ENCRYPTION_SEED;
+    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = ORIGINAL_MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
   }
 });
 
@@ -78,10 +70,9 @@ describe('demo storage seed script', () => {
     const databasePath = path.join(storageDir, 'db.sqlite');
 
     const result = runSeedScript(['--dry-run'], {
-      DATABASE_SQLITE_PATH: databasePath,
       MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
-      STORAGE_DIR: storageDir,
-      VIDEO_MASTER_ENCRYPTION_SEED: TEST_MASTER_SEED,
+      MEDIAVAULT_STORAGE_DIR: storageDir,
+      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: TEST_MASTER_SEED,
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -129,14 +120,13 @@ describe('demo storage seed script', () => {
     const storageDir = path.join(rootDir, 'storage');
 
     const result = runSeedScript([], {
-      DATABASE_SQLITE_PATH: path.join(storageDir, 'db.sqlite'),
       MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
-      STORAGE_DIR: storageDir,
-      VIDEO_MASTER_ENCRYPTION_SEED: undefined,
+      MEDIAVAULT_STORAGE_DIR: storageDir,
+      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: undefined,
     });
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('VIDEO_MASTER_ENCRYPTION_SEED is required');
+    expect(result.stderr).toContain('MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET is required');
     expect(existsSync(storageDir)).toBe(false);
   });
 
@@ -151,10 +141,9 @@ describe('demo storage seed script', () => {
     let generatedSources = 0;
     let startCalls = 0;
 
-    process.env.DATABASE_SQLITE_PATH = databasePath;
     process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = TEST_DATABASE_ENCRYPTION_KEY;
-    process.env.STORAGE_DIR = storageDir;
-    process.env.VIDEO_MASTER_ENCRYPTION_SEED = TEST_MASTER_SEED;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = TEST_MASTER_SEED;
 
     const report = await seedDemoStorage({}, {
       async generateDemoSource(root) {

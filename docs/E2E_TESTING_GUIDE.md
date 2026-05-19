@@ -44,9 +44,9 @@ machine, and do not expose it through a public tunnel, reverse proxy, or
 untrusted LAN. Browser/device testing over LAN requires explicit trust in that
 network and should remain temporary manual QA.
 
-When `STORAGE_DIR` is not set, development runtime storage defaults to a
+When `MEDIAVAULT_STORAGE_DIR` is not set, development runtime storage defaults to a
 checkout-specific directory outside the repository root. If you override
-`STORAGE_DIR` for manual investigation, do not place secrets, test media, SQLite
+`MEDIAVAULT_STORAGE_DIR` for manual investigation, do not place secrets, test media, SQLite
 databases, or generated key material under `public/`, because Vite serves
 `public/` without filesystem deny filtering and copies it into build output.
 
@@ -170,7 +170,7 @@ Use `bun run verify:e2e-smoke` for the required hermetic browser smoke path.
 Use:
 
 - **Auth account:** hermetic browser paths seed a SQLite-backed account through `tests/support/auth-account.ts`
-- **Manual local QA:** start the app with `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and `MEDIAVAULT_ADMIN_TOKEN`, then create a local account through `POST /api/admin/users` before signing in through the browser
+- **Manual local QA:** start the app with `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and `MEDIAVAULT_ADMIN_API_TOKEN`, then create a local account through `POST /api/admin/users` before signing in through the browser
 
 ## Test Assets
 

@@ -5,8 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { TEST_DATABASE_ENCRYPTION_KEY } from '../../support/database-encryption-key';
 
-const ORIGINAL_STORAGE_DIR = process.env.STORAGE_DIR;
-const ORIGINAL_DATABASE_SQLITE_PATH = process.env.DATABASE_SQLITE_PATH;
+const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 const ORIGINAL_DATABASE_ENCRYPTION_KEY = process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 const workspaces: string[] = [];
@@ -18,8 +17,7 @@ function createWorkspacePath(name: string) {
 }
 
 function clearPathEnv() {
-  delete process.env.DATABASE_SQLITE_PATH;
-  delete process.env.STORAGE_DIR;
+  delete process.env.MEDIAVAULT_STORAGE_DIR;
   process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = TEST_DATABASE_ENCRYPTION_KEY;
 }
 
@@ -44,17 +42,10 @@ afterEach(() => {
   }
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
   }
   else {
-    process.env.STORAGE_DIR = ORIGINAL_STORAGE_DIR;
-  }
-
-  if (ORIGINAL_DATABASE_SQLITE_PATH === undefined) {
-    delete process.env.DATABASE_SQLITE_PATH;
-  }
-  else {
-    process.env.DATABASE_SQLITE_PATH = ORIGINAL_DATABASE_SQLITE_PATH;
+    process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
   }
 
   if (ORIGINAL_DATABASE_ENCRYPTION_KEY === undefined) {
@@ -75,7 +66,7 @@ afterEach(() => {
 describe('shared storage paths', () => {
   test('resolves runtime storage paths from the primary storage config', async () => {
     const storageRoot = createWorkspacePath('shared-storage-root');
-    process.env.STORAGE_DIR = storageRoot;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageRoot;
     const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
     const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
 
@@ -96,7 +87,7 @@ describe('shared storage paths', () => {
   });
 
   test('falls back to the repository storage directory for production runtime primary config', async () => {
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
     process.env.NODE_ENV = 'production';
     const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
     const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
@@ -118,8 +109,7 @@ describe('shared storage paths', () => {
   });
 
   test('falls back outside the repository storage directory for development runtime primary config', async () => {
-    delete process.env.DATABASE_SQLITE_PATH;
-    delete process.env.STORAGE_DIR;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
     process.env.NODE_ENV = 'development';
     const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
     const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
@@ -142,11 +132,11 @@ describe('shared storage paths', () => {
     expect(storageDir).not.toBe(path.resolve(process.cwd(), 'storage'));
   });
 
-  test('respects an explicit DATABASE_SQLITE_PATH override while keeping primary media paths', async () => {
+  test('ignores retired DATABASE_SQLITE_PATH and keeps the database under MEDIAVAULT_STORAGE_DIR', async () => {
     const storageRoot = createWorkspacePath('shared-storage-root');
     const databaseRoot = createWorkspacePath('custom-db-root');
     const databasePath = path.join(databaseRoot, 'db.sqlite');
-    process.env.STORAGE_DIR = storageRoot;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageRoot;
     process.env.DATABASE_SQLITE_PATH = databasePath;
     const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
     const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
@@ -159,7 +149,7 @@ describe('shared storage paths', () => {
     });
     expect(getPrimaryStorageConfig()).toEqual({
       databaseEncryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
-      databasePath,
+      databasePath: path.join(storageRoot, 'db.sqlite'),
       stagingDir: path.join(storageRoot, 'staging'),
       stagingTempDir: path.join(storageRoot, 'staging', 'temp'),
       storageDir: storageRoot,

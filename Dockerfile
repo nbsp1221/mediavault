@@ -69,7 +69,7 @@ EXPOSE 3000
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV STORAGE_DIR=/app/storage
+ENV MEDIAVAULT_STORAGE_DIR=/app/storage
 
 # Health check using bun
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

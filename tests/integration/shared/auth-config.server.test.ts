@@ -7,14 +7,14 @@ import {
 } from '../../../app/shared/config/auth.server';
 
 const envKeys = [
-  'AUTH_CLIENT_COOKIE_NAME',
-  'AUTH_FAILED_LOGIN_BLOCK_DURATION_MS',
-  'AUTH_FAILED_LOGIN_DELAY_MS',
-  'AUTH_FAILED_LOGIN_WINDOW_MS',
-  'AUTH_MAX_FAILED_LOGIN_ATTEMPTS',
-  'AUTH_SESSION_COOKIE_NAME',
-  'AUTH_SESSION_TTL_MS',
-  'AUTH_TRUST_PROXY_HEADERS',
+  'MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME',
+  'MEDIAVAULT_AUTH_FAILED_LOGIN_BLOCK_DURATION_MS',
+  'MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS',
+  'MEDIAVAULT_AUTH_FAILED_LOGIN_WINDOW_MS',
+  'MEDIAVAULT_AUTH_MAX_FAILED_LOGIN_ATTEMPTS',
+  'MEDIAVAULT_AUTH_SESSION_COOKIE_NAME',
+  'MEDIAVAULT_AUTH_SESSION_TTL_MS',
+  'MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS',
   'NODE_ENV',
 ] as const;
 
@@ -46,9 +46,9 @@ describe('auth server config', () => {
 
   test('uses secure production cookies and custom cookie names', () => {
     process.env.NODE_ENV = 'production';
-    process.env.AUTH_CLIENT_COOKIE_NAME = 'client_cookie';
-    process.env.AUTH_SESSION_COOKIE_NAME = 'session_cookie';
-    process.env.AUTH_SESSION_TTL_MS = '1234';
+    process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME = 'client_cookie';
+    process.env.MEDIAVAULT_AUTH_SESSION_COOKIE_NAME = 'session_cookie';
+    process.env.MEDIAVAULT_AUTH_SESSION_TTL_MS = '1234';
 
     expect(getAuthCookieConfig()).toEqual({
       clientCookieName: 'client_cookie',
@@ -61,11 +61,11 @@ describe('auth server config', () => {
 
   test('falls back for blank or non-positive numeric settings', () => {
     process.env.NODE_ENV = 'development';
-    process.env.AUTH_FAILED_LOGIN_BLOCK_DURATION_MS = '0';
-    process.env.AUTH_FAILED_LOGIN_DELAY_MS = '-1';
-    process.env.AUTH_FAILED_LOGIN_WINDOW_MS = 'not-a-number';
-    process.env.AUTH_MAX_FAILED_LOGIN_ATTEMPTS = '';
-    process.env.AUTH_SESSION_TTL_MS = '0';
+    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_BLOCK_DURATION_MS = '0';
+    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS = '-1';
+    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_WINDOW_MS = 'not-a-number';
+    process.env.MEDIAVAULT_AUTH_MAX_FAILED_LOGIN_ATTEMPTS = '';
+    process.env.MEDIAVAULT_AUTH_SESSION_TTL_MS = '0';
 
     expect(getAuthConfig()).toEqual(expect.objectContaining({
       failedLoginBlockDurationMs: 300_000,
@@ -87,8 +87,8 @@ describe('auth server config', () => {
     ['NO', false],
     ['off', false],
     ['unexpected', false],
-  ])('parses AUTH_TRUST_PROXY_HEADERS=%s', (value, expected) => {
-    process.env.AUTH_TRUST_PROXY_HEADERS = value;
+  ])('parses MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS=%s', (value, expected) => {
+    process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS = value;
 
     expect(getAuthRateLimitConfig()).toEqual({
       trustProxyHeaders: expected,

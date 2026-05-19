@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { prependNoEnvFile } from './no-env-file-bun';
 
-process.env.AUTH_FAILED_LOGIN_DELAY_MS ??= '1';
+process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS ??= '1';
 
 function runCommand(args: string[]) {
   const result = spawnSync('bun', prependNoEnvFile(args), {

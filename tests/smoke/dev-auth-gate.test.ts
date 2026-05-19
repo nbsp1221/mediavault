@@ -87,7 +87,7 @@ function seedRepoLocalSensitiveCanary() {
     join(repoLocalCanaryStorageDir, 'videos', repoLocalCanaryVideoId, 'key.bin'),
     '0123456789abcdef',
   );
-  writeFileSync(repoLocalEnvCanaryPath, 'VIDEO_JWT_SECRET=do-not-serve');
+  writeFileSync(repoLocalEnvCanaryPath, 'MEDIAVAULT_PLAYBACK_JWT_SECRET=do-not-serve');
 }
 
 async function waitForServerReady(url: string) {
@@ -164,8 +164,7 @@ beforeAll(async () => {
   server = Bun.spawn(createNoEnvFileBunCommand(['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(port)]), {
     cwd: repoRoot,
     env: createRuntimeTestEnv({
-      DATABASE_SQLITE_PATH: databasePath,
-      STORAGE_DIR: storageDir,
+      MEDIAVAULT_STORAGE_DIR: storageDir,
     }),
     stderr: 'pipe',
     stdout: 'pipe',
@@ -210,7 +209,7 @@ describe('Dev auth gate smoke', () => {
 
   test('does not anonymously serve repo-local env or binary files in dev', async () => {
     const sensitivePaths: Array<[string, string]> = [
-      ['/.env.dev-smoke-sensitive-canary', 'VIDEO_JWT_SECRET=do-not-serve'],
+      ['/.env.dev-smoke-sensitive-canary', 'MEDIAVAULT_PLAYBACK_JWT_SECRET=do-not-serve'],
       ['/binaries/dev-smoke-sensitive-canary/tool', 'fake binary'],
     ];
 

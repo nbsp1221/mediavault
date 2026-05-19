@@ -33,13 +33,13 @@ describe('production readiness config contract', () => {
     const combinedDocs = `${envExample}\n${readme}\n${runtimeSpec}`;
 
     expect(combinedDocs).toContain('MEDIAVAULT_ADMIN_API_MODE');
-    expect(combinedDocs).toContain('MEDIAVAULT_ADMIN_TOKEN');
+    expect(combinedDocs).toContain('MEDIAVAULT_ADMIN_API_TOKEN');
     expect(combinedDocs).toContain('/api/admin/users');
-    expect(combinedDocs).toContain('VIDEO_JWT_SECRET');
-    expect(combinedDocs).toContain('VIDEO_MASTER_ENCRYPTION_SEED');
+    expect(combinedDocs).toContain('MEDIAVAULT_PLAYBACK_JWT_SECRET');
+    expect(combinedDocs).toContain('MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET');
     expect(combinedDocs).toContain('Back up');
     expect(combinedDocs).toContain('primary SQLite database');
-    expect(combinedDocs).toContain('KEY_SALT_PREFIX');
+    expect(combinedDocs).toContain('MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT');
     expect(combinedDocs).toContain('optional');
     expect(readme).toContain('3000:3000');
     expect(readme).toContain('HTTPS reverse proxy');

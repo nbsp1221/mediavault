@@ -140,20 +140,18 @@ describe('auth gate routes', () => {
       userId: SEEDED_OWNER_ID,
       username: SEEDED_USERNAME,
     });
-    process.env.DATABASE_SQLITE_PATH = databasePath;
-    process.env.STORAGE_DIR = storageDir;
-    delete process.env.VIDEO_JWT_SECRET;
-    delete process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
+    delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
+    delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
     vi.resetModules();
   });
 
   afterEach(async () => {
-    delete process.env.AUTH_CLIENT_COOKIE_SECRET;
-    delete process.env.DATABASE_SQLITE_PATH;
-    delete process.env.AUTH_TRUST_PROXY_HEADERS;
-    delete process.env.STORAGE_DIR;
-    delete process.env.VIDEO_JWT_SECRET;
-    delete process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+    delete process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET;
+    delete process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS;
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
+    delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
+    delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
     vi.resetModules();
     await rm(tempDir, { force: true, recursive: true });
   });
@@ -663,7 +661,7 @@ describe('auth gate routes', () => {
   });
 
   test('login uses the signed auth-client cookie bucket even when trusted proxy headers vary', async () => {
-    process.env.AUTH_TRUST_PROXY_HEADERS = 'true';
+    process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS = 'true';
     vi.resetModules();
 
     const { loader } = await importLoginRoute();
@@ -981,8 +979,8 @@ describe('auth gate routes', () => {
   });
 
   test('manifest route import does not require playback secrets before the auth gate runs', async () => {
-    delete process.env.VIDEO_JWT_SECRET;
-    delete process.env.VIDEO_MASTER_ENCRYPTION_SEED;
+    delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
+    delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
 
     await expect(importManifestRoute()).resolves.toEqual(
       expect.objectContaining({

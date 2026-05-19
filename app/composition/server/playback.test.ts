@@ -18,7 +18,7 @@ function expectSourceToExcludeRetiredPlaybackFilenames(source: string) {
 describe('server playback composition root', () => {
   afterEach(() => {
     vi.resetModules();
-    delete process.env.VIDEO_JWT_SECRET;
+    delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
   });
 
   test('creates prewired playback use cases from injected playback adapters', async () => {
@@ -122,7 +122,7 @@ describe('server playback composition root', () => {
   });
 
   test('returns a cached default playback composition that stays ready for route usage', async () => {
-    process.env.VIDEO_JWT_SECRET = 'phase-2-secret';
+    process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = 'phase-2-secret';
     const { getServerPlaybackServices } = await import('./playback');
 
     const first = getServerPlaybackServices();

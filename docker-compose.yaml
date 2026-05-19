@@ -13,9 +13,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
-      STORAGE_DIR: /app/storage
+      MEDIAVAULT_STORAGE_DIR: /app/storage
     volumes:
-      - ${MEDIAVAULT_STORAGE_MOUNT:-mediavault-storage}:/app/storage
+      - mediavault-storage:/app/storage
     networks:
       - mediavault-network
     healthcheck:

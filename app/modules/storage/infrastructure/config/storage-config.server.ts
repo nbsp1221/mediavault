@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
+import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
 
 export interface PrimaryStorageConfig {
   databaseEncryptionKey: string;
@@ -14,9 +15,9 @@ export interface PrimaryStorageConfig {
 export function getRequiredDatabaseEncryptionKey(
   env: Record<string, string | undefined> = process.env,
 ): string {
-  const value = env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
+  const value = env[PUBLIC_ENV_KEYS.databaseEncryptionKey];
   if (value === undefined || value.trim().length === 0) {
-    throw new Error('MEDIAVAULT_DATABASE_ENCRYPTION_KEY is required');
+    throw new Error(`${PUBLIC_ENV_KEYS.databaseEncryptionKey} is required`);
   }
 
   return value;
@@ -36,8 +37,9 @@ function getDefaultStorageDir() {
 }
 
 function getStorageDir() {
-  return process.env.STORAGE_DIR
-    ? path.resolve(process.env.STORAGE_DIR)
+  const configuredStorageDir = process.env[PUBLIC_ENV_KEYS.storageDir];
+  return configuredStorageDir
+    ? path.resolve(configuredStorageDir)
     : getDefaultStorageDir();
 }
 
@@ -47,9 +49,7 @@ export function getPrimaryStorageConfig(): PrimaryStorageConfig {
 
   return {
     databaseEncryptionKey: getRequiredDatabaseEncryptionKey(),
-    databasePath: process.env.DATABASE_SQLITE_PATH
-      ? path.resolve(process.env.DATABASE_SQLITE_PATH)
-      : path.join(storageDir, 'db.sqlite'),
+    databasePath: path.join(storageDir, 'db.sqlite'),
     stagingDir,
     stagingTempDir: path.join(stagingDir, 'temp'),
     storageDir,

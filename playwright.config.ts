@@ -15,9 +15,8 @@ const runtimeWorkspace = runtimeMode === 'hermetic-smoke'
 function createPlaywrightWebServerEnv(portValue: number): Record<string, string> {
   if (runtimeMode === 'hermetic-smoke' && runtimeWorkspace) {
     return createRuntimeTestEnv({
-      DATABASE_SQLITE_PATH: runtimeWorkspace.databasePath,
       PORT: String(portValue),
-      STORAGE_DIR: runtimeWorkspace.storageDir,
+      MEDIAVAULT_STORAGE_DIR: runtimeWorkspace.storageDir,
     });
   }
 

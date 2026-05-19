@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
 
 export function derivePlaybackEncryptionKey(input: {
   env?: NodeJS.ProcessEnv;
@@ -8,15 +9,15 @@ export function derivePlaybackEncryptionKey(input: {
   const isTest = env.NODE_ENV === 'test' || env.VITEST === 'true';
   const masterSeed = isTest
     ? 'test-master-seed-for-unit-tests-only'
-    : env.VIDEO_MASTER_ENCRYPTION_SEED;
+    : env[PUBLIC_ENV_KEYS.mediaKeyDerivationSecret];
 
   if (!masterSeed) {
-    throw new Error('VIDEO_MASTER_ENCRYPTION_SEED environment variable is required for video encryption');
+    throw new Error(`${PUBLIC_ENV_KEYS.mediaKeyDerivationSecret} environment variable is required for video encryption`);
   }
 
   const saltPrefix = isTest
     ? 'test-salt'
-    : env.KEY_SALT_PREFIX || 'local-streamer-video-v1';
+    : env[PUBLIC_ENV_KEYS.mediaKeyDerivationSalt] || 'local-streamer-video-v1';
   const salt = crypto.createHash('sha256')
     .update(saltPrefix + input.videoId)
     .digest();
