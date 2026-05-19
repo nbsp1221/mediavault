@@ -1,13 +1,10 @@
-import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import {
+  getAuthClientIdentityConfig,
   getAuthCookieConfig,
   getAuthRateLimitConfig,
-  getAuthRuntimeState,
 } from '~/shared/config/auth.server';
-import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
 import { getCookieValue, serializeCookie } from '~/shared/lib/http/cookies.server';
-
-const authClientCookieFallbackSecret = randomBytes(32).toString('hex');
 
 function signAuthClientId(clientId: string, secret: string): string {
   return createHmac('sha256', secret)
@@ -16,7 +13,7 @@ function signAuthClientId(clientId: string, secret: string): string {
 }
 
 function getAuthClientCookieSecret(): string {
-  return process.env[PUBLIC_ENV_KEYS.authClientCookieSecret]?.trim() || authClientCookieFallbackSecret;
+  return getAuthClientIdentityConfig().clientCookieSigningSecret;
 }
 
 function createSignedAuthClientCookieValue(clientId: string): string {
@@ -100,7 +97,7 @@ export function createAuthClientCookieHeader(clientId: string = randomUUID()): s
 }
 
 export function getAuthClientCookieHeaderForRequest(request: Request): string | null {
-  return getAuthRuntimeState().isConfigured && !getAuthClientId(request)
+  return !getAuthClientId(request)
     ? createAuthClientCookieHeader()
     : null;
 }

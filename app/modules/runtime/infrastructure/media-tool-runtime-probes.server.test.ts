@@ -53,6 +53,33 @@ describe('media tool runtime probes', () => {
     ]));
   });
 
+  test('resolves media tool paths from the injected env when explicit paths are not provided', async () => {
+    const calls: Array<{ args: string[]; command: string }> = [];
+    const runner: MediaToolCommandRunner = async (command, args) => {
+      calls.push({ args, command });
+      return { exitCode: 0, stderr: '', stdout: 'version' };
+    };
+
+    await expect(probeMediaTools({
+      env: {
+        FFMPEG_PATH: '/env/bin/ffmpeg',
+        FFPROBE_PATH: '/env/bin/ffprobe',
+        SHAKA_PACKAGER_PATH: '/env/bin/packager',
+      },
+      runner,
+    })).resolves.toEqual([
+      { ok: true, tool: 'ffmpeg' },
+      { ok: true, tool: 'ffprobe' },
+      { ok: true, tool: 'packager' },
+    ]);
+
+    expect(calls).toEqual(expect.arrayContaining([
+      { args: ['-version'], command: '/env/bin/ffmpeg' },
+      { args: ['-version'], command: '/env/bin/ffprobe' },
+      { args: ['--version'], command: '/env/bin/packager' },
+    ]));
+  });
+
   test('maps non-zero version commands to the failing tool name', async () => {
     const runner: MediaToolCommandRunner = async command => ({
       exitCode: command.endsWith('packager') ? 127 : 0,

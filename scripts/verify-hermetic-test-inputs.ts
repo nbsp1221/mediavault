@@ -7,6 +7,18 @@ interface HermeticViolation {
   message: string;
 }
 
+const APP_ENV_ACCESS_ALLOWLIST = new Set([
+  'app/shared/config/admin-api.server.ts',
+  'app/shared/config/app-config.server.ts',
+  'app/shared/config/auth.server.ts',
+  'app/shared/config/media.server.ts',
+  'app/shared/config/playback.server.ts',
+  'app/shared/config/runtime-env.server.ts',
+  'app/shared/config/storage-paths.server.ts',
+  'app/shared/config/storage.server.ts',
+  'app/shared/config/video-tools.server.ts',
+]);
+
 const SCAN_SKIP_PATHS = new Set([
   'tests/integration/smoke/browser-smoke-fixture-contract.test.ts',
   'tests/integration/smoke/hermetic-test-inputs.test.ts',
@@ -95,6 +107,57 @@ async function collectTargetFiles(rootDir: string): Promise<string[]> {
   return results;
 }
 
+async function collectAppRuntimeFiles(rootDir: string): Promise<string[]> {
+  const results: string[] = [];
+  const queue = ['app'];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) {
+      continue;
+    }
+
+    const absoluteCurrent = resolve(rootDir, current);
+
+    let entries;
+    try {
+      entries = await readdir(absoluteCurrent, { withFileTypes: true });
+    }
+    catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const relativePath = `${current}/${entry.name}`;
+
+      if (entry.isDirectory()) {
+        queue.push(relativePath);
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      if (!relativePath.endsWith('.ts') && !relativePath.endsWith('.tsx')) {
+        continue;
+      }
+
+      if (relativePath.includes('.test.') || relativePath.includes('.spec.')) {
+        continue;
+      }
+
+      results.push(relativePath);
+    }
+  }
+
+  return results;
+}
+
+function isAllowedAppEnvAccessPath(relativePath: string): boolean {
+  return APP_ENV_ACCESS_ALLOWLIST.has(relativePath);
+}
+
 async function isIgnoredByGit(filePath: string): Promise<boolean> {
   const result = spawnSync('git', ['check-ignore', '-q', filePath], {
     cwd: process.cwd(),
@@ -163,6 +226,28 @@ export async function collectHermeticTestInputViolations(rootDir = process.cwd()
           message: forbidden.message,
         });
       }
+    }
+  }
+
+  const appRuntimeFiles = await collectAppRuntimeFiles(rootDir);
+
+  for (const relativePath of appRuntimeFiles) {
+    if (isAllowedAppEnvAccessPath(relativePath)) {
+      continue;
+    }
+
+    const absolutePath = resolve(rootDir, relativePath);
+    if (!(await fileExists(absolutePath))) {
+      continue;
+    }
+
+    const source = await readFile(absolutePath, 'utf8');
+
+    if (/\bprocess\.env\b/.test(source)) {
+      violations.push({
+        filePath: relativePath,
+        message: 'Runtime app code must read process.env only through the shared server config boundary.',
+      });
     }
   }
 

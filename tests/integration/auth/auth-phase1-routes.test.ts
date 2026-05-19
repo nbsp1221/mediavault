@@ -1047,6 +1047,7 @@ describe('auth gate routes', () => {
   });
 
   test('thumbnail delivery works with the site session without a legacy session cookie', async () => {
+    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = 'auth-routes-thumbnail-test-seed';
     const videoId = '00000000-0000-4000-8000-000000000123';
     const videoDir = join(storageDir, 'data', 'videos', videoId);
     const plaintextThumbnailPath = join(videoDir, 'thumbnail.jpg');

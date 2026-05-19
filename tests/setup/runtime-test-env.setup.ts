@@ -1,3 +1,7 @@
-import { installTestDatabaseEncryptionKey } from '../support/database-encryption-key';
+import {
+  installTestDatabaseEncryptionKey,
+  installTestMediaKeyDerivationSecret,
+} from '../support/database-encryption-key';
 
 installTestDatabaseEncryptionKey();
+installTestMediaKeyDerivationSecret();

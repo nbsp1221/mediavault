@@ -9,12 +9,12 @@ import { DeleteAuthUserUseCase } from '~/modules/auth/application/use-cases/dele
 import { DestroyAuthSessionUseCase } from '~/modules/auth/application/use-cases/destroy-auth-session.usecase';
 import { EvaluateSiteAccessUseCase } from '~/modules/auth/application/use-cases/evaluate-site-access.usecase';
 import { ResolveAuthSessionUseCase } from '~/modules/auth/application/use-cases/resolve-auth-session.usecase';
-import { getAdminApiConfig } from '~/modules/auth/domain/admin-api-config';
 import { Argon2PasswordHashService } from '~/modules/auth/infrastructure/password/argon2-password-hash.service';
 import { InMemoryLoginAttemptGuard } from '~/modules/auth/infrastructure/security/in-memory-login-attempt-guard';
 import { SqliteAuthUserRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-auth-user.repository';
 import { SqliteSessionRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-session.repository';
 import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
+import { getAdminApiConfig } from '~/shared/config/admin-api.server';
 import {
   getAuthConfig,
   getAuthCookieConfig,

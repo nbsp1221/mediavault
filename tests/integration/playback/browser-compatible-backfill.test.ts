@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import crypto from 'node:crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { backfillBrowserCompatiblePlayback } from '~/modules/playback/infrastructure/backfill/browser-compatible-playback-backfill';
 import * as ThumbnailCryptoUtils from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
 
@@ -52,25 +52,11 @@ async function seedStagedPlaybackPackage(input: {
 
 describe('backfillBrowserCompatiblePlayback', () => {
   const tempDirs: string[] = [];
-  const originalVideoMasterSeed = process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
-
-  beforeAll(() => {
-    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = 'browser-backfill-test-master-seed';
-  });
 
   afterEach(async () => {
     vi.restoreAllMocks();
     await Promise.all(tempDirs.map(dir => rm(dir, { force: true, recursive: true })));
     tempDirs.length = 0;
-  });
-
-  afterAll(() => {
-    if (originalVideoMasterSeed === undefined) {
-      delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
-      return;
-    }
-
-    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = originalVideoMasterSeed;
   });
 
   it('rebuilds HEVC-only manifests in a temporary workspace and promotes the browser-compatible package in place', async () => {

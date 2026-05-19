@@ -50,4 +50,44 @@ describe('verify-hermetic-test-inputs', () => {
       }),
     ]));
   });
+
+  test('rejects direct process.env reads outside the runtime config boundary', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'runtime-env-boundary-'));
+    cleanupPaths.push(rootDir);
+
+    await mkdir(join(rootDir, 'app', 'modules', 'playback'), { recursive: true });
+    await mkdir(join(rootDir, 'app', 'shared', 'config'), { recursive: true });
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'playback', 'bad-env.server.ts'),
+      'export const secret = process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;',
+    );
+    await writeFile(
+      join(rootDir, 'app', 'shared', 'config', 'runtime-env.server.ts'),
+      'export const env = process.env;',
+    );
+    await writeFile(
+      join(rootDir, 'app', 'shared', 'config', 'accidental.server.ts'),
+      'export const leaked = process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;',
+    );
+
+    const violations = await collectHermeticTestInputViolations(rootDir);
+
+    expect(violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        filePath: 'app/modules/playback/bad-env.server.ts',
+        message: expect.stringContaining('shared server config boundary'),
+      }),
+    ]));
+    expect(violations).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        filePath: 'app/shared/config/runtime-env.server.ts',
+      }),
+    ]));
+    expect(violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        filePath: 'app/shared/config/accidental.server.ts',
+        message: expect.stringContaining('shared server config boundary'),
+      }),
+    ]));
+  });
 });

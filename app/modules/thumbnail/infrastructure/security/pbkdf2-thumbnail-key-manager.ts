@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
+import type { MediaKeyDerivationConfig } from '~/shared/config/media.server';
+import type { RuntimeEnvInput } from '~/shared/config/runtime-env.server';
+import { getMediaKeyDerivationConfig } from '~/shared/config/media.server';
 import { getStoragePaths } from '~/shared/config/storage-paths.server';
 
 interface ThumbnailKeyGenerationResult {
@@ -10,8 +12,8 @@ interface ThumbnailKeyGenerationResult {
 }
 
 interface Pbkdf2ThumbnailKeyManagerDependencies {
-  env?: NodeJS.ProcessEnv;
-  testMode?: boolean;
+  config?: MediaKeyDerivationConfig;
+  env?: RuntimeEnvInput;
 }
 
 export class Pbkdf2ThumbnailKeyManager {
@@ -20,24 +22,10 @@ export class Pbkdf2ThumbnailKeyManager {
   private readonly saltPrefix: string;
 
   constructor(deps: Pbkdf2ThumbnailKeyManagerDependencies = {}) {
-    const env = deps.env ?? process.env;
-    const isTest = deps.testMode ?? (env.NODE_ENV === 'test' || env.VITEST === 'true');
-
-    if (isTest) {
-      this.masterSeed = 'test-master-seed-for-unit-tests-only';
-      this.rounds = 100000;
-      this.saltPrefix = 'test-salt';
-      return;
-    }
-
-    const masterSeed = env[PUBLIC_ENV_KEYS.mediaKeyDerivationSecret];
-    if (!masterSeed) {
-      throw new Error(`${PUBLIC_ENV_KEYS.mediaKeyDerivationSecret} environment variable is required for video encryption`);
-    }
-
-    this.masterSeed = masterSeed;
+    const config = deps.config ?? getMediaKeyDerivationConfig(deps.env);
+    this.masterSeed = config.masterSeed;
     this.rounds = 100000;
-    this.saltPrefix = env[PUBLIC_ENV_KEYS.mediaKeyDerivationSalt] || 'local-streamer-video-v1';
+    this.saltPrefix = config.saltPrefix;
   }
 
   async generateAndStoreKey(videoId: string): Promise<ThumbnailKeyGenerationResult> {

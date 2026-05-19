@@ -7,24 +7,15 @@ import { decryptThumbnailEnvelope, encryptThumbnailEnvelope } from '~/modules/th
 
 describe('browser-compatible playback backfill module', () => {
   let rootDir = '';
-  const originalSeed = process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
 
   afterEach(async () => {
     if (rootDir) {
       await rm(rootDir, { force: true, recursive: true });
       rootDir = '';
     }
-
-    if (originalSeed === undefined) {
-      delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
-      return;
-    }
-
-    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = originalSeed;
   });
 
   test('rebuilds an incompatible manifest and re-keys the thumbnail with the canonical playback key', async () => {
-    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = 'browser-backfill-test-master-seed';
     rootDir = await mkdtemp(path.join(tmpdir(), 'browser-backfill-module-'));
     const videosDir = path.join(rootDir, 'videos');
     const videoId = 'video-hevc-only';
@@ -45,7 +36,9 @@ describe('browser-compatible playback backfill module', () => {
 
     const { backfillBrowserCompatiblePlayback } = await import('../../../app/modules/playback/infrastructure/backfill/browser-compatible-playback-backfill');
     const result = await backfillBrowserCompatiblePlayback({
-      createPackage: async ({ stagingDir }) => {
+      createPackage: async ({
+        stagingDir,
+      }) => {
         const canonicalKeyId = crypto.createHash('sha256').update(videoId).digest().subarray(0, 16).toString('hex');
         await mkdir(path.join(stagingDir, 'video'), { recursive: true });
         await mkdir(path.join(stagingDir, 'audio'), { recursive: true });
@@ -66,6 +59,11 @@ describe('browser-compatible playback backfill module', () => {
         info: () => {},
         warn: () => {},
       },
+      mediaKeyConfig: {
+        masterSeed: 'browser-backfill-test-master-seed',
+        saltPrefix: 'browser-backfill-salt:',
+      },
+      segmentDuration: 6,
       videoIds: [videoId],
       videosDir,
     });

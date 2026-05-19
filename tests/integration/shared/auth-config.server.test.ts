@@ -3,7 +3,6 @@ import {
   getAuthConfig,
   getAuthCookieConfig,
   getAuthRateLimitConfig,
-  getAuthRuntimeState,
 } from '../../../app/shared/config/auth.server';
 
 const envKeys = [
@@ -37,13 +36,6 @@ afterEach(() => {
 });
 
 describe('auth server config', () => {
-  test('reports account auth as configured without requiring shared password env', () => {
-    expect(getAuthRuntimeState()).toEqual({
-      configurationError: null,
-      isConfigured: true,
-    });
-  });
-
   test('uses secure production cookies and custom cookie names', () => {
     process.env.NODE_ENV = 'production';
     process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME = 'client_cookie';

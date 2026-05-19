@@ -52,15 +52,26 @@ async function createGitRepo(): Promise<string> {
 }
 
 describe('changed-file mutation filtering policy', () => {
-  test('includes production TypeScript files in the calibrated changed-file mutation scope', () => {
+  test('includes deterministic production TypeScript files in the calibrated changed-file mutation scope', () => {
     expect(isMutationEligibleChangedProductionFile('app/modules/library/domain/video-tag.ts')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/modules/library/application/use-cases/update-library-video.usecase.ts')).toBe(true);
     expect(isMutationEligibleChangedProductionFile('app/widgets/home/ui/HomeLibraryWidget.tsx')).toBe(true);
     expect(isMutationEligibleChangedProductionFile('app/shared/lib/format-display-date.ts')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/shared/config/runtime-env.server.ts')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/modules/storage/infrastructure/config/storage-config.server.ts')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/modules/playback/infrastructure/license/derive-playback-encryption-key.ts')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager.ts')).toBe(true);
   });
 
-  test('excludes tests, generated UI primitives, app entrypoints, and non-app files', () => {
+  test('excludes tests, generated UI primitives, app entrypoints, composition wiring, side-effect infrastructure, and non-app files', () => {
     const paths = [
       'app/modules/library/domain/video-tag.ts',
+      'app/modules/library/application/use-cases/update-library-video.usecase.ts',
+      'app/modules/library/application/ports/library-video-mutation.port.ts',
+      'app/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository.ts',
+      'app/composition/server/library.ts',
+      'app/modules/storage/infrastructure/config/storage-config.server.ts',
+      'app/modules/playback/infrastructure/license/derive-playback-encryption-key.ts',
       'app/modules/library/domain/video-tag.test.ts',
       'app/modules/library/domain/video-tag.spec.ts',
       'app/shared/ui/button.tsx',
@@ -74,7 +85,11 @@ describe('changed-file mutation filtering policy', () => {
     ];
 
     expect(filterMutationEligibleChangedProductionFiles(paths)).toEqual([
+      'app/modules/library/application/ports/library-video-mutation.port.ts',
+      'app/modules/library/application/use-cases/update-library-video.usecase.ts',
       'app/modules/library/domain/video-tag.ts',
+      'app/modules/playback/infrastructure/license/derive-playback-encryption-key.ts',
+      'app/modules/storage/infrastructure/config/storage-config.server.ts',
     ]);
   });
 
@@ -232,7 +247,7 @@ describe('changed-file mutation CLI policy', () => {
 });
 
 describe('changed-file mutation package and contract policy', () => {
-  test('keeps full mutation scoped separately while changed mutation accepts the broader changed-file scope', async () => {
+  test('keeps full mutation scoped separately while changed mutation accepts the calibrated changed-file scope', async () => {
     const strykerConfig = await readFile('stryker.config.mjs', 'utf8');
 
     expect(strykerConfig).toContain('mutate: [');
@@ -244,6 +259,10 @@ describe('changed-file mutation package and contract policy', () => {
     expect(strykerConfig).not.toContain('\'app/**/*.{ts,tsx}\'');
     expect(isMutationEligibleChangedProductionFile('app/widgets/home/ui/HomeLibraryWidget.tsx')).toBe(true);
     expect(isMutationEligibleChangedProductionFile('app/features/upload/ui/UploadDropzone.tsx')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/shared/config/runtime-env.server.ts')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/modules/storage/infrastructure/config/storage-config.server.ts')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter.ts')).toBe(false);
+    expect(isMutationEligibleChangedProductionFile('app/composition/server/auth.ts')).toBe(false);
   });
 
   test('enforces the shared mutation score threshold for full and changed mutation', async () => {
@@ -277,6 +296,7 @@ describe('changed-file mutation package and contract policy', () => {
 
     expect(contract).toContain('test:mutation:changed');
     expect(contract).toContain('staged, unstaged, and untracked local production files relative to `HEAD`');
+    expect(contract).toContain('includes changed deterministic production TypeScript under `app/`');
     expect(contract).toContain('No changed production files require mutation validation.');
     expect(contract).toContain('inherits the shared `thresholds.break: 70` mutation-score floor');
   });

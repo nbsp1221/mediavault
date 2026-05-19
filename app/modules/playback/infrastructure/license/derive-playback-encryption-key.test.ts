@@ -20,17 +20,6 @@ describe('derivePlaybackEncryptionKey', () => {
     }))).toBe(true);
   });
 
-  test('uses the test fallback seed under test envs', () => {
-    const key = derivePlaybackEncryptionKey({
-      env: {
-        NODE_ENV: 'test',
-      },
-      videoId: 'video-123',
-    });
-
-    expect(key).toHaveLength(16);
-  });
-
   test('uses MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT when provided', () => {
     const defaultSaltKey = derivePlaybackEncryptionKey({
       env: {

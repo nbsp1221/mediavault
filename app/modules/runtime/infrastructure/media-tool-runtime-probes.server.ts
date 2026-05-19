@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import type { RuntimeEnvInput } from '~/shared/config/runtime-env.server';
 import {
   getFFmpegPath,
   getFFprobePath,
@@ -34,6 +35,7 @@ export type MediaToolCommandRunner = (
 ) => Promise<MediaToolCommandResult>;
 
 export interface ProbeMediaToolsInput {
+  env?: RuntimeEnvInput;
   paths?: MediaToolPaths;
   runner?: MediaToolCommandRunner;
   timeoutMs?: number;
@@ -45,11 +47,11 @@ interface ToolProbeDefinition {
   tool: RuntimeMediaToolName;
 }
 
-export function resolveMediaToolPaths(): MediaToolPaths {
+export function resolveMediaToolPaths(env?: RuntimeEnvInput): MediaToolPaths {
   return {
-    ffmpeg: getFFmpegPath(),
-    ffprobe: getFFprobePath(),
-    packager: getShakaPackagerPath(),
+    ffmpeg: getFFmpegPath(env),
+    ffprobe: getFFprobePath(env),
+    packager: getShakaPackagerPath(env),
   };
 }
 
@@ -142,7 +144,7 @@ async function probeTool(
 export async function probeMediaTools(
   input: ProbeMediaToolsInput = {},
 ): Promise<MediaToolProbeResult[]> {
-  const paths = input.paths ?? resolveMediaToolPaths();
+  const paths = input.paths ?? resolveMediaToolPaths(input.env);
   const runner = input.runner ?? runMediaToolCommand;
   const timeoutMs = input.timeoutMs ?? DEFAULT_MEDIA_TOOL_PROBE_TIMEOUT_MS;
 

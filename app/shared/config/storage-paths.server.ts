@@ -1,4 +1,5 @@
-import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
+import type { RuntimeEnvInput } from './runtime-env.server';
+import { getPrimaryStorageConfigFromEnv } from './app-config.server';
 
 export interface StoragePaths {
   stagingDir: string;
@@ -7,8 +8,8 @@ export interface StoragePaths {
   videosDir: string;
 }
 
-export function getStoragePaths(): StoragePaths {
-  const config = getPrimaryStorageConfig();
+export function getStoragePaths(env?: RuntimeEnvInput): StoragePaths {
+  const config = getPrimaryStorageConfigFromEnv(env ?? process.env);
 
   return {
     stagingDir: config.stagingDir,

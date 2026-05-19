@@ -1,5 +1,10 @@
 import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
 
+interface AdminApiConfig {
+  mode: 'always' | 'bootstrap' | 'disabled';
+  token: string | null;
+}
+
 export const CRITICAL_PRODUCTION_SECRET_KEYS = [
   PUBLIC_ENV_KEYS.databaseEncryptionKey,
   PUBLIC_ENV_KEYS.playbackJwtSecret,
@@ -146,4 +151,3 @@ export function createProductionReadinessReport(
     startupBlocked: input.issues.some(issue => issue.severity === 'startup-blocking'),
   };
 }
-import type { AdminApiConfig } from '~/modules/auth/domain/admin-api-config';

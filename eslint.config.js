@@ -13,6 +13,7 @@ export default defineConfig([
   {
     ignores: [
       '.react-router',
+      '.stryker-tmp',
       'build',
       'playwright-report',
       'test-results',

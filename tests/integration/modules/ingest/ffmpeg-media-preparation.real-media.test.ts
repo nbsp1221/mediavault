@@ -41,9 +41,9 @@ describeWithLocalMediaTools('FfmpegMediaPreparationAdapter real media path', () 
     const workspace = await createWorkspace('real-h264');
     const commandCalls: Array<{ args: string[]; command: string }> = [];
     const adapter = new FfmpegMediaPreparationAdapter({
-      env: {
-        ...process.env,
-        VITEST: 'true',
+      mediaKeyConfig: {
+        masterSeed: 'real-media-test-seed',
+        saltPrefix: 'real-media-test-salt:',
       },
       executeCommand: async (input) => {
         commandCalls.push(input);
@@ -80,9 +80,9 @@ describeWithLocalMediaTools('FfmpegMediaPreparationAdapter real media path', () 
     const workspace = await createWorkspace('real-hevc');
     const commandCalls: Array<{ args: string[]; command: string }> = [];
     const adapter = new FfmpegMediaPreparationAdapter({
-      env: {
-        ...process.env,
-        VITEST: 'true',
+      mediaKeyConfig: {
+        masterSeed: 'real-media-test-seed',
+        saltPrefix: 'real-media-test-salt:',
       },
       executeCommand: async (input) => {
         commandCalls.push(input);

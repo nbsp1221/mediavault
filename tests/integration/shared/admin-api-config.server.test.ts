@@ -1,16 +1,16 @@
 import { describe, expect, test } from 'vitest';
-import { getAdminApiConfig } from './admin-api-config';
+import { getAdminApiConfigFromEnv } from '../../../app/shared/config/app-config.server';
 
-describe('getAdminApiConfig', () => {
+describe('getAdminApiConfigFromEnv', () => {
   test('defaults to disabled with no token', () => {
-    expect(getAdminApiConfig({})).toEqual({
+    expect(getAdminApiConfigFromEnv({})).toEqual({
       mode: 'disabled',
       token: null,
     });
   });
 
   test('parses allowed modes and trims blank tokens', () => {
-    expect(getAdminApiConfig({
+    expect(getAdminApiConfigFromEnv({
       MEDIAVAULT_ADMIN_API_MODE: ' bootstrap ',
       MEDIAVAULT_ADMIN_API_TOKEN: '  secret-token  ',
     })).toEqual({
@@ -18,7 +18,7 @@ describe('getAdminApiConfig', () => {
       token: 'secret-token',
     });
 
-    expect(getAdminApiConfig({
+    expect(getAdminApiConfigFromEnv({
       MEDIAVAULT_ADMIN_API_MODE: 'always',
       MEDIAVAULT_ADMIN_API_TOKEN: '   ',
     })).toEqual({
@@ -28,13 +28,13 @@ describe('getAdminApiConfig', () => {
   });
 
   test('throws without leaking token values for invalid modes', () => {
-    expect(() => getAdminApiConfig({
+    expect(() => getAdminApiConfigFromEnv({
       MEDIAVAULT_ADMIN_API_MODE: 'forever',
       MEDIAVAULT_ADMIN_API_TOKEN: 'do-not-leak',
     })).toThrow('MEDIAVAULT_ADMIN_API_MODE');
 
     try {
-      getAdminApiConfig({
+      getAdminApiConfigFromEnv({
         MEDIAVAULT_ADMIN_API_MODE: 'forever',
         MEDIAVAULT_ADMIN_API_TOKEN: 'do-not-leak',
       });

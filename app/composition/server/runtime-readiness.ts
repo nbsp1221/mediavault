@@ -1,4 +1,3 @@
-import { getAdminApiConfig } from '~/modules/auth/domain/admin-api-config';
 import { SqliteAuthUserRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-auth-user.repository';
 import {
   type MediaToolProbeResult,
@@ -22,6 +21,8 @@ import {
 } from '~/modules/runtime/infrastructure/media-tool-runtime-probes.server';
 import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { getAdminApiConfig } from '~/shared/config/admin-api.server';
+import { getRuntimeEnvInput } from '~/shared/config/runtime-env.server';
 
 interface RuntimeReadinessLogger {
   error: (message: string) => void;
@@ -95,11 +96,11 @@ function createNonProductionReadinessIssue(): ProductionReadinessIssue {
 export function createRuntimeReadinessServices(
   input: RuntimeReadinessServicesInput = {},
 ): RuntimeReadinessServices {
-  const env = input.env ?? process.env;
-  const getStorageConfig = input.getStorageConfig ?? getPrimaryStorageConfig;
+  const env = getRuntimeEnvInput(input.env);
+  const getStorageConfig = input.getStorageConfig ?? (() => getPrimaryStorageConfig(env));
   const logger = input.logger ?? defaultLogger();
   const runStorageProbe = input.probeStorage ?? probeConfiguredStorage;
-  const runMediaProbe = input.probeMediaTools ?? probeMediaTools;
+  const runMediaProbe = input.probeMediaTools ?? (() => probeMediaTools({ env }));
   const countAuthUsers = input.countAuthUsers ?? countDefaultAuthUsers;
   const runDatabaseStartupProbe = input.runDatabaseStartupProbe ?? runDefaultDatabaseStartupProbe;
   const mediaProbeCacheTtlMs = input.mediaProbeCacheTtlMs ?? DEFAULT_MEDIA_PROBE_CACHE_TTL_MS;

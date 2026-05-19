@@ -1,0 +1,106 @@
+import { afterEach, describe, expect, test } from 'vitest';
+import {
+  getAuthClientIdentityConfigFromEnv,
+  getAuthConfigFromEnv,
+  getMediaKeyDerivationConfigFromEnv,
+  getMediaPackagingConfigFromEnv,
+  getPrimaryStorageConfigFromEnv,
+} from '../../../app/shared/config/app-config.server';
+import { loadRuntimeEnv } from '../../../app/shared/config/runtime-env.server';
+
+const originalDatabaseEncryptionKey = process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
+const originalStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
+
+afterEach(() => {
+  if (originalDatabaseEncryptionKey === undefined) {
+    delete process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
+  }
+  else {
+    process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = originalDatabaseEncryptionKey;
+  }
+
+  if (originalStorageDir === undefined) {
+    delete process.env.MEDIAVAULT_STORAGE_DIR;
+  }
+  else {
+    process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
+  }
+});
+
+describe('runtime env config boundary', () => {
+  test('uses injected env maps without reading ambient process state', () => {
+    process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = 'ambient-db-key';
+    process.env.MEDIAVAULT_STORAGE_DIR = '/tmp/ambient-storage';
+
+    const config = getPrimaryStorageConfigFromEnv({
+      MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'injected-db-key',
+      MEDIAVAULT_STORAGE_DIR: '/tmp/injected-storage',
+    });
+
+    expect(config.databaseEncryptionKey).toBe('injected-db-key');
+    expect(config.storageDir).toBe('/tmp/injected-storage');
+  });
+
+  test('does not cache values between independent injected env maps', () => {
+    const first = getAuthConfigFromEnv({
+      MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS: '11',
+      MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS: 'true',
+      NODE_ENV: 'production',
+    });
+    const second = getAuthConfigFromEnv({
+      MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS: '22',
+      MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS: 'false',
+      NODE_ENV: 'development',
+    });
+
+    expect(first.failedLoginDelayMs).toBe(11);
+    expect(first.sessionCookieSecure).toBe(true);
+    expect(first.trustProxyHeaders).toBe(true);
+    expect(second.failedLoginDelayMs).toBe(22);
+    expect(second.sessionCookieSecure).toBe(false);
+    expect(second.trustProxyHeaders).toBe(false);
+  });
+
+  test('keeps secret values out of validation errors', () => {
+    expect(() => getMediaKeyDerivationConfigFromEnv({
+      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: '   ',
+    })).toThrow('MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET environment variable is required for video encryption');
+
+    expect(() => getMediaKeyDerivationConfigFromEnv({
+      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: '   ',
+    })).not.toThrow('secret');
+  });
+
+  test('parses media packaging segment duration in one config boundary', () => {
+    expect(getMediaPackagingConfigFromEnv({
+      DASH_SEGMENT_DURATION: '6',
+    })).toEqual({
+      segmentDuration: 6,
+    });
+    expect(getMediaPackagingConfigFromEnv({
+      DASH_SEGMENT_DURATION: '0',
+    })).toEqual({
+      segmentDuration: 10,
+    });
+  });
+
+  test('represents the auth client cookie signing fallback in typed config', () => {
+    const first = getAuthClientIdentityConfigFromEnv({});
+    const second = getAuthClientIdentityConfigFromEnv({});
+    const explicit = getAuthClientIdentityConfigFromEnv({
+      MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: ' explicit-secret ',
+    });
+
+    expect(first.clientCookieSigningSecret).toHaveLength(64);
+    expect(second.clientCookieSigningSecret).toBe(first.clientCookieSigningSecret);
+    expect(explicit.clientCookieSigningSecret).toBe('explicit-secret');
+  });
+
+  test('exposes runtime mode flags from explicit env maps', () => {
+    expect(loadRuntimeEnv({
+      NODE_ENV: 'production',
+    })).toEqual(expect.objectContaining({
+      isProductionRuntime: true,
+    }));
+  });
+});

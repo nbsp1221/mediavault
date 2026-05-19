@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { basename } from 'node:path';
 import path from 'node:path';
+import type { MediaKeyDerivationConfig } from '~/shared/config/media.server';
 import { normalizeClearKeyManifest } from '~/modules/ingest/infrastructure/processing/normalize-clearkey-manifest';
 import {
   decryptThumbnailEnvelope,
@@ -9,6 +10,7 @@ import {
   looksLikeJpeg,
   validateEncryptedFormat,
 } from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
+import { getMediaKeyDerivationConfig, getMediaPackagingConfig } from '~/shared/config/media.server';
 import { getShakaPackagerPath } from '~/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '~/shared/lib/server/ffmpeg-process-manager.server';
 import { derivePlaybackEncryptionKey } from '../license/derive-playback-encryption-key';
@@ -60,9 +62,16 @@ interface CreatePackageInput {
   videoId: string;
 }
 
+interface BrowserCompatiblePackageInput extends CreatePackageInput {
+  mediaKeyConfig: MediaKeyDerivationConfig;
+  segmentDuration: number;
+}
+
 interface BackfillDependencies {
   createPackage?: (input: CreatePackageInput) => Promise<void>;
   logger?: BackfillLogger;
+  mediaKeyConfig?: MediaKeyDerivationConfig;
+  segmentDuration?: number;
   videoIds?: string[];
   videosDir?: string;
 }
@@ -85,9 +94,15 @@ export async function backfillBrowserCompatiblePlayback(
   input: BackfillDependencies = {},
 ): Promise<BrowserCompatiblePlaybackBackfillSummary> {
   const logger = input.logger ?? console;
+  const mediaKeyConfig = input.mediaKeyConfig ?? getMediaKeyDerivationConfig();
+  const segmentDuration = input.segmentDuration ?? getMediaPackagingConfig().segmentDuration;
   const requiresExplicitFixtures = Boolean(input.videoIds && input.videoIds.length > 0);
   const videosDir = input.videosDir ?? getPlaybackStoragePaths().videosDir;
-  const createPackage = input.createPackage ?? createBrowserCompatiblePlaybackPackage;
+  const createPackage = input.createPackage ?? ((packageInput: CreatePackageInput) => createBrowserCompatiblePlaybackPackage({
+    ...packageInput,
+    mediaKeyConfig,
+    segmentDuration,
+  }));
   const videoIds = input.videoIds ?? await listVideoIds(videosDir);
   const summary: BrowserCompatiblePlaybackBackfillSummary = {
     failed: [],
@@ -113,7 +128,12 @@ export async function backfillBrowserCompatiblePlayback(
       continue;
     }
 
-    if (!(await shouldBackfillVideo({ manifest, targetDir, videoId }))) {
+    if (!(await shouldBackfillVideo({
+      manifest,
+      mediaKeyConfig,
+      targetDir,
+      videoId,
+    }))) {
       summary.skipped.push({ reason: 'already-compatible', videoId });
       logger.info(`[browser-backfill] Skipping ${videoId}: manifest already exposes a browser-compatible video representation with canonical ClearKey identity.`);
       continue;
@@ -245,6 +265,7 @@ export function shouldBackfillManifest(manifest: string, videoId: string): boole
 
 async function shouldBackfillVideo(input: {
   manifest: string;
+  mediaKeyConfig: MediaKeyDerivationConfig;
   targetDir: string;
   videoId: string;
 }): Promise<boolean> {
@@ -258,15 +279,17 @@ async function shouldBackfillVideo(input: {
   }
 
   const canonicalKey = derivePlaybackEncryptionKey({
+    config: input.mediaKeyConfig,
     videoId: input.videoId,
   });
 
   return !storedKey.equals(canonicalKey);
 }
 
-async function createBrowserCompatiblePlaybackPackage(input: CreatePackageInput): Promise<void> {
+async function createBrowserCompatiblePlaybackPackage(input: BrowserCompatiblePackageInput): Promise<void> {
   const workspace = resolveStagingWorkspace(input.stagingDir);
   const key = derivePlaybackEncryptionKey({
+    config: input.mediaKeyConfig,
     videoId: input.videoId,
   });
 
@@ -289,7 +312,7 @@ async function createBrowserCompatiblePlaybackPackage(input: CreatePackageInput)
       keyId: generatePlaybackKeyId(input.videoId),
       manifestPath: workspace.manifestPath,
       outputDir: workspace.rootDir,
-      segmentDuration: resolveSegmentDuration(process.env),
+      segmentDuration: input.segmentDuration,
     }),
     command: getShakaPackagerPath(),
   });
@@ -383,11 +406,6 @@ function buildPackagerArgs(input: {
     '--segment_duration',
     String(input.segmentDuration),
   ];
-}
-
-function resolveSegmentDuration(env: NodeJS.ProcessEnv): number {
-  const parsed = Number.parseInt(env.DASH_SEGMENT_DURATION ?? '10', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 }
 
 async function normalizeManifest(manifestPath: string) {

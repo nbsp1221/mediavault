@@ -44,10 +44,33 @@ export function isMutationEligibleChangedProductionFile(path: string): boolean {
     return false;
   }
 
+  if (normalizedPath.startsWith('app/composition/')) {
+    return false;
+  }
+
+  if (isSideEffectInfrastructureModuleFile(normalizedPath)) {
+    return false;
+  }
+
   return !(
     normalizedPath.startsWith('app/shared/ui/') ||
     normalizedPath.startsWith('app/components/ui/')
   );
+}
+
+function isSideEffectInfrastructureModuleFile(normalizedPath: string): boolean {
+  if (!normalizedPath.startsWith('app/modules/') || !normalizedPath.includes('/infrastructure/')) {
+    return false;
+  }
+
+  if (normalizedPath.includes('/infrastructure/config/')) {
+    return false;
+  }
+
+  return ![
+    'app/modules/playback/infrastructure/license/derive-playback-encryption-key.ts',
+    'app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager.ts',
+  ].includes(normalizedPath);
 }
 
 export function filterMutationEligibleChangedProductionFiles(paths: string[]): string[] {

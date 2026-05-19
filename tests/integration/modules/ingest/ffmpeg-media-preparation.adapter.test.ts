@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import crypto from 'node:crypto';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
@@ -24,6 +25,11 @@ describe('FfmpegMediaPreparationAdapter', () => {
     const adapter = new FfmpegMediaPreparationAdapter({
       executeCommand,
       getShakaPackagerPath: () => 'packager',
+      mediaKeyConfig: {
+        masterSeed: 'custom-media-seed',
+        saltPrefix: 'custom-salt:',
+      },
+      segmentDuration: 6,
     });
 
     await expect(adapter.prepareMedia({
@@ -53,6 +59,15 @@ describe('FfmpegMediaPreparationAdapter', () => {
     });
     expect(commandCalls[1].args).toContain('--clear_lead');
     expect(commandCalls[1].args[commandCalls[1].args.indexOf('--clear_lead') + 1]).toBe('0');
+    expect(commandCalls[1].args).toContain('--segment_duration');
+    expect(commandCalls[1].args[commandCalls[1].args.indexOf('--segment_duration') + 1]).toBe('6');
+    await expect(readFile(path.join(fixture.videoDir, 'key.bin'))).resolves.toEqual(
+      deriveExpectedKey({
+        masterSeed: 'custom-media-seed',
+        saltPrefix: 'custom-salt:',
+        videoId: fixture.videoId,
+      }),
+    );
     await expect(stat(path.join(fixture.videoDir, 'intermediate.mp4'))).rejects.toMatchObject({
       code: 'ENOENT',
     });
@@ -325,6 +340,18 @@ describe('FfmpegMediaPreparationAdapter', () => {
       videoId,
       videoSegmentDir: path.join(videoDir, 'video'),
     };
+  }
+
+  function deriveExpectedKey(input: {
+    masterSeed: string;
+    saltPrefix: string;
+    videoId: string;
+  }): Buffer {
+    const salt = crypto.createHash('sha256')
+      .update(input.saltPrefix + input.videoId)
+      .digest();
+
+    return crypto.pbkdf2Sync(input.masterSeed, salt, 100000, 16, 'sha256');
   }
 
   function createAnalysis(input: {

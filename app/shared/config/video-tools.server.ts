@@ -1,14 +1,10 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import type { RuntimeEnvInput } from './runtime-env.server';
+import { getVideoToolOverridesConfigFromEnv } from './app-config.server';
 
-function readExplicitPath(value: string | undefined): string | null {
-  const normalized = value?.trim();
-
-  return normalized || null;
-}
-
-export function getFFmpegPath(): string {
-  const explicitPath = readExplicitPath(process.env.FFMPEG_PATH);
+export function getFFmpegPath(env?: RuntimeEnvInput): string {
+  const explicitPath = getVideoToolOverridesConfigFromEnv(env ?? process.env).ffmpegPath;
   if (explicitPath) {
     return explicitPath;
   }
@@ -21,8 +17,8 @@ export function getFFmpegPath(): string {
   return 'ffmpeg';
 }
 
-export function getFFprobePath(): string {
-  const explicitPath = readExplicitPath(process.env.FFPROBE_PATH);
+export function getFFprobePath(env?: RuntimeEnvInput): string {
+  const explicitPath = getVideoToolOverridesConfigFromEnv(env ?? process.env).ffprobePath;
   if (explicitPath) {
     return explicitPath;
   }
@@ -35,8 +31,8 @@ export function getFFprobePath(): string {
   return 'ffprobe';
 }
 
-export function getShakaPackagerPath(): string {
-  const explicitPath = readExplicitPath(process.env.SHAKA_PACKAGER_PATH);
+export function getShakaPackagerPath(env?: RuntimeEnvInput): string {
+  const explicitPath = getVideoToolOverridesConfigFromEnv(env ?? process.env).shakaPackagerPath;
   if (explicitPath) {
     return explicitPath;
   }

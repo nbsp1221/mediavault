@@ -348,4 +348,40 @@ describe('production startup preflight', () => {
     await expect(services.assertProductionStartupPreflight()).rejects.toThrow('MEDIAVAULT_ADMIN_API_MODE');
     await expect(services.assertProductionStartupPreflight()).rejects.not.toThrow('do-not-leak');
   });
+
+  test('uses the injected env for default storage readiness inputs', async () => {
+    const root = await createTempRoot();
+    const storageDir = path.join(root, 'env-storage');
+    const storageConfigs: Array<{ databasePath: string; storageDir: string }> = [];
+    const services = createRuntimeReadinessServices({
+      env: createProductionEnv({
+        MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
+        MEDIAVAULT_ADMIN_API_TOKEN: 'admin-token',
+        MEDIAVAULT_STORAGE_DIR: storageDir,
+      }),
+      countAuthUsers: async () => 0,
+      logger: { error: vi.fn(), warn: vi.fn() },
+      probeMediaTools: async () => [
+        { ok: true, tool: 'ffmpeg' },
+        { ok: true, tool: 'ffprobe' },
+        { ok: true, tool: 'packager' },
+      ],
+      probeStorage: async (config) => {
+        storageConfigs.push(config);
+        return [
+          { ok: true, target: 'storage-root' },
+          { ok: true, target: 'database-path' },
+        ];
+      },
+      runDatabaseStartupProbe: async () => {},
+    });
+
+    const report = await services.checkProductionReadiness();
+
+    expect(report.ready).toBe(true);
+    expect(storageConfigs).toEqual([expect.objectContaining({
+      databasePath: path.join(storageDir, 'db.sqlite'),
+      storageDir,
+    })]);
+  });
 });

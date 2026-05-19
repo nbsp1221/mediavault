@@ -1,7 +1,12 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import type { AdminApiConfig } from '../../domain/admin-api-config';
 
 export type AdminApiOperation = 'create-user' | 'delete-user';
+export type AdminApiMode = 'always' | 'bootstrap' | 'disabled';
+
+export interface AdminApiConfig {
+  mode: AdminApiMode;
+  token: string | null;
+}
 
 export type AdminApiAccessDecision =
   | { allowed: true; requireFirstUser?: boolean }

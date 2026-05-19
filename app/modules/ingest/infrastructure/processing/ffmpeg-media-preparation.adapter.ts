@@ -5,9 +5,12 @@ import type {
   PrepareIngestMediaCommand,
 } from '~/modules/ingest/application/ports/ingest-media-preparation.port';
 import type { ThumbnailFinalizerPort } from '~/modules/thumbnail/application/ports/thumbnail-finalizer.port';
+import type { MediaKeyDerivationConfig } from '~/shared/config/media.server';
+import type { RuntimeEnvInput } from '~/shared/config/runtime-env.server';
 import { derivePlaybackEncryptionKey } from '~/modules/playback/infrastructure/license/derive-playback-encryption-key';
 import { generatePlaybackKeyId } from '~/modules/playback/infrastructure/license/generate-playback-key-id';
 import { ThumbnailFinalizerAdapter } from '~/modules/thumbnail/infrastructure/finalization/thumbnail-finalizer.adapter';
+import { getMediaKeyDerivationConfig, getMediaPackagingConfig } from '~/shared/config/media.server';
 import { getShakaPackagerPath } from '~/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '~/shared/lib/server/ffmpeg-process-manager.server';
 import { normalizeClearKeyManifest } from './normalize-clearkey-manifest';
@@ -30,7 +33,7 @@ interface WorkspacePaths {
 type MediaPreparationPhase = 'cleanup' | 'manifest' | 'package' | 'prepare' | 'thumbnail' | 'verify';
 
 interface FfmpegMediaPreparationAdapterDependencies {
-  env?: NodeJS.ProcessEnv;
+  env?: RuntimeEnvInput;
   executeCommand?: (input: {
     args: string[];
     command: string;
@@ -38,21 +41,25 @@ interface FfmpegMediaPreparationAdapterDependencies {
   }) => Promise<Awaited<ReturnType<typeof executeFFmpegCommand>>>;
   getShakaPackagerPath?: () => string;
   logger?: LoggerLike;
+  mediaKeyConfig?: MediaKeyDerivationConfig;
+  segmentDuration?: number;
   thumbnailFinalizer?: ThumbnailFinalizerPort;
 }
 
 export class FfmpegMediaPreparationAdapter implements IngestMediaPreparationPort {
-  private readonly env: NodeJS.ProcessEnv;
   private readonly executeCommand: NonNullable<FfmpegMediaPreparationAdapterDependencies['executeCommand']>;
   private readonly getShakaPackagerPath: NonNullable<FfmpegMediaPreparationAdapterDependencies['getShakaPackagerPath']>;
   private readonly logger: LoggerLike;
+  private readonly mediaKeyConfig: MediaKeyDerivationConfig;
+  private readonly segmentDuration: number;
   private readonly thumbnailFinalizer: ThumbnailFinalizerPort;
 
   constructor(deps: FfmpegMediaPreparationAdapterDependencies = {}) {
-    this.env = deps.env ?? process.env;
     this.executeCommand = deps.executeCommand ?? executeFFmpegCommand;
     this.getShakaPackagerPath = deps.getShakaPackagerPath ?? getShakaPackagerPath;
     this.logger = deps.logger ?? console;
+    this.mediaKeyConfig = deps.mediaKeyConfig ?? getMediaKeyDerivationConfig(deps.env);
+    this.segmentDuration = deps.segmentDuration ?? getMediaPackagingConfig(deps.env).segmentDuration;
     this.thumbnailFinalizer = deps.thumbnailFinalizer ?? new ThumbnailFinalizerAdapter({
       logger: this.logger,
     });
@@ -118,7 +125,7 @@ export class FfmpegMediaPreparationAdapter implements IngestMediaPreparationPort
   private async prepareAttempt(command: PrepareIngestMediaCommand) {
     const workspace = resolveWorkspacePaths(command);
     const key = derivePlaybackEncryptionKey({
-      env: this.env,
+      config: this.mediaKeyConfig,
       videoId: command.videoId,
     });
 
@@ -141,7 +148,7 @@ export class FfmpegMediaPreparationAdapter implements IngestMediaPreparationPort
         keyId: generatePlaybackKeyId(command.videoId),
         manifestPath: workspace.manifestPath,
         outputDir: workspace.rootDir,
-        segmentDuration: resolveSegmentDuration(this.env),
+        segmentDuration: this.segmentDuration,
       }),
       command: this.getShakaPackagerPath(),
     }));
@@ -456,11 +463,6 @@ function buildThumbnailArgs(input: {
     '-y',
     input.outputPath,
   ];
-}
-
-function resolveSegmentDuration(env: NodeJS.ProcessEnv): number {
-  const parsed = Number.parseInt(env.DASH_SEGMENT_DURATION ?? '10', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 }
 
 async function normalizeManifest(manifestPath: string) {
