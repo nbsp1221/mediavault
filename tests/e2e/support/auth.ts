@@ -38,9 +38,9 @@ export async function loginToPath(page: Page, input: {
 
   await expect.poll(async () => {
     const cookies = await page.context().cookies();
-    return cookies.some(cookie => cookie.name === 'site_session');
+    return cookies.some(cookie => cookie.name === '__Host-mediavault-session');
   }, {
-    message: 'Expected browser context to store site_session after login',
+    message: 'Expected browser context to store __Host-mediavault-session after login',
   }).toBe(true);
 
   await page.waitForURL(expectedUrl, { timeout: 10_000 });

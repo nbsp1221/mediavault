@@ -43,12 +43,16 @@ describe('runtime env config boundary', () => {
 
   test('does not cache values between independent injected env maps', () => {
     const first = getAuthConfigFromEnv({
+      MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME: 'client_cookie',
       MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS: '11',
+      MEDIAVAULT_AUTH_SESSION_COOKIE_NAME: 'session_cookie',
       MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS: 'true',
       NODE_ENV: 'production',
     });
     const second = getAuthConfigFromEnv({
+      MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME: 'client_cookie',
       MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS: '22',
+      MEDIAVAULT_AUTH_SESSION_COOKIE_NAME: 'session_cookie',
       MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS: 'false',
       NODE_ENV: 'development',
     });

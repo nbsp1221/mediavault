@@ -112,7 +112,7 @@ async function loginAndGetCookie() {
 
   const setCookie = response.headers.get('set-cookie');
 
-  if (response.status !== 200 || !setCookie?.includes('site_session=')) {
+  if (response.status !== 200 || !setCookie?.includes('__Host-mediavault-session=')) {
     const responseBody = await response.text();
 
     throw new Error(
@@ -184,7 +184,7 @@ describe('Bun auth gate smoke', () => {
     });
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('set-cookie')).not.toContain('site_session=');
+    expect(response.headers.get('set-cookie')).not.toContain('__Host-mediavault-session=');
   });
 
   test('authenticated token and protected thumbnail routes respond deterministically under Bun', async () => {

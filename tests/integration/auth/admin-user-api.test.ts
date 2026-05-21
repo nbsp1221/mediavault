@@ -363,7 +363,7 @@ describe('admin user API', () => {
       .join('; ');
 
     expect(liveLoginResponse.status).toBe(200);
-    expect(cookieHeader).toEqual(expect.stringContaining('site_session='));
+    expect(cookieHeader).toEqual(expect.stringContaining('__Host-mediavault-session='));
 
     await expect(alwaysDeleteAction({
       params: { username: 'owner' },

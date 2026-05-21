@@ -171,7 +171,7 @@ describe('auth gate routes', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Set-Cookie')).toContain('site_session=');
+    expect(response.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
     expect(payload).toEqual(expect.objectContaining({
       success: true,
     }));
@@ -193,7 +193,7 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Set-Cookie')).toContain('site_session=');
+    expect(response.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
     await expect(response.json()).resolves.toEqual(expect.objectContaining({
       success: true,
       user: expect.objectContaining({
@@ -340,7 +340,7 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(logoutResponse.status).toBe(302);
-    expect(logoutResponse.headers.get('Set-Cookie')).toContain('site_session=');
+    expect(logoutResponse.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
   });
 
   test('logout revokes the server-side session so the old cookie can no longer authenticate', async () => {
@@ -399,7 +399,7 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(response.status).toBe(401);
-    expect(response.headers.get('Set-Cookie')).not.toContain('site_session=');
+    expect(response.headers.get('Set-Cookie')).not.toContain('__Host-mediavault-session=');
     await expect(response.json()).resolves.toEqual({
       error: 'Invalid username or password',
       success: false,
@@ -504,7 +504,7 @@ describe('auth gate routes', () => {
           body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
             'Content-Type': 'application/json',
-            'cookie': `site_auth_client=forged-${attempt}`,
+            'cookie': `__Host-mediavault-client=forged-${attempt}`,
           },
           method: 'POST',
         }),
@@ -518,7 +518,7 @@ describe('auth gate routes', () => {
         body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
         headers: {
           'Content-Type': 'application/json',
-          'cookie': 'site_auth_client=forged-250',
+          'cookie': '__Host-mediavault-client=forged-250',
         },
         method: 'POST',
       }),
@@ -549,7 +549,7 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Set-Cookie')).toContain('site_auth_client=');
+    expect(response.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
     await expect(response.json()).resolves.toEqual({});
   });
 
@@ -559,7 +559,7 @@ describe('auth gate routes', () => {
       request: new Request('http://localhost/login'),
     } as never);
     const cookies = getCookieMap(response.headers.get('Set-Cookie'));
-    const authClientCookie = cookies.site_auth_client;
+    const authClientCookie = cookies['__Host-mediavault-client'];
 
     expect(authClientCookie).toBeTruthy();
 
@@ -579,7 +579,7 @@ describe('auth gate routes', () => {
     const clientCookie = loaderResponse.headers.get('Set-Cookie');
 
     expect(loaderResponse.status).toBe(200);
-    expect(clientCookie).toContain('site_auth_client=');
+    expect(clientCookie).toContain('__Host-mediavault-client=');
 
     const { action } = await importLoginAction();
 
@@ -619,7 +619,7 @@ describe('auth gate routes', () => {
     } as never);
     const firstClientCookie = firstLoaderResponse.headers.get('Set-Cookie');
 
-    expect(firstClientCookie).toContain('site_auth_client=');
+    expect(firstClientCookie).toContain('__Host-mediavault-client=');
 
     const { action } = await importLoginAction();
 
@@ -643,7 +643,7 @@ describe('auth gate routes', () => {
     } as never);
     const rotatedClientCookie = rotatedLoaderResponse.headers.get('Set-Cookie');
 
-    expect(rotatedClientCookie).toContain('site_auth_client=');
+    expect(rotatedClientCookie).toContain('__Host-mediavault-client=');
     expect(rotatedClientCookie).not.toBe(firstClientCookie);
 
     const blockedResponse = await action({
@@ -670,7 +670,7 @@ describe('auth gate routes', () => {
     } as never);
     const clientCookie = loaderResponse.headers.get('Set-Cookie');
 
-    expect(clientCookie).toContain('site_auth_client=');
+    expect(clientCookie).toContain('__Host-mediavault-client=');
 
     const { action } = await importLoginAction();
 
@@ -718,7 +718,7 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(firstAttempt.status).toBe(401);
-    expect(firstAttempt.headers.get('Set-Cookie')).toContain('site_auth_client=');
+    expect(firstAttempt.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
 
     const firstClientCookie = toRequestCookieHeader(firstAttempt.headers.get('Set-Cookie'));
 
@@ -761,7 +761,7 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(secondAttempt.status).toBe(429);
-    expect(secondAttempt.headers.get('Set-Cookie')).toContain('site_auth_client=');
+    expect(secondAttempt.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
   }, 10_000);
 
   test('login action rejects an unknown username with the generic credential error', async () => {
@@ -784,7 +784,7 @@ describe('auth gate routes', () => {
   });
 
   test('malformed auth-client cookies do not crash the public login surface', async () => {
-    const malformedCookie = 'site_auth_client=%E0%A4%A';
+    const malformedCookie = '__Host-mediavault-client=%E0%A4%A';
 
     const { loader } = await importLoginRoute();
     const loaderResponse = await loader({
@@ -796,7 +796,7 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(loaderResponse.status).toBe(200);
-    expect(loaderResponse.headers.get('Set-Cookie')).toContain('site_auth_client=');
+    expect(loaderResponse.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
 
     const { action } = await importLoginAction();
     const actionResponse = await action({
@@ -811,7 +811,7 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(actionResponse.status).toBe(401);
-    expect(actionResponse.headers.get('Set-Cookie')).toContain('site_auth_client=');
+    expect(actionResponse.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
   });
 
   test('logout still revokes the server-side session after module reload', async () => {
@@ -909,7 +909,7 @@ describe('auth gate routes', () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get('Location')).toBe('/goodbye');
-    expect(response.headers.get('Set-Cookie')).toContain('site_session=');
+    expect(response.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
   });
 
   test.each([
@@ -1082,7 +1082,7 @@ describe('auth gate routes', () => {
 
     const rawSetCookie = loginResponse.headers.get('Set-Cookie');
     const cookie = toRequestCookieHeader(rawSetCookie);
-    expect(rawSetCookie).toContain('site_session=');
+    expect(rawSetCookie).toContain('__Host-mediavault-session=');
     expect(rawSetCookie).not.toContain('session_id=');
 
     const { loader } = await importThumbnailRoute();

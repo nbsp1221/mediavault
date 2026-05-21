@@ -128,7 +128,7 @@ async function loginAndGetCookie() {
 
   const setCookie = response.headers.get('set-cookie');
 
-  if (response.status !== 200 || !setCookie?.includes('site_session=')) {
+  if (response.status !== 200 || !setCookie?.includes('__Host-mediavault-session=')) {
     const responseBody = await response.text();
 
     throw new Error(
@@ -317,7 +317,7 @@ describe('Dev auth gate smoke', () => {
 
     expect(logoutResponse.status).toBe(302);
     expect(logoutResponse.headers.get('location')).toBe('/goodbye');
-    expect(logoutResponse.headers.get('set-cookie')).toContain('site_session=');
+    expect(logoutResponse.headers.get('set-cookie')).toContain('__Host-mediavault-session=');
 
     const authMeResponse = await fetch(`${baseUrl}/api/auth/me`, {
       headers: new Headers([

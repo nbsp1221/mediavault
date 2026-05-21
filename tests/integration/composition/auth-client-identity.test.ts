@@ -50,7 +50,7 @@ describe('auth-client identity helpers', () => {
 
     const request = new Request('http://localhost/api/auth/login', {
       headers: {
-        cookie: 'site_auth_client=%E0%A4%A',
+        cookie: '__Host-mediavault-client=%E0%A4%A',
       },
     });
 

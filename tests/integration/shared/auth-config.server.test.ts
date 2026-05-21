@@ -53,6 +53,8 @@ describe('auth server config', () => {
 
   test('falls back for blank or non-positive numeric settings', () => {
     process.env.NODE_ENV = 'development';
+    process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME = 'client_cookie';
+    process.env.MEDIAVAULT_AUTH_SESSION_COOKIE_NAME = 'session_cookie';
     process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_BLOCK_DURATION_MS = '0';
     process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS = '-1';
     process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_WINDOW_MS = 'not-a-number';
@@ -66,6 +68,17 @@ describe('auth server config', () => {
       maxFailedLoginAttempts: 5,
       sessionCookieSecure: false,
       sessionTtlMs: 604_800_000,
+    }));
+  });
+
+  test('uses secure cookies for default __Host-prefixed names', () => {
+    process.env.NODE_ENV = 'development';
+
+    expect(getAuthCookieConfig()).toEqual(expect.objectContaining({
+      clientCookieName: '__Host-mediavault-client',
+      sessionCookieName: '__Host-mediavault-session',
+      sessionCookiePath: '/',
+      sessionCookieSecure: true,
     }));
   });
 

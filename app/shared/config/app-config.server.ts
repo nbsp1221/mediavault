@@ -16,13 +16,13 @@ const DEFAULT_FAILED_LOGIN_BLOCK_DURATION_MS = 5 * 60 * 1000;
 const DEFAULT_FAILED_LOGIN_DELAY_MS = 750;
 const DEFAULT_FAILED_LOGIN_WINDOW_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_FAILED_LOGIN_ATTEMPTS = 5;
-const DEFAULT_MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME = 'site_auth_client';
-const DEFAULT_MEDIA_KEY_DERIVATION_SALT = 'local-streamer-video-v1';
+const DEFAULT_MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME = '__Host-mediavault-client';
+const DEFAULT_MEDIA_KEY_DERIVATION_SALT = 'mediavault-media-key-v1';
 const DEFAULT_PLAYBACK_JWT_AUDIENCE = 'video-streaming';
 const DEFAULT_PLAYBACK_JWT_EXPIRY = '15m';
 const DEFAULT_PLAYBACK_JWT_ISSUER = 'mediavault';
 const DEFAULT_SEGMENT_DURATION = 10;
-const DEFAULT_SESSION_COOKIE_NAME = 'site_session';
+const DEFAULT_SESSION_COOKIE_NAME = '__Host-mediavault-session';
 const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const authClientCookieFallbackSecret = randomBytes(32).toString('hex');
 
@@ -111,6 +111,10 @@ function getDefaultStorageDir(isDevelopmentRuntime: boolean) {
   return path.resolve(process.cwd(), 'storage');
 }
 
+function requiresSecureCookiePrefix(cookieName: string): boolean {
+  return cookieName.startsWith('__Host-') || cookieName.startsWith('__Secure-');
+}
+
 export function getAdminApiConfigFromEnv(env: RuntimeEnvInput = process.env): AdminApiConfig {
   const runtimeEnv = loadRuntimeEnv(env);
   const rawMode = runtimeEnv.adminApiMode?.trim() || 'disabled';
@@ -127,12 +131,16 @@ export function getAdminApiConfigFromEnv(env: RuntimeEnvInput = process.env): Ad
 
 export function getAuthCookieConfigFromEnv(env: RuntimeEnvInput = process.env): AuthCookieConfig {
   const runtimeEnv = loadRuntimeEnv(env);
+  const clientCookieName = runtimeEnv.authClientCookieName || DEFAULT_MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME;
+  const sessionCookieName = runtimeEnv.authSessionCookieName || DEFAULT_SESSION_COOKIE_NAME;
 
   return {
-    clientCookieName: runtimeEnv.authClientCookieName || DEFAULT_MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME,
-    sessionCookieName: runtimeEnv.authSessionCookieName || DEFAULT_SESSION_COOKIE_NAME,
+    clientCookieName,
+    sessionCookieName,
     sessionCookiePath: '/',
-    sessionCookieSecure: runtimeEnv.isProductionRuntime,
+    sessionCookieSecure: runtimeEnv.isProductionRuntime ||
+      requiresSecureCookiePrefix(clientCookieName) ||
+      requiresSecureCookiePrefix(sessionCookieName),
     sessionTtlMs: readPositiveInteger(runtimeEnv.authSessionTtlMs, DEFAULT_SESSION_TTL_MS),
   };
 }
