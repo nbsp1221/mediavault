@@ -1,9 +1,9 @@
 import { describe, expect, test, vi } from 'vitest';
-import type { AuthUserRepository } from '../ports/auth-user-repository.port';
 import type { PasswordHashService } from '../ports/password-hash-service.port';
-import { CreateAuthUserUseCase } from './create-auth-user.usecase';
+import type { UserRepository } from '../ports/user-repository.port';
+import { CreateUserUseCase } from './create-user.usecase';
 
-function createRepository(overrides: Partial<AuthUserRepository> = {}): AuthUserRepository {
+function createRepository(overrides: Partial<UserRepository> = {}): UserRepository {
   return {
     count: vi.fn(async () => 0),
     create: vi.fn(async input => ({
@@ -24,18 +24,17 @@ function createRepository(overrides: Partial<AuthUserRepository> = {}): AuthUser
 function createPasswordHashService(): PasswordHashService {
   return {
     hash: vi.fn(async password => `hashed:${password}`),
-    verify: vi.fn(async () => false),
   };
 }
 
-describe('CreateAuthUserUseCase', () => {
-  test('creates an admin auth user with normalized username and hashed password', async () => {
+describe('CreateUserUseCase', () => {
+  test('creates a user with normalized username and hashed password', async () => {
     const repository = createRepository();
     const passwordHashService = createPasswordHashService();
-    const useCase = new CreateAuthUserUseCase({
-      authUserRepository: repository,
+    const useCase = new CreateUserUseCase({
       createUserId: () => 'user-1',
       passwordHashService,
+      userRepository: repository,
     });
 
     const result = await useCase.execute({
@@ -74,10 +73,10 @@ describe('CreateAuthUserUseCase', () => {
   test('rejects invalid username and password before hashing', async () => {
     const repository = createRepository();
     const passwordHashService = createPasswordHashService();
-    const useCase = new CreateAuthUserUseCase({
-      authUserRepository: repository,
+    const useCase = new CreateUserUseCase({
       createUserId: () => 'user-1',
       passwordHashService,
+      userRepository: repository,
     });
 
     await expect(useCase.execute({
@@ -112,10 +111,10 @@ describe('CreateAuthUserUseCase', () => {
       })),
     });
     const passwordHashService = createPasswordHashService();
-    const useCase = new CreateAuthUserUseCase({
-      authUserRepository: repository,
+    const useCase = new CreateUserUseCase({
       createUserId: () => 'user-1',
       passwordHashService,
+      userRepository: repository,
     });
 
     await expect(useCase.execute({
@@ -134,10 +133,10 @@ describe('CreateAuthUserUseCase', () => {
     const repository = createRepository({
       create: vi.fn(async () => null),
     });
-    const useCase = new CreateAuthUserUseCase({
-      authUserRepository: repository,
+    const useCase = new CreateUserUseCase({
       createUserId: () => 'user-1',
       passwordHashService: createPasswordHashService(),
+      userRepository: repository,
     });
 
     await expect(useCase.execute({

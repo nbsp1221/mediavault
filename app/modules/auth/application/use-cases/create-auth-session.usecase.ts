@@ -1,15 +1,15 @@
 import type { AuthSession } from '../../domain/auth-session';
 import type { AuthSessionRepository } from '../ports/auth-session-repository.port';
-import type { AuthUserRepository } from '../ports/auth-user-repository.port';
 import type { LoginAttemptGuard } from '../ports/login-attempt-guard.port';
 import type { PasswordHashService } from '../ports/password-hash-service.port';
+import type { UserCredentialReader } from '../ports/user-credential-reader.port';
+import { createUsername } from '../../../user/domain/value-objects/username';
 import { validateAuthPassword } from '../../domain/auth-password-policy';
-import { createAuthUsername } from '../../domain/auth-username';
 import { SessionPolicy } from '../../domain/policies/SessionPolicy';
 
 interface CreateAuthSessionUseCaseDependencies {
-  authUserRepository: AuthUserRepository;
   createSessionId: () => string;
+  credentialReader: UserCredentialReader;
   loginAttemptGuard?: LoginAttemptGuard;
   onInvalidCredentials?: () => Promise<void>;
   passwordHashService: PasswordHashService;
@@ -69,10 +69,10 @@ export class CreateAuthSessionUseCase {
         }
       }
 
-      const username = createAuthUsername(input.username);
+      const username = createUsername(input.username);
       const passwordValidation = validateAuthPassword(input.password);
 
-      if ('ok' in username || !passwordValidation.ok) {
+      if (!username.ok || !passwordValidation.ok) {
         for (const key of attemptKeys) {
           this.deps.loginAttemptGuard?.registerFailure({
             key,
@@ -88,13 +88,13 @@ export class CreateAuthSessionUseCase {
         };
       }
 
-      const user = await this.deps.authUserRepository.findByUsernameKey(username.usernameKey);
+      const credential = await this.deps.credentialReader.findCredentialByUsernameKey(username.usernameKey);
       const passwordMatches = await this.deps.passwordHashService.verify({
-        hash: user?.passwordHash ?? missingUserPasswordHash,
+        hash: credential?.passwordHash ?? missingUserPasswordHash,
         password: input.password,
       });
 
-      if (!user || !passwordMatches) {
+      if (!credential || !passwordMatches) {
         for (const key of attemptKeys) {
           this.deps.loginAttemptGuard?.registerFailure({
             key,
@@ -119,7 +119,7 @@ export class CreateAuthSessionUseCase {
         ipAddress: input.ipAddress,
         now: input.now,
         ttlMs: this.deps.sessionTtlMs,
-        userId: user.id,
+        userId: credential.id,
         userAgent: input.userAgent,
       });
 

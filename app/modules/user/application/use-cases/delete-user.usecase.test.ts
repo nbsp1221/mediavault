@@ -1,8 +1,9 @@
 import { describe, expect, test, vi } from 'vitest';
-import type { AuthUserRepository } from '../ports/auth-user-repository.port';
-import { DeleteAuthUserUseCase } from './delete-auth-user.usecase';
+import type { OwnedVideoCounterPort } from '../ports/owned-video-counter.port';
+import type { UserRepository } from '../ports/user-repository.port';
+import { DeleteUserUseCase } from './delete-user.usecase';
 
-function createRepository(overrides: Partial<AuthUserRepository> = {}): AuthUserRepository {
+function createRepository(overrides: Partial<UserRepository> = {}): UserRepository {
   return {
     count: vi.fn(async () => 1),
     create: vi.fn(),
@@ -20,15 +21,19 @@ function createRepository(overrides: Partial<AuthUserRepository> = {}): AuthUser
   };
 }
 
-describe('DeleteAuthUserUseCase', () => {
+function createOwnedVideoCounter(count = 0): OwnedVideoCounterPort {
+  return {
+    countOwnedVideos: vi.fn(async () => count),
+  };
+}
+
+describe('DeleteUserUseCase', () => {
   test('deletes an existing user by normalized username', async () => {
     const repository = createRepository();
-    const sessionRepository = {
-      revokeByUserId: vi.fn(async () => {}),
-    };
-    const useCase = new DeleteAuthUserUseCase({
-      authUserRepository: repository,
-      sessionRepository,
+    const ownedVideoCounter = createOwnedVideoCounter();
+    const useCase = new DeleteUserUseCase({
+      ownedVideoCounter,
+      userRepository: repository,
     });
 
     await expect(useCase.execute({
@@ -42,20 +47,34 @@ describe('DeleteAuthUserUseCase', () => {
     });
 
     expect(repository.findByUsernameKey).toHaveBeenCalledWith('owner');
+    expect(ownedVideoCounter.countOwnedVideos).toHaveBeenCalledWith('user-1');
     expect(repository.deleteByUsernameKey).toHaveBeenCalledWith('owner');
-    expect(sessionRepository.revokeByUserId).toHaveBeenCalledWith('user-1');
+  });
+
+  test('blocks deletion when the user owns videos', async () => {
+    const repository = createRepository();
+    const useCase = new DeleteUserUseCase({
+      ownedVideoCounter: createOwnedVideoCounter(2),
+      userRepository: repository,
+    });
+
+    await expect(useCase.execute({
+      username: 'owner',
+    })).resolves.toEqual({
+      ok: false,
+      reason: 'USER_OWNS_VIDEOS',
+    });
+
+    expect(repository.deleteByUsernameKey).not.toHaveBeenCalled();
   });
 
   test('rejects invalid and missing usernames', async () => {
     const repository = createRepository({
       findByUsernameKey: vi.fn(async () => null),
     });
-    const sessionRepository = {
-      revokeByUserId: vi.fn(async () => {}),
-    };
-    const useCase = new DeleteAuthUserUseCase({
-      authUserRepository: repository,
-      sessionRepository,
+    const useCase = new DeleteUserUseCase({
+      ownedVideoCounter: createOwnedVideoCounter(),
+      userRepository: repository,
     });
 
     await expect(useCase.execute({
@@ -73,6 +92,5 @@ describe('DeleteAuthUserUseCase', () => {
     });
 
     expect(repository.deleteByUsernameKey).not.toHaveBeenCalled();
-    expect(sessionRepository.revokeByUserId).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
-import type { AuthUserRepository } from '../ports/auth-user-repository.port';
 import type { PasswordHashService } from '../ports/password-hash-service.port';
+import type { UserCredentialReader } from '../ports/user-credential-reader.port';
 import { CreateAuthSessionUseCase } from './create-auth-session.usecase';
 
 const authUser = {
@@ -12,16 +12,15 @@ const authUser = {
   usernameKey: 'owner',
 };
 
-function createUserRepository(overrides: Partial<AuthUserRepository> = {}): AuthUserRepository {
+function createCredentialReader(overrides: Partial<UserCredentialReader> = {}): UserCredentialReader {
   return {
-    count: async () => 1,
-    create: async input => ({
-      ...input,
-      createdAt: input.createdAt,
-    }),
-    deleteByUsernameKey: async () => false,
-    findById: async id => (id === authUser.id ? authUser : null),
-    findByUsernameKey: async usernameKey => (usernameKey === authUser.usernameKey ? authUser : null),
+    findCredentialByUsernameKey: async usernameKey => (usernameKey === authUser.usernameKey
+      ? {
+          id: authUser.id,
+          passwordHash: authUser.passwordHash,
+          usernameKey: authUser.usernameKey,
+        }
+      : null),
     ...overrides,
   };
 }
@@ -39,8 +38,8 @@ describe('CreateAuthSessionUseCase', () => {
     const savedSessions: Array<{ id: string; userId: string }> = [];
     const reset = vi.fn();
     const useCase = new CreateAuthSessionUseCase({
-      authUserRepository: createUserRepository(),
       createSessionId: () => 'session-1',
+      credentialReader: createCredentialReader(),
       loginAttemptGuard: {
         evaluate: () => ({ allowed: true }),
         registerFailure: vi.fn(),
@@ -81,8 +80,8 @@ describe('CreateAuthSessionUseCase', () => {
     const delayOnInvalidCredentials = vi.fn(async () => {});
     const registerFailure = vi.fn();
     const useCase = new CreateAuthSessionUseCase({
-      authUserRepository: createUserRepository(),
       createSessionId: () => 'session-2',
+      credentialReader: createCredentialReader(),
       loginAttemptGuard: {
         evaluate: () => ({ allowed: true }),
         registerFailure,
@@ -124,8 +123,8 @@ describe('CreateAuthSessionUseCase', () => {
   test('rejects an unknown username with the same invalid credentials reason', async () => {
     const verify = vi.fn(async () => false);
     const useCase = new CreateAuthSessionUseCase({
-      authUserRepository: createUserRepository({
-        findByUsernameKey: async () => null,
+      credentialReader: createCredentialReader({
+        findCredentialByUsernameKey: async () => null,
       }),
       createSessionId: () => 'session-3',
       passwordHashService: createPasswordHashService({
@@ -158,12 +157,19 @@ describe('CreateAuthSessionUseCase', () => {
   });
 
   test('rejects invalid credential shape before lookup', async () => {
-    const findByUsernameKey = vi.fn();
+    const findCredentialByUsernameKey = vi.fn();
+    const registerFailure = vi.fn();
     const useCase = new CreateAuthSessionUseCase({
-      authUserRepository: createUserRepository({
-        findByUsernameKey,
+      credentialReader: createCredentialReader({
+        findCredentialByUsernameKey,
       }),
       createSessionId: () => 'session-4',
+      loginAttemptGuard: {
+        evaluate: () => ({ allowed: true }),
+        registerFailure,
+        reset: vi.fn(),
+        runExclusive: async (_key, task) => task(),
+      },
       passwordHashService: createPasswordHashService(),
       sessionRepository: {
         findById: async () => null,
@@ -183,6 +189,10 @@ describe('CreateAuthSessionUseCase', () => {
       ok: false,
       reason: 'INVALID_CREDENTIALS',
     });
+    expect(registerFailure).toHaveBeenCalledWith({
+      key: 'global',
+      now: new Date('2026-03-07T00:00:00.000Z'),
+    });
     await expect(useCase.execute({
       now: new Date('2026-03-07T00:00:00.000Z'),
       password: 'correct-password',
@@ -191,12 +201,17 @@ describe('CreateAuthSessionUseCase', () => {
       ok: false,
       reason: 'INVALID_CREDENTIALS',
     });
-    expect(findByUsernameKey).not.toHaveBeenCalled();
+    expect(registerFailure).toHaveBeenCalledWith({
+      key: 'global',
+      now: new Date('2026-03-07T00:00:00.000Z'),
+    });
+    expect(registerFailure).toHaveBeenCalledTimes(2);
+    expect(findCredentialByUsernameKey).not.toHaveBeenCalled();
   });
 
   test('blocks account login when the attempt guard denies the request', async () => {
     const verify = vi.fn();
-    const findByUsernameKey = vi.fn();
+    const findCredentialByUsernameKey = vi.fn();
     const evaluate = vi.fn(({ key }: { key: string }) => (key === 'anonymous'
       ? {
           allowed: false,
@@ -206,8 +221,8 @@ describe('CreateAuthSessionUseCase', () => {
           allowed: true,
         }));
     const useCase = new CreateAuthSessionUseCase({
-      authUserRepository: createUserRepository({
-        findByUsernameKey,
+      credentialReader: createCredentialReader({
+        findCredentialByUsernameKey,
       }),
       createSessionId: () => 'session-5',
       loginAttemptGuard: {
@@ -250,7 +265,7 @@ describe('CreateAuthSessionUseCase', () => {
       key: 'anonymous',
       now: new Date('2026-03-07T00:00:00.000Z'),
     });
-    expect(findByUsernameKey).not.toHaveBeenCalled();
+    expect(findCredentialByUsernameKey).not.toHaveBeenCalled();
     expect(verify).not.toHaveBeenCalled();
   });
 
@@ -258,8 +273,8 @@ describe('CreateAuthSessionUseCase', () => {
     const evaluate = vi.fn(() => ({ allowed: true }));
     const registerFailure = vi.fn();
     const useCase = new CreateAuthSessionUseCase({
-      authUserRepository: createUserRepository(),
       createSessionId: () => 'session-6',
+      credentialReader: createCredentialReader(),
       loginAttemptGuard: {
         evaluate,
         registerFailure,
@@ -309,8 +324,8 @@ describe('CreateAuthSessionUseCase', () => {
     const evaluate = vi.fn(() => ({ allowed: true }));
     const reset = vi.fn();
     const useCase = new CreateAuthSessionUseCase({
-      authUserRepository: createUserRepository(),
       createSessionId: () => 'session-7',
+      credentialReader: createCredentialReader(),
       loginAttemptGuard: {
         evaluate,
         registerFailure: vi.fn(),

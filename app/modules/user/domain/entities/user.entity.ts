@@ -1,4 +1,4 @@
-export interface AuthUser {
+export interface User {
   createdAt: Date;
   id: string;
   passwordHash: string;

@@ -1,4 +1,3 @@
-import { SqliteAuthUserRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-auth-user.repository';
 import {
   type MediaToolProbeResult,
   type ProductionReadinessIssue,
@@ -21,6 +20,7 @@ import {
 } from '~/modules/runtime/infrastructure/media-tool-runtime-probes.server';
 import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { SqliteUserRepository } from '~/modules/user/infrastructure/sqlite/sqlite-user.repository';
 import { getAdminApiConfig } from '~/shared/config/admin-api.server';
 import { getRuntimeEnvInput } from '~/shared/config/runtime-env.server';
 
@@ -70,7 +70,7 @@ async function runDefaultDatabaseStartupProbe(databasePath: string): Promise<voi
 }
 
 async function countDefaultAuthUsers(databasePath: string): Promise<number> {
-  return new SqliteAuthUserRepository({
+  return new SqliteUserRepository({
     dbPath: databasePath,
   }).count();
 }

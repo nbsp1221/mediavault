@@ -3,17 +3,17 @@ import { dirname } from 'node:path';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
 import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import type {
-  AuthUserRepository,
-  CreateAuthUserInput,
-} from '../../application/ports/auth-user-repository.port';
-import type { AuthUser } from '../../domain/auth-user';
+  CreateUserInput,
+  UserRepository,
+} from '../../application/ports/user-repository.port';
+import type { User } from '../../domain/entities/user.entity';
 
-interface SqliteAuthUserRepositoryOptions {
+interface SqliteUserRepositoryOptions {
   createDatabase?: CreateMigratedPrimarySqliteDatabase;
   dbPath: string;
 }
 
-interface AuthUserRow {
+interface UserRow {
   created_at: string;
   id: string;
   password_hash: string;
@@ -22,7 +22,7 @@ interface AuthUserRow {
   username_key: string;
 }
 
-function mapAuthUserRow(row: AuthUserRow): AuthUser {
+function mapUserRow(row: UserRow): User {
   return {
     createdAt: new Date(row.created_at),
     id: row.id,
@@ -33,12 +33,12 @@ function mapAuthUserRow(row: AuthUserRow): AuthUser {
   };
 }
 
-export class SqliteAuthUserRepository implements AuthUserRepository {
+export class SqliteUserRepository implements UserRepository {
   private readonly createDatabase: CreateMigratedPrimarySqliteDatabase;
   private readonly dbPath: string;
   private databasePromise: Promise<SqliteDatabaseAdapter> | null = null;
 
-  constructor(options: SqliteAuthUserRepositoryOptions) {
+  constructor(options: SqliteUserRepositoryOptions) {
     mkdirSync(dirname(options.dbPath), { recursive: true });
     this.createDatabase = options.createDatabase ?? createMigratedPrimarySqliteDatabase;
     this.dbPath = options.dbPath;
@@ -65,9 +65,9 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
   }
 
   async create(
-    input: CreateAuthUserInput,
+    input: CreateUserInput,
     options: { requireFirstUser?: boolean } = {},
-  ): Promise<AuthUser | null> {
+  ): Promise<User | null> {
     const database = await this.getDatabase();
     let created = false;
 
@@ -115,7 +115,7 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
 
     const createdUser = await this.findById(input.id);
     if (!createdUser) {
-      throw new Error(`Failed to create auth user ${input.id}`);
+      throw new Error(`Failed to create user ${input.id}`);
     }
 
     return createdUser;
@@ -131,9 +131,9 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
     return result.changes > 0;
   }
 
-  async findById(id: string): Promise<AuthUser | null> {
+  async findById(id: string): Promise<User | null> {
     const database = await this.getDatabase();
-    const row = await database.prepare<AuthUserRow>(`
+    const row = await database.prepare<UserRow>(`
       SELECT
         id,
         username,
@@ -145,12 +145,12 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
       WHERE id = ?
     `).get(id);
 
-    return row ? mapAuthUserRow(row) : null;
+    return row ? mapUserRow(row) : null;
   }
 
-  async findByUsernameKey(usernameKey: string): Promise<AuthUser | null> {
+  async findByUsernameKey(usernameKey: string): Promise<User | null> {
     const database = await this.getDatabase();
-    const row = await database.prepare<AuthUserRow>(`
+    const row = await database.prepare<UserRow>(`
       SELECT
         id,
         username,
@@ -162,6 +162,6 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
       WHERE username_key = ?
     `).get(usernameKey);
 
-    return row ? mapAuthUserRow(row) : null;
+    return row ? mapUserRow(row) : null;
   }
 }

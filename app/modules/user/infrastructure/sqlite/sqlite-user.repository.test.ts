@@ -3,14 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
-import { SqliteAuthUserRepository } from './sqlite-auth-user.repository';
+import { SqliteUserRepository } from './sqlite-user.repository';
 
-describe('SqliteAuthUserRepository', () => {
+describe('SqliteUserRepository', () => {
   let dbPath: string;
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), 'mediavault-auth-users-'));
+    tempDir = await mkdtemp(join(tmpdir(), 'mediavault-users-'));
     dbPath = join(tempDir, 'storage', 'db.sqlite');
   });
 
@@ -18,8 +18,8 @@ describe('SqliteAuthUserRepository', () => {
     await rm(tempDir, { force: true, recursive: true });
   });
 
-  test('creates and finds an auth user by username key and id', async () => {
-    const repository = new SqliteAuthUserRepository({ dbPath });
+  test('creates and finds a user by username key and id', async () => {
+    const repository = new SqliteUserRepository({ dbPath });
     const createdAt = new Date('2026-05-16T00:00:00.000Z');
 
     const user = await repository.create({
@@ -44,7 +44,7 @@ describe('SqliteAuthUserRepository', () => {
   });
 
   test('rejects duplicate username keys', async () => {
-    const repository = new SqliteAuthUserRepository({ dbPath });
+    const repository = new SqliteUserRepository({ dbPath });
     const createdAt = new Date('2026-05-16T00:00:00.000Z');
 
     await repository.create({
@@ -66,8 +66,8 @@ describe('SqliteAuthUserRepository', () => {
     })).rejects.toThrow();
   });
 
-  test('returns null for first-user-only creation after an account already exists', async () => {
-    const repository = new SqliteAuthUserRepository({ dbPath });
+  test('returns null for first-user-only creation after a user already exists', async () => {
+    const repository = new SqliteUserRepository({ dbPath });
     const createdAt = new Date('2026-05-16T00:00:00.000Z');
 
     await repository.create({
@@ -94,7 +94,7 @@ describe('SqliteAuthUserRepository', () => {
   });
 
   test('deletes users by username key', async () => {
-    const repository = new SqliteAuthUserRepository({ dbPath });
+    const repository = new SqliteUserRepository({ dbPath });
     const createdAt = new Date('2026-05-16T00:00:00.000Z');
 
     await repository.create({
@@ -112,7 +112,7 @@ describe('SqliteAuthUserRepository', () => {
   });
 
   test('counts users', async () => {
-    const repository = new SqliteAuthUserRepository({ dbPath });
+    const repository = new SqliteUserRepository({ dbPath });
     const createdAt = new Date('2026-05-16T00:00:00.000Z');
 
     await expect(repository.count()).resolves.toBe(0);
@@ -127,7 +127,7 @@ describe('SqliteAuthUserRepository', () => {
     await expect(repository.count()).resolves.toBe(1);
   });
 
-  test('assigns existing single-user playlists to the first auth user', async () => {
+  test('assigns existing single-user playlists to the first user', async () => {
     const database = await createMigratedPrimarySqliteDatabase({ dbPath });
     await database.prepare(`
       INSERT INTO playlists (
@@ -151,7 +151,7 @@ describe('SqliteAuthUserRepository', () => {
       '2026-05-15T00:00:00.000Z',
     );
 
-    const repository = new SqliteAuthUserRepository({ dbPath });
+    const repository = new SqliteUserRepository({ dbPath });
     await repository.create({
       createdAt: new Date('2026-05-16T00:00:00.000Z'),
       id: 'user-1',

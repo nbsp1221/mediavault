@@ -1,11 +1,11 @@
 const USERNAME_WHITESPACE_PATTERN = /\s+/g;
 const USERNAME_UNSAFE_PATTERN = /[\\/]|(?:^|\/)\.\.(?:\/|$)/;
 
-export type CreateAuthUsernameResult =
-  | { username: string; usernameKey: string }
-  | { error: 'USERNAME_REQUIRED' | 'USERNAME_UNSAFE'; ok: false };
+export type CreateUsernameResult =
+  | { ok: true; username: string; usernameKey: string }
+  | { ok: false; reason: 'USERNAME_REQUIRED' | 'USERNAME_UNSAFE' };
 
-export function normalizeAuthUsernameKey(rawUsername: string): string | null {
+export function normalizeUsernameKey(rawUsername: string): string | null {
   const usernameKey = rawUsername
     .trim()
     .toLowerCase()
@@ -14,25 +14,26 @@ export function normalizeAuthUsernameKey(rawUsername: string): string | null {
   return usernameKey || null;
 }
 
-export function createAuthUsername(rawUsername: string): CreateAuthUsernameResult {
+export function createUsername(rawUsername: string): CreateUsernameResult {
   const username = rawUsername.trim();
 
   if (!username) {
     return {
-      error: 'USERNAME_REQUIRED',
       ok: false,
+      reason: 'USERNAME_REQUIRED',
     };
   }
 
   if (USERNAME_UNSAFE_PATTERN.test(username) || username.includes('..') || username.includes('\0')) {
     return {
-      error: 'USERNAME_UNSAFE',
       ok: false,
+      reason: 'USERNAME_UNSAFE',
     };
   }
 
   return {
+    ok: true,
     username,
-    usernameKey: normalizeAuthUsernameKey(username)!,
+    usernameKey: normalizeUsernameKey(username)!,
   };
 }

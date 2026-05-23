@@ -4,16 +4,18 @@ import type { AuthSession } from '~/modules/auth/domain/auth-session';
 import type { SiteViewer } from '~/modules/auth/domain/site-viewer';
 import { type AdminApiOperation, evaluateAdminApiAccess } from '~/modules/auth/application/policies/admin-api-access.policy';
 import { CreateAuthSessionUseCase } from '~/modules/auth/application/use-cases/create-auth-session.usecase';
-import { CreateAuthUserUseCase } from '~/modules/auth/application/use-cases/create-auth-user.usecase';
-import { DeleteAuthUserUseCase } from '~/modules/auth/application/use-cases/delete-auth-user.usecase';
 import { DestroyAuthSessionUseCase } from '~/modules/auth/application/use-cases/destroy-auth-session.usecase';
 import { EvaluateSiteAccessUseCase } from '~/modules/auth/application/use-cases/evaluate-site-access.usecase';
 import { ResolveAuthSessionUseCase } from '~/modules/auth/application/use-cases/resolve-auth-session.usecase';
 import { Argon2PasswordHashService } from '~/modules/auth/infrastructure/password/argon2-password-hash.service';
 import { InMemoryLoginAttemptGuard } from '~/modules/auth/infrastructure/security/in-memory-login-attempt-guard';
-import { SqliteAuthUserRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-auth-user.repository';
 import { SqliteSessionRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-session.repository';
+import { SqliteUserCredentialReaderAdapter } from '~/modules/auth/infrastructure/sqlite/sqlite-user-credential-reader.adapter';
+import { SqliteOwnedVideoCounterAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-owned-video-counter.adapter';
 import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
+import { CreateUserUseCase } from '~/modules/user/application/use-cases/create-user.usecase';
+import { type DeleteUserUseCaseResult, DeleteUserUseCase } from '~/modules/user/application/use-cases/delete-user.usecase';
+import { SqliteUserRepository } from '~/modules/user/infrastructure/sqlite/sqlite-user.repository';
 import { getAdminApiConfig } from '~/shared/config/admin-api.server';
 import {
   getAuthConfig,
@@ -29,7 +31,7 @@ interface ServerSessionServices {
 }
 
 interface CachedServerSessionServices extends ServerSessionServices {
-  authUserRepository: SqliteAuthUserRepository;
+  userRepository: SqliteUserRepository;
   sessionRepository: SqliteSessionRepository;
 }
 
@@ -39,8 +41,8 @@ interface ServerAuthServices extends ServerSessionServices {
 
 export interface ServerAdminAuthServices {
   countAuthUsers: () => Promise<number>;
-  createAuthUser: CreateAuthUserUseCase;
-  deleteAuthUser: DeleteAuthUserUseCase;
+  createAuthUser: CreateUserUseCase;
+  deleteAuthUser: DeleteAuthUserService;
   evaluateAdminApiAccess: (input: {
     authorizationHeader: string | null;
     operation: AdminApiOperation;
@@ -50,6 +52,12 @@ export interface ServerAdminAuthServices {
 interface CreateServerAdminAuthServicesInput {
   createUserId?: () => string;
   dbPath?: string;
+}
+
+type DeleteUserCommand = Parameters<DeleteUserUseCase['execute']>[0];
+
+interface DeleteAuthUserService {
+  execute(input: DeleteUserCommand): Promise<DeleteUserUseCaseResult>;
 }
 
 let cachedAuthServices: ServerAuthServices | null = null;
@@ -63,7 +71,7 @@ function getCachedServerSessionServices(): CachedServerSessionServices {
 
   const authCookieConfig = getAuthCookieConfig();
   const dbPath = getPrimaryStorageConfig().databasePath;
-  const authUserRepository = new SqliteAuthUserRepository({
+  const userRepository = new SqliteUserRepository({
     dbPath,
   });
   const sessionRepository = new SqliteSessionRepository({
@@ -83,7 +91,7 @@ function getCachedServerSessionServices(): CachedServerSessionServices {
     }),
     resolveAuthSession,
     resolveSiteViewerByUserId: async (userId: string) => {
-      const user = await authUserRepository.findById(userId);
+      const user = await userRepository.findById(userId);
 
       return user
         ? {
@@ -93,8 +101,8 @@ function getCachedServerSessionServices(): CachedServerSessionServices {
           }
         : null;
     },
-    authUserRepository,
     sessionRepository,
+    userRepository,
   };
 
   return cachedSessionServices;
@@ -106,8 +114,8 @@ export async function resolveSiteViewerForSession(session: AuthSession): Promise
 
 export function getServerSessionServices(): ServerSessionServices {
   const {
-    authUserRepository: _authUserRepository,
     sessionRepository: _sessionRepository,
+    userRepository: _userRepository,
     ...services
   } = getCachedServerSessionServices();
 
@@ -121,6 +129,9 @@ export function getServerAuthServices(): ServerAuthServices {
 
   const authConfig = getAuthConfig();
   const sessionServices = getCachedServerSessionServices();
+  const credentialReader = new SqliteUserCredentialReaderAdapter({
+    dbPath: getPrimaryStorageConfig().databasePath,
+  });
   const loginAttemptGuard = new InMemoryLoginAttemptGuard({
     blockDurationMs: authConfig.failedLoginBlockDurationMs,
     maxFailures: authConfig.maxFailedLoginAttempts,
@@ -129,8 +140,8 @@ export function getServerAuthServices(): ServerAuthServices {
 
   cachedAuthServices = {
     createAuthSession: new CreateAuthSessionUseCase({
-      authUserRepository: sessionServices.authUserRepository,
       createSessionId: randomUUID,
+      credentialReader,
       loginAttemptGuard,
       onInvalidCredentials: async () => {
         await new Promise(resolve => setTimeout(resolve, authConfig.failedLoginDelayMs));
@@ -148,29 +159,53 @@ export function getServerAuthServices(): ServerAuthServices {
   return cachedAuthServices;
 }
 
+function createDeleteAuthUserService(input: {
+  deleteUser: DeleteUserUseCase;
+  sessionRepository: SqliteSessionRepository;
+}): DeleteAuthUserService {
+  return {
+    async execute(command) {
+      const result = await input.deleteUser.execute(command);
+
+      if (result.ok) {
+        await input.sessionRepository.revokeByUserId(result.user.id);
+      }
+
+      return result;
+    },
+  };
+}
+
 export function createServerAdminAuthServices(
   input: CreateServerAdminAuthServicesInput = {},
 ): ServerAdminAuthServices {
   const dbPath = input.dbPath ?? getPrimaryStorageConfig().databasePath;
-  const authUserRepository = new SqliteAuthUserRepository({
+  const userRepository = new SqliteUserRepository({
     dbPath,
+  });
+  const sessionRepository = new SqliteSessionRepository({
+    dbPath,
+  });
+  const deleteUser = new DeleteUserUseCase({
+    ownedVideoCounter: new SqliteOwnedVideoCounterAdapter({
+      dbPath,
+    }),
+    userRepository,
   });
 
   return {
-    countAuthUsers: () => authUserRepository.count(),
-    createAuthUser: new CreateAuthUserUseCase({
-      authUserRepository,
+    countAuthUsers: () => userRepository.count(),
+    createAuthUser: new CreateUserUseCase({
       createUserId: input.createUserId ?? randomUUID,
       passwordHashService: new Argon2PasswordHashService(),
+      userRepository,
     }),
-    deleteAuthUser: new DeleteAuthUserUseCase({
-      authUserRepository,
-      sessionRepository: new SqliteSessionRepository({
-        dbPath,
-      }),
+    deleteAuthUser: createDeleteAuthUserService({
+      deleteUser,
+      sessionRepository,
     }),
     evaluateAdminApiAccess: async input => evaluateAdminApiAccess({
-      authUserCount: await authUserRepository.count(),
+      authUserCount: await userRepository.count(),
       authorizationHeader: input.authorizationHeader,
       config: getAdminApiConfig(),
       operation: input.operation,

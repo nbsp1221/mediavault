@@ -4,9 +4,15 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
-bun_version="$(
-  bun --print "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).packageManager.split('@')[1]"
-)"
+tmp_dir="$(mktemp -d)"
+cleanup() {
+  rm -rf "$tmp_dir"
+}
+trap cleanup EXIT
+
+mkdir -p "$tmp_dir/baseline" "$tmp_dir/current"
+
+git archive --format=tar HEAD | tar -xf - -C "$tmp_dir/baseline"
 
 git ls-files -z --cached --others --exclude-standard \
   | while IFS= read -r -d '' path; do
@@ -21,6 +27,13 @@ git ls-files -z --cached --others --exclude-standard \
     --exclude='test-results' \
     --files-from=- \
     -cf - \
+  | tar -xf - -C "$tmp_dir/current"
+
+bun_version="$(
+  bun --print "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).packageManager.split('@')[1]"
+)"
+
+tar -C "$tmp_dir" -cf - baseline current \
   | docker run --rm -i \
     -e CI=true \
     -e GITHUB_ACTIONS=true \
@@ -31,11 +44,19 @@ git ls-files -z --cached --others --exclude-standard \
     "oven/bun:${bun_version}" \
     bash -lc '
       apt-get update >/dev/null &&
-      apt-get install -y nodejs npm git curl xz-utils >/dev/null &&
-      mkdir -p /tmp/workspace &&
-      tar -xf - -C /tmp/workspace &&
+      apt-get install -y nodejs npm git curl procps xz-utils >/dev/null &&
+      mkdir -p /tmp/input /tmp/workspace &&
+      tar -xf - -C /tmp/input &&
+      cp -a /tmp/input/baseline/. /tmp/workspace/ &&
       git config --global --add safe.directory /tmp/workspace &&
+      git config --global user.email ci-worktree@example.invalid &&
+      git config --global user.name "CI Worktree" &&
       cd /tmp/workspace &&
+      git init -q &&
+      git add -A &&
+      git commit -qm baseline &&
+      find /tmp/workspace -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} + &&
+      cp -a /tmp/input/current/. /tmp/workspace/ &&
       bun install --frozen-lockfile &&
       bun run verify:ci-faithful
     '

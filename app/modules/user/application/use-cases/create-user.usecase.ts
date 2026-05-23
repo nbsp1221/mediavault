@@ -1,24 +1,24 @@
-import type { AuthUser } from '../../domain/auth-user';
-import type { AuthUserRepository } from '../ports/auth-user-repository.port';
+import type { User } from '../../domain/entities/user.entity';
 import type { PasswordHashService } from '../ports/password-hash-service.port';
-import { validateAuthPassword } from '../../domain/auth-password-policy';
-import { createAuthUsername } from '../../domain/auth-username';
+import type { UserRepository } from '../ports/user-repository.port';
+import { validateUserPassword } from '../../domain/value-objects/user-password';
+import { createUsername } from '../../domain/value-objects/username';
 
-interface CreateAuthUserUseCaseDependencies {
-  authUserRepository: AuthUserRepository;
+interface CreateUserUseCaseDependencies {
   createUserId: () => string;
   passwordHashService: PasswordHashService;
+  userRepository: UserRepository;
 }
 
-interface CreateAuthUserUseCaseInput {
+interface CreateUserUseCaseInput {
   now?: Date;
   password: string;
   requireFirstUser?: boolean;
   username: string;
 }
 
-export type CreateAuthUserUseCaseResult =
-  | { ok: true; user: AuthUser }
+export type CreateUserUseCaseResult =
+  | { ok: true; user: User }
   | {
     ok: false;
     reason:
@@ -28,19 +28,19 @@ export type CreateAuthUserUseCaseResult =
       | 'USERNAME_ALREADY_EXISTS';
   };
 
-export class CreateAuthUserUseCase {
-  constructor(private readonly deps: CreateAuthUserUseCaseDependencies) {}
+export class CreateUserUseCase {
+  constructor(private readonly deps: CreateUserUseCaseDependencies) {}
 
-  async execute(input: CreateAuthUserUseCaseInput): Promise<CreateAuthUserUseCaseResult> {
-    const username = createAuthUsername(input.username);
-    if ('ok' in username) {
+  async execute(input: CreateUserUseCaseInput): Promise<CreateUserUseCaseResult> {
+    const username = createUsername(input.username);
+    if (!username.ok) {
       return {
         ok: false,
         reason: 'INVALID_USERNAME',
       };
     }
 
-    const passwordValidation = validateAuthPassword(input.password);
+    const passwordValidation = validateUserPassword(input.password);
     if (!passwordValidation.ok) {
       return {
         ok: false,
@@ -48,7 +48,7 @@ export class CreateAuthUserUseCase {
       };
     }
 
-    const existing = await this.deps.authUserRepository.findByUsernameKey(username.usernameKey);
+    const existing = await this.deps.userRepository.findByUsernameKey(username.usernameKey);
     if (existing) {
       return {
         ok: false,
@@ -57,7 +57,7 @@ export class CreateAuthUserUseCase {
     }
 
     const passwordHash = await this.deps.passwordHashService.hash(input.password);
-    const user = await this.deps.authUserRepository.create({
+    const user = await this.deps.userRepository.create({
       createdAt: input.now ?? new Date(),
       id: this.deps.createUserId(),
       passwordHash,

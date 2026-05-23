@@ -19,6 +19,18 @@ async function importCurrentUserLoader() {
   return import('../../../app/routes/api.auth.me');
 }
 
+async function createOwnerAccount() {
+  const { action } = await importAdminUsersRoute();
+
+  return action({
+    request: adminRequest('http://localhost/api/admin/users', {
+      body: { password: 'vault-password', username: 'Owner' },
+      method: 'POST',
+      token: 'admin-token',
+    }),
+  } as never);
+}
+
 function adminRequest(url: string, input: {
   body?: unknown;
   contentType?: string;
@@ -34,6 +46,66 @@ function adminRequest(url: string, input: {
     },
     method: input.method,
   });
+}
+
+function sessionCookieHeaderFrom(response: Response): string {
+  const sessionCookies = typeof response.headers.getSetCookie === 'function'
+    ? response.headers.getSetCookie()
+    : [response.headers.get('Set-Cookie')].filter(cookie => cookie !== null);
+
+  return sessionCookies
+    .map(cookie => cookie.split(';')[0])
+    .join('; ');
+}
+
+async function loginOwner(input: {
+  headers?: HeadersInit;
+} = {}) {
+  const { action } = await importLoginAction();
+  const response = await action({
+    request: new Request('http://localhost/api/auth/login', {
+      body: JSON.stringify({
+        password: 'vault-password',
+        username: 'owner',
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+        ...input.headers,
+      },
+      method: 'POST',
+    }),
+  } as never);
+
+  return {
+    cookieHeader: sessionCookieHeaderFrom(response),
+    response,
+  };
+}
+
+async function insertLegacyOwnerlessVideo() {
+  const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
+  const { createMigratedPrimarySqliteDatabase } = await import('../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database');
+  const database = await createMigratedPrimarySqliteDatabase({
+    dbPath: getPrimaryStorageConfig().databasePath,
+  });
+
+  await database.prepare(`
+    INSERT INTO videos (
+      id,
+      title,
+      duration_seconds,
+      created_at,
+      updated_at,
+      sort_index
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    'video-without-owner',
+    'Existing video',
+    10,
+    '2026-05-16T00:00:00.000Z',
+    '2026-05-16T00:00:00.000Z',
+    1,
+  );
 }
 
 describe('admin user API', () => {
@@ -243,14 +315,7 @@ describe('admin user API', () => {
   });
 
   test('deletes users only in always mode', async () => {
-    const { action: createAction } = await importAdminUsersRoute();
-    await createAction({
-      request: adminRequest('http://localhost/api/admin/users', {
-        body: { password: 'vault-password', username: 'Owner' },
-        method: 'POST',
-        token: 'admin-token',
-      }),
-    } as never);
+    await createOwnerAccount();
 
     const { action: deleteAction } = await importAdminUserRoute();
     const bootstrapDeleteResponse = await deleteAction({
@@ -341,26 +406,14 @@ describe('admin user API', () => {
 
     const { createAuthClientCookieHeader } = await import('../../../app/composition/server/auth-client-identity');
     const authClientCookie = createAuthClientCookieHeader('admin-delete-test-client').split(';')[0];
-    const { action: loginAction } = await importLoginAction();
-    const liveLoginResponse = await loginAction({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({
-          password: 'vault-password',
-          username: 'owner',
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': authClientCookie,
-        },
-        method: 'POST',
-      }),
-    } as never);
-    const sessionCookies = typeof liveLoginResponse.headers.getSetCookie === 'function'
-      ? liveLoginResponse.headers.getSetCookie()
-      : [liveLoginResponse.headers.get('Set-Cookie')].filter(cookie => cookie !== null);
-    const cookieHeader = sessionCookies
-      .map(cookie => cookie.split(';')[0])
-      .join('; ');
+    const {
+      cookieHeader,
+      response: liveLoginResponse,
+    } = await loginOwner({
+      headers: {
+        Cookie: authClientCookie,
+      },
+    });
 
     expect(liveLoginResponse.status).toBe(200);
     expect(cookieHeader).toEqual(expect.stringContaining('__Host-mediavault-session='));
@@ -373,6 +426,7 @@ describe('admin user API', () => {
       }),
     } as never)).resolves.toMatchObject({ status: 204 });
 
+    const { action: loginAction } = await importLoginAction();
     const loginResponse = await loginAction({
       request: new Request('http://localhost/api/auth/login', {
         body: JSON.stringify({
@@ -397,5 +451,47 @@ describe('admin user API', () => {
     } as never);
 
     expect(currentUserResponse.status).toBe(401);
+  });
+
+  test('does not revoke sessions when user deletion is blocked by owned videos', async () => {
+    await createOwnerAccount();
+
+    const {
+      cookieHeader,
+      response: liveLoginResponse,
+    } = await loginOwner();
+
+    expect(liveLoginResponse.status).toBe(200);
+
+    await insertLegacyOwnerlessVideo();
+
+    process.env.MEDIAVAULT_ADMIN_API_MODE = 'always';
+    vi.resetModules();
+    const { action: alwaysDeleteAction } = await importAdminUserRoute();
+    const blockedDeleteResponse = await alwaysDeleteAction({
+      params: { username: 'owner' },
+      request: adminRequest('http://localhost/api/admin/users/owner', {
+        method: 'DELETE',
+        token: 'admin-token',
+      }),
+    } as never);
+
+    expect(blockedDeleteResponse.status).toBe(400);
+    await expect(blockedDeleteResponse.json()).resolves.toEqual({
+      error: 'USER_OWNS_VIDEOS',
+      success: false,
+    });
+
+    const { loader: currentUserLoader } = await importCurrentUserLoader();
+    const currentUserResponse = await currentUserLoader({
+      request: new Request('http://localhost/api/auth/me', {
+        headers: {
+          Cookie: cookieHeader,
+        },
+        method: 'GET',
+      }),
+    } as never);
+
+    expect(currentUserResponse.status).toBe(200);
   });
 });
