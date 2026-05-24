@@ -7,6 +7,7 @@ import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastru
 import { SqliteLibraryVideoMetadataRepository } from './sqlite-library-video-metadata.repository';
 
 describe('SqliteLibraryVideoMetadataRepository', () => {
+  const ownerId = 'owner-1';
   let dbPath: string;
   let tempDir: string;
   const originalStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
@@ -15,6 +16,8 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
     tempDir = await mkdtemp(join(tmpdir(), 'local-streamer-video-metadata-'));
     dbPath = join(tempDir, 'db.sqlite');
     process.env.MEDIAVAULT_STORAGE_DIR = tempDir;
+    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    await seedOwner(database, ownerId);
   });
 
   afterEach(async () => {
@@ -38,11 +41,13 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       duration: 90,
       genreSlugs: [],
       id: 'video-older',
+      ownerId,
       sortIndex: 1,
       tags: ['vault'],
       thumbnailUrl: '/api/thumbnail/video-older',
       title: 'Older fixture',
       videoUrl: '/videos/video-older/manifest.mpd',
+      visibility: 'private',
     });
     await repository.create({
       contentTypeSlug: 'movie',
@@ -51,11 +56,13 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       duration: 120,
       genreSlugs: ['action'],
       id: 'video-newest',
+      ownerId,
       sortIndex: 2,
       tags: ['action', 'vault'],
       thumbnailUrl: '/api/thumbnail/video-newest',
       title: 'Newest fixture',
       videoUrl: '/videos/video-newest/manifest.mpd',
+      visibility: 'public',
     });
 
     await expect(repository.findAll()).resolves.toEqual([
@@ -63,7 +70,9 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
         contentTypeSlug: 'movie',
         genreSlugs: ['action'],
         id: 'video-newest',
+        ownerId,
         title: 'Newest fixture',
+        visibility: 'public',
       }),
       expect.objectContaining({
         id: 'video-older',
@@ -82,11 +91,13 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       duration: 180,
       genreSlugs: ['action', 'drama'],
       id: 'video-1',
+      ownerId,
       sortIndex: 1,
       tags: ['Action', 'Neo'],
       thumbnailUrl: '/api/thumbnail/video-1',
       title: 'Original title',
       videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private',
     });
 
     const undefinedContentTypeUpdate = await repository.update('video-1', {
@@ -149,10 +160,12 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       duration: 58,
       genreSlugs: [],
       id: 'uploaded-video',
+      ownerId,
       sortIndex: 1,
       tags: ['qa'],
       title: 'Uploaded fixture',
       videoUrl: '/videos/uploaded-video/manifest.mpd',
+      visibility: 'private',
     });
     await database.prepare(`
       INSERT INTO ingest_uploads (
@@ -215,3 +228,25 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
     );
   });
 });
+
+type TestDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
+
+async function seedOwner(database: TestDatabase, ownerId: string) {
+  await database.prepare(`
+    INSERT INTO auth_users (
+      id,
+      username,
+      username_key,
+      password_hash,
+      role,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    ownerId,
+    ownerId,
+    ownerId,
+    'test-password-hash',
+    'user',
+    '2026-05-23T00:00:00.000Z',
+  );
+}

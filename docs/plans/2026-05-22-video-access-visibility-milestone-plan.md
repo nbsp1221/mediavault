@@ -6,6 +6,50 @@
 
 **Purpose:** The current product requires authentication before page and media access. The target product should allow anonymous visitors to enter the site and watch public videos, while preserving owner-only access for private videos.
 
+## Current Status
+
+Milestone 0 is complete.
+
+Milestone 1A is complete in commit:
+
+- `d69380e` - `🏗️ Establish user auth library boundaries`
+
+Milestone 1B is complete locally.
+
+Verified by:
+
+- Local `bun run check`.
+- Local Docker worktree CI-like verification.
+- Local Docker Compose smoke.
+- Local Playwright MCP browser QA.
+- Local `bun run verify:e2e-smoke`.
+- Isolated data-integrity verification against a migrated SQLite database.
+- GitHub Actions `CI`.
+- GitHub Actions `Docker Compose Smoke`.
+
+Current implemented state:
+
+- `user`, `auth`, and `library` have been split at the domain/application boundary needed for this work.
+- User lifecycle now lives in `app/modules/user`.
+- Auth now reads credentials through an auth-side credential reader port.
+- Library now has video identity, title, visibility, aggregate, and access policy domain concepts.
+- User deletion now has an owned-video guard through an application port.
+- Primary SQLite `videos` rows now require `owner_id` and `visibility`.
+- New uploads persist the authenticated uploader as owner and default to `private`.
+- Existing databases have an operator-owned migration script instead of runtime compatibility repair.
+- Existing route behavior is intentionally unchanged.
+
+Not implemented yet:
+
+- Anonymous site access.
+- Public/private filtering, playback authorization, thumbnail authorization, or UI visibility controls.
+
+Next phase:
+
+- Milestone 2: viewer model refactor.
+- This starts only after the schema and canonical video persistence can represent owner and visibility as required data.
+- Milestone 2 should not add visibility management UI or playback authorization yet; it should first make anonymous and authenticated viewers explicit request subjects.
+
 **Current Model:**
 
 ```text
@@ -166,6 +210,22 @@ Establish the user/auth/library boundaries and add durable ownership and visibil
 Milestone 1A survey output:
 
 - `docs/plans/2026-05-22-video-access-milestone-1a-domain-boundary-survey.md`
+
+Milestone 1B implementation plan:
+
+- `docs/plans/2026-05-23-video-access-milestone-1b-ownership-visibility-persistence-plan.md`
+
+Milestone 1A implementation status:
+
+- Complete.
+- Commit: `d69380e` - `🏗️ Establish user auth library boundaries`
+- Scope: bounded-context/domain boundary split only, with existing product behavior preserved.
+
+Milestone 1B implementation status:
+
+- Complete locally.
+- Scope: persist video owner and visibility as canonical required data.
+- Out of scope: anonymous access and public/private route behavior.
 
 Target module ownership:
 

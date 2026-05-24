@@ -8,9 +8,11 @@ function createFixtureVideo(overrides: Partial<LibraryVideo> = {}): LibraryVideo
     genreSlugs: ['action'],
     id: 'video-1',
     contentTypeSlug: 'movie',
+    ownerId: 'owner-1',
     tags: ['Action'],
     title: 'Catalog Fixture',
     videoUrl: '/videos/video-1/manifest.mpd',
+    visibility: 'private',
     ...overrides,
   };
 }

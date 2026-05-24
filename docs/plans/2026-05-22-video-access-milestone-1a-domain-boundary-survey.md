@@ -4,7 +4,38 @@
 
 **Parent Plan:** `docs/plans/2026-05-22-video-access-data-model-design.md`
 
-**Status:** Complete as planning input. The first implementation slice has started from this document.
+**Status:** Implemented and verified.
+
+Implementation commit:
+
+- `d69380e` - `🏗️ Establish user auth library boundaries`
+
+Verification:
+
+- Local `bun run check`: passed.
+- Local Docker worktree CI-like verification: passed.
+- Local Docker Compose smoke: passed.
+- Local Playwright MCP browser QA: passed.
+- GitHub Actions `CI`: passed.
+- GitHub Actions `Docker Compose Smoke`: passed.
+
+Implementation summary:
+
+- Added `app/modules/user` for user identity, username, lifecycle use cases, repository port, and deletion policy.
+- Moved user creation/deletion away from auth-owned domain/application files.
+- Kept the physical `auth_users` table name while exposing user-domain language in code.
+- Changed auth login to read credentials through `UserCredentialReader`.
+- Added library-domain video identity, title, visibility, aggregate, and access policy.
+- Added a library-side owned-video counter adapter used by user deletion.
+- Added architecture boundary tests for `user`, `auth`, and `library`.
+- Preserved route behavior: this slice does not yet enable anonymous site access or public/private video behavior.
+
+Next phase:
+
+- Continue with Milestone 1B: video ownership and visibility persistence.
+- Add `videos.owner_id` and `videos.visibility` to the intended SQLite schema and migration path.
+- Update canonical library persistence, ingest commit, fixtures, and integrity checks to treat owner and visibility as required data.
+- Keep runtime application code targeting the intended schema rather than carrying automatic legacy repair behavior.
 
 ## Goal
 
@@ -70,17 +101,19 @@ Current state:
 - Password hash is persisted on the user row but credential verification is performed by `auth`.
 - User deletion currently has no ownership guard.
 
-Target first slice:
+Implemented first slice:
 
-- Add `app/modules/user/domain/value-objects/user-id.ts`.
-- Add `app/modules/user/domain/value-objects/username.ts` by moving or wrapping the existing username normalization rules.
-- Add `app/modules/user/domain/entities/user.entity.ts`.
-- Add `app/modules/user/domain/policies/user-deletion.policy.ts`.
-- Add `app/modules/user/application/ports/user-repository.port.ts`.
-- Add `app/modules/user/application/ports/owned-video-counter.port.ts`.
-- Add `app/modules/user/application/use-cases/create-user.usecase.ts`.
-- Add `app/modules/user/application/use-cases/delete-user.usecase.ts`.
-- Add `app/modules/user/infrastructure/sqlite/sqlite-user.repository.ts`, backed by `auth_users`.
+- `app/modules/user/domain/value-objects/user-id.ts`.
+- `app/modules/user/domain/value-objects/username.ts`.
+- `app/modules/user/domain/value-objects/user-password.ts`.
+- `app/modules/user/domain/entities/user.entity.ts`.
+- `app/modules/user/domain/policies/user-deletion.policy.ts`.
+- `app/modules/user/application/ports/user-repository.port.ts`.
+- `app/modules/user/application/ports/owned-video-counter.port.ts`.
+- `app/modules/user/application/ports/password-hash-service.port.ts`.
+- `app/modules/user/application/use-cases/create-user.usecase.ts`.
+- `app/modules/user/application/use-cases/delete-user.usecase.ts`.
+- `app/modules/user/infrastructure/sqlite/sqlite-user.repository.ts`, backed by `auth_users`.
 
 Decision:
 
@@ -122,7 +155,7 @@ Decision:
 - Keep `LibraryVideo` as a transitional read DTO while adding a richer `Video` aggregate for write/access decisions.
 - Add repository methods that can read access-relevant video records by ID and count videos by owner before trying to filter at the route layer.
 
-Target first slice:
+Implemented first slice:
 
 - `app/modules/library/domain/value-objects/video-id.ts`
 - `app/modules/library/domain/value-objects/video-title.ts`
@@ -130,9 +163,12 @@ Target first slice:
 - `app/modules/library/domain/entities/video.entity.ts`
 - `app/modules/library/domain/policies/video-access.policy.ts`
 - `app/modules/library/application/ports/video-repository.port.ts`
-- `app/modules/library/application/ports/owned-video-counter.port.ts` or a library-side adapter implementing the user port
-- `app/modules/library/application/use-cases/count-videos-owned-by-user.usecase.ts`
-- Access-aware follow-up use cases for load, update, delete, and visibility change
+- `app/modules/library/infrastructure/sqlite/sqlite-owned-video-counter.adapter.ts`, implementing the user-side `OwnedVideoCounterPort`
+
+Deferred follow-up:
+
+- Access-aware library use cases for load, update, delete, and visibility change.
+- Concrete `VideoRepositoryPort` persistence implementation after `videos.owner_id` and `videos.visibility` exist.
 
 ### `ingest`
 

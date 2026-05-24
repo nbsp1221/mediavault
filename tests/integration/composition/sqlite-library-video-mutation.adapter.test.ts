@@ -14,10 +14,12 @@ describe('sqlite library video mutation adapter', () => {
       duration: 95,
       genreSlugs: ['action'],
       id: videoId,
+      ownerId: 'owner-1',
       tags: ['Action', 'Drama'],
       thumbnailUrl: '/api/thumbnail/video-1',
       title: 'Fixture Video',
       videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private' as const,
     }));
     const update = vi.fn(async (videoId: string, input: Record<string, unknown>) => ({
       contentTypeSlug: input.contentTypeSlug as string | undefined,
@@ -26,10 +28,12 @@ describe('sqlite library video mutation adapter', () => {
       duration: 95,
       genreSlugs: input.genreSlugs as string[],
       id: videoId,
+      ownerId: 'owner-1',
       tags: input.tags as string[],
       thumbnailUrl: '/api/thumbnail/video-1',
       title: input.title as string,
       videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private' as const,
     }));
 
     const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
@@ -79,10 +83,12 @@ describe('sqlite library video mutation adapter', () => {
       duration: 95,
       genreSlugs: input.genreSlugs as string[] | undefined ?? ['action'],
       id: videoId,
+      ownerId: 'owner-1',
       tags: input.tags as string[],
       thumbnailUrl: '/api/thumbnail/video-1',
       title: input.title as string,
       videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private' as const,
     }));
 
     const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
@@ -150,9 +156,11 @@ describe('sqlite library video mutation adapter', () => {
         duration: 95,
         genreSlugs: [],
         id: 'video-1',
+        ownerId: 'owner-1',
         tags: ['Action'],
         title: 'Fixture Video',
         videoUrl: '/videos/video-1/manifest.mpd',
+        visibility: 'private' as const,
       })
       .mockResolvedValueOnce(null);
     const remove = vi

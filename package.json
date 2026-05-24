@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "start": "bun ./build/server/index.js",
+    "storage:migrate-video-access": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/migrate-video-access-model.ts",
     "storage:seed-demo": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/seed-demo-storage.ts",
     "test": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/run-vitest.ts && LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file run test:smoke:dev-auth && LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file run test:smoke:bun-auth",
     "test:integration": "LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/run-vitest.ts run --project integration",

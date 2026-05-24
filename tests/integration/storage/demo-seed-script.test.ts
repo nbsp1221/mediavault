@@ -144,6 +144,18 @@ describe('demo storage seed script', () => {
     process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = TEST_DATABASE_ENCRYPTION_KEY;
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = TEST_MASTER_SEED;
+    const ownerDatabase = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+    await ownerDatabase.prepare(`
+      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      'owner-1',
+      'Owner',
+      'owner',
+      'test-password-hash',
+      'user',
+      now,
+    );
 
     const report = await seedDemoStorage({}, {
       async generateDemoSource(root) {
@@ -182,6 +194,7 @@ describe('demo storage seed script', () => {
                 contentTypeSlug: 'clip',
                 description: 'Tiny generated demo video for local development.',
                 genreSlugs: ['animation'],
+                ownerId: 'owner-1',
                 stagingId: stagedId,
                 tags: ['demo', 'seed'],
                 title: 'Demo Seed Video',
@@ -196,16 +209,20 @@ describe('demo storage seed script', () => {
                     description,
                     duration_seconds,
                     content_type_slug,
+                    owner_id,
+                    visibility,
                     created_at,
                     updated_at,
                     sort_index
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `).run(
                   videoId,
                   command.title,
                   command.description ?? null,
                   1,
                   command.contentTypeSlug ?? null,
+                  command.ownerId,
+                  'private',
                   now,
                   now,
                   1,
@@ -278,6 +295,7 @@ describe('demo storage seed script', () => {
     expect(report).toMatchObject({
       dryRun: false,
       existingDemoVideos: 0,
+      ownerId: 'owner-1',
       seededVideoId: videoId,
     });
     expect({ commitCalls, generatedSources, startCalls }).toEqual({

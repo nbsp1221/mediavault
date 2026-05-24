@@ -21,7 +21,9 @@ describe('SqlitePlaylistRepository', () => {
 
   async function seedVideo(id: string, title = id) {
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
+    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
     const sortIndex = Number(id.match(/\d+$/)?.[0] ?? 1);
+    await seedOwner(database, 'owner-1');
 
     await repository.create({
       contentTypeSlug: 'movie',
@@ -30,11 +32,13 @@ describe('SqlitePlaylistRepository', () => {
       duration: 60,
       genreSlugs: ['action'],
       id,
+      ownerId: 'owner-1',
       sortIndex,
       tags: ['vault'],
       thumbnailUrl: `/api/thumbnail/${id}`,
       title,
       videoUrl: `/videos/${id}/manifest.mpd`,
+      visibility: 'private',
     });
   }
 
@@ -173,3 +177,26 @@ describe('SqlitePlaylistRepository', () => {
     await expect(repository.getPlaylistItems(playlist.id)).resolves.toEqual([]);
   });
 });
+
+type TestDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
+
+async function seedOwner(database: TestDatabase, ownerId: string) {
+  await database.prepare(`
+    INSERT INTO auth_users (
+      id,
+      username,
+      username_key,
+      password_hash,
+      role,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO NOTHING
+  `).run(
+    ownerId,
+    ownerId,
+    ownerId,
+    'test-password-hash',
+    'user',
+    '2026-05-23T00:00:00.000Z',
+  );
+}

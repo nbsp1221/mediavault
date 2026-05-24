@@ -31,6 +31,12 @@ interface UploadRow {
   storage_relpath: string;
 }
 
+interface VideoRow {
+  id: string;
+  owner_id: string | null;
+  visibility: string | null;
+}
+
 function collectGlobMatches(baseDir: string, globValue: string | null): string[] {
   if (!globValue) {
     return [];
@@ -474,8 +480,32 @@ export async function verifyPrimaryStorageIntegrity() {
     }
   }
 
-  const videoRows = await database.prepare<{ id: string }>('SELECT id FROM videos ORDER BY id ASC').all();
+  const videoRows = await database.prepare<VideoRow>(`
+    SELECT id, owner_id, visibility
+    FROM videos
+    ORDER BY id ASC
+  `).all();
   const knownVideoIds = new Set(videoRows.map(row => row.id));
+
+  for (const video of videoRows) {
+    if (!video.owner_id?.trim()) {
+      findings.push({
+        code: 'video_missing_owner',
+        message: `Video has no owner: ${video.id}`,
+        severity: 'blocking',
+        videoId: video.id,
+      });
+    }
+
+    if (video.visibility !== 'private' && video.visibility !== 'public') {
+      findings.push({
+        code: 'video_invalid_visibility',
+        message: `Video has invalid visibility: ${video.id}`,
+        severity: 'blocking',
+        videoId: video.id,
+      });
+    }
+  }
 
   const videosWithoutReadyAssets = await database.prepare<{ id: string }>(`
     SELECT videos.id

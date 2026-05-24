@@ -7,9 +7,11 @@ describe('DeleteLibraryVideoUseCase', () => {
       createdAt: new Date('2026-03-27T00:00:00.000Z'),
       duration: 180,
       id: 'video-1',
+      ownerId: 'owner-1',
       tags: ['Action'],
       title: 'Catalog Fixture',
       videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private' as const,
     }));
     const deleteLibraryVideo = vi.fn(async () => ({
       deleted: true,
@@ -91,9 +93,11 @@ describe('DeleteLibraryVideoUseCase', () => {
           createdAt: new Date('2026-03-27T00:00:00.000Z'),
           duration: 180,
           id: 'video-1',
+          ownerId: 'owner-1',
           tags: ['Action'],
           title: 'Catalog Fixture',
           videoUrl: '/videos/video-1/manifest.mpd',
+          visibility: 'private' as const,
         })),
         updateLibraryVideo: vi.fn(),
       },

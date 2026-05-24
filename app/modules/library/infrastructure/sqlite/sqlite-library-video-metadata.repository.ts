@@ -3,6 +3,7 @@ import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sql
 import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import type { LibraryVideo } from '../../domain/library-video';
 import type { VideoTaxonomyItem } from '../../domain/video-taxonomy';
+import { type VideoVisibility, createVideoVisibility } from '../../domain/value-objects/video-visibility';
 import { normalizeVideoTags } from '../../domain/video-tag';
 import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from '../../domain/video-taxonomy';
 
@@ -17,8 +18,10 @@ interface LibraryVideoRow {
   description: string | null;
   duration_seconds: number;
   id: string;
+  owner_id: string;
   sort_index: number;
   title: string;
+  visibility: string;
 }
 
 interface VideoTaxonomyRow {
@@ -35,11 +38,13 @@ export interface CreateLibraryVideoMetadataInput {
   duration?: number;
   genreSlugs?: string[];
   id?: string;
+  ownerId: string;
   sortIndex?: number;
   tags: string[];
   thumbnailUrl?: string;
   title: string;
   videoUrl: string;
+  visibility: VideoVisibility;
 }
 
 export interface UpdateLibraryVideoMetadataInput {
@@ -96,10 +101,14 @@ export class SqliteLibraryVideoMetadataRepository {
           description,
           duration_seconds,
           content_type_slug,
+          owner_id,
+          visibility,
           created_at,
           updated_at,
           sort_index
         ) VALUES (
+          ?,
+          ?,
           ?,
           ?,
           ?,
@@ -115,6 +124,8 @@ export class SqliteLibraryVideoMetadataRepository {
         input.description ?? null,
         input.duration ?? 0,
         normalizeNullableTaxonomySlug(input.contentTypeSlug),
+        input.ownerId,
+        input.visibility,
         createdAt.toISOString(),
         createdAt.toISOString(),
         input.sortIndex ?? null,
@@ -162,6 +173,8 @@ export class SqliteLibraryVideoMetadataRepository {
         description,
         duration_seconds,
         content_type_slug,
+        owner_id,
+        visibility,
         created_at,
         sort_index
       FROM videos
@@ -180,6 +193,8 @@ export class SqliteLibraryVideoMetadataRepository {
         description,
         duration_seconds,
         content_type_slug,
+        owner_id,
+        visibility,
         created_at,
         sort_index
       FROM videos
@@ -309,6 +324,11 @@ async function mapRowToLibraryVideo(
   database: SqliteDatabaseAdapter,
   row: LibraryVideoRow,
 ): Promise<LibraryVideo> {
+  const visibility = createVideoVisibility(row.visibility);
+  if (!visibility.ok) {
+    throw new Error(`Invalid video visibility for ${row.id}`);
+  }
+
   return {
     contentTypeSlug: row.content_type_slug ?? undefined,
     createdAt: new Date(row.created_at),
@@ -316,10 +336,12 @@ async function mapRowToLibraryVideo(
     duration: row.duration_seconds,
     genreSlugs: await loadGenreSlugs(database, row.id),
     id: row.id,
+    ownerId: row.owner_id,
     tags: await loadTagSlugs(database, row.id),
     thumbnailUrl: `/api/thumbnail/${row.id}`,
     title: row.title,
     videoUrl: `/videos/${row.id}/manifest.mpd`,
+    visibility: visibility.visibility,
   };
 }
 

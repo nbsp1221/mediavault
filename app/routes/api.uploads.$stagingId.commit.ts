@@ -3,7 +3,7 @@ import type {
   CommitStagedUploadToLibraryCommand,
   CommitStagedUploadToLibraryUseCaseResult,
 } from '~/modules/ingest/application/use-cases/commit-staged-upload-to-library.usecase';
-import { requireProtectedApiSession } from '~/composition/server/auth';
+import { requireProtectedApiSessionValue } from '~/composition/server/auth';
 import { getServerIngestServices } from '~/composition/server/ingest';
 
 type UploadCommitRouteServices = {
@@ -15,8 +15,13 @@ type UploadCommitRouteServices = {
 type UploadCommitActionDependencies = {
   createErrorResponse: (error: unknown) => Response;
   getServerIngestServices: () => UploadCommitRouteServices;
-  requireProtectedApiSession: typeof requireProtectedApiSession;
+  requireProtectedApiSessionValue: typeof requireProtectedApiSessionValue;
 };
+
+type UploadCommitFailureReason = Extract<
+  CommitStagedUploadToLibraryUseCaseResult,
+  { ok: false }
+>['reason'];
 
 function defaultCreateErrorResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -32,6 +37,7 @@ function defaultCreateErrorResponse(error: unknown): Response {
 
 function createUploadCommitCommand(
   body: Record<string, unknown>,
+  ownerId: string,
   stagingId: string,
 ): CommitStagedUploadToLibraryCommand {
   const command: CommitStagedUploadToLibraryCommand = {
@@ -42,6 +48,7 @@ function createUploadCommitCommand(
     tags: Array.isArray(body.tags)
       ? body.tags.filter(tag => typeof tag === 'string')
       : [],
+    ownerId,
     title: typeof body.title === 'string' ? body.title : '',
   };
 
@@ -56,12 +63,25 @@ function createUploadCommitCommand(
   return command;
 }
 
+function getCommitFailureStatus(reason: UploadCommitFailureReason): number {
+  switch (reason) {
+    case 'COMMIT_STAGED_UPLOAD_REJECTED':
+      return 400;
+    case 'COMMIT_STAGED_UPLOAD_CONFLICT':
+      return 409;
+    case 'COMMIT_STAGED_UPLOAD_NOT_FOUND':
+      return 404;
+    case 'COMMIT_STAGED_UPLOAD_UNAVAILABLE':
+      return 500;
+  }
+}
+
 export function createUploadCommitAction(
   deps: UploadCommitActionDependencies,
 ) {
   return async function action({ params, request }: ActionFunctionArgs) {
-    const unauthorizedResponse = await deps.requireProtectedApiSession(request);
-    if (unauthorizedResponse) return unauthorizedResponse;
+    const authSession = await deps.requireProtectedApiSessionValue(request);
+    if (authSession instanceof Response) return authSession;
 
     try {
       const stagingId = params.stagingId;
@@ -77,7 +97,7 @@ export function createUploadCommitAction(
         ? body as Record<string, unknown>
         : {};
       const result = await deps.getServerIngestServices().commitStagedUploadToLibrary.execute(
-        createUploadCommitCommand(input, stagingId),
+        createUploadCommitCommand(input, authSession.userId, stagingId),
       );
 
       if (result.ok) {
@@ -87,18 +107,10 @@ export function createUploadCommitAction(
         });
       }
 
-      const status = result.reason === 'COMMIT_STAGED_UPLOAD_REJECTED'
-        ? 400
-        : result.reason === 'COMMIT_STAGED_UPLOAD_CONFLICT'
-          ? 409
-          : result.reason === 'COMMIT_STAGED_UPLOAD_NOT_FOUND'
-            ? 404
-            : 500;
-
       return Response.json({
         success: false,
         error: result.message,
-      }, { status });
+      }, { status: getCommitFailureStatus(result.reason) });
     }
     catch (error) {
       return deps.createErrorResponse(error);
@@ -109,5 +121,5 @@ export function createUploadCommitAction(
 export const action = createUploadCommitAction({
   createErrorResponse: defaultCreateErrorResponse,
   getServerIngestServices,
-  requireProtectedApiSession,
+  requireProtectedApiSessionValue,
 });

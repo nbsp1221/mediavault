@@ -10,9 +10,11 @@ function createHomeFilterVideo(overrides: Partial<LibraryVideo> = {}): LibraryVi
     createdAt: new Date('2026-04-24T00:00:00.000Z'),
     duration: 120,
     id: 'video-1',
+    ownerId: 'owner-1',
     tags: ['visible'],
     title: 'Visible title',
     videoUrl: '/videos/video-1/manifest.mpd',
+    visibility: 'private',
     ...overrides,
   };
 }

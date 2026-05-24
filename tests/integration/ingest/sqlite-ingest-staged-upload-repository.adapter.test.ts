@@ -115,12 +115,25 @@ describe('SqliteIngestStagedUploadRepositoryAdapter', () => {
     const { dbPath, repository, storageDir } = await createRepository();
     const database = await createMigratedPrimarySqliteDatabase({ dbPath });
     await database.prepare(`
-      INSERT INTO videos (id, title, duration_seconds, created_at, updated_at, sort_index)
+      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      'owner-1',
+      'Owner',
+      'owner',
+      'test-password-hash',
+      'user',
+      '2026-04-19T00:00:00.000Z',
+    );
+    await database.prepare(`
+      INSERT INTO videos (id, title, duration_seconds, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       'video-123',
       'Committed video',
       10,
+      'owner-1',
+      'private',
       '2026-04-19T00:00:00.000Z',
       '2026-04-19T00:00:00.000Z',
       1,

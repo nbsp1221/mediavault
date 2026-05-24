@@ -10,9 +10,11 @@ function createLibraryVideo(overrides: Partial<LibraryVideo> = {}): LibraryVideo
     duration: 180,
     genreSlugs: ['action'],
     id: 'video-1',
+    ownerId: 'owner-1',
     tags: ['action'],
     title: 'Original title',
     videoUrl: '/videos/video-1/manifest.mpd',
+    visibility: 'private',
     ...overrides,
   };
 }

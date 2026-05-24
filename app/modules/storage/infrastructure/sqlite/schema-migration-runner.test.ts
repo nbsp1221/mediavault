@@ -285,21 +285,37 @@ describe('primary storage schema migrations', () => {
     const now = '2026-04-28T00:00:00.000Z';
 
     await database.prepare(`
-      INSERT INTO videos (id, title, duration_seconds, created_at, updated_at, sort_index)
+      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run('video-1', 'Video 1', 10.5, now, now, 1);
+    `).run('user-1', 'Owner', 'owner', '$argon2id$v=19$m=1,t=1,p=1$salt$hash', 'admin', now);
     await database.prepare(`
-      INSERT INTO videos (id, title, duration_seconds, created_at, updated_at, sort_index)
+      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run('video-2', 'Video 2', 20.5, now, now, 2);
+    `).run('user-3', 'Other', 'other', '$argon2id$v=19$m=1,t=1,p=1$salt$hash', 'user', now);
     await database.prepare(`
-      INSERT INTO videos (id, title, duration_seconds, created_at, updated_at, sort_index)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run('video-3', 'Video 3', 30.5, now, now, 3);
+      INSERT INTO videos (id, title, duration_seconds, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('video-1', 'Video 1', 10.5, 'user-1', 'private', now, now, 1);
+    await database.prepare(`
+      INSERT INTO videos (id, title, duration_seconds, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('video-2', 'Video 2', 20.5, 'user-1', 'public', now, now, 2);
+    await database.prepare(`
+      INSERT INTO videos (id, title, duration_seconds, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('video-3', 'Video 3', 30.5, 'user-1', 'private', now, now, 3);
     await expect(database.prepare(`
-      INSERT INTO videos (id, title, duration_seconds, created_at, updated_at, sort_index)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run('..', 'Unsafe Video', 10.5, now, now, 4)).rejects.toThrow();
+      INSERT INTO videos (id, title, duration_seconds, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('..', 'Unsafe Video', 10.5, 'user-1', 'private', now, now, 4)).rejects.toThrow();
+    await expect(database.prepare(`
+      INSERT INTO videos (id, title, duration_seconds, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('missing-owner-video', 'Missing Owner', 10.5, 'missing-user', 'private', now, now, 4)).rejects.toThrow();
+    await expect(database.prepare(`
+      INSERT INTO videos (id, title, duration_seconds, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('bad-visibility-video', 'Bad Visibility', 10.5, 'user-1', 'restricted', now, now, 4)).rejects.toThrow();
     await expect(database.prepare(`
       INSERT INTO video_content_types (slug, label, active, sort_order)
       VALUES (?, ?, ?, ?)
@@ -359,10 +375,6 @@ describe('primary storage schema migrations', () => {
       INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run('user-unsafe', 'Unsafe', '../unsafe', '$argon2id$v=19$m=1,t=1,p=1$salt$hash', 'admin', now)).rejects.toThrow();
-    await database.prepare(`
-      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run('user-1', 'Owner', 'owner', '$argon2id$v=19$m=1,t=1,p=1$salt$hash', 'admin', now);
     await expect(database.prepare(`
       INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -508,11 +520,16 @@ describe('primary storage schema migrations', () => {
     const { database } = await createMigratedDatabase();
     const now = '2026-04-28T00:00:00.000Z';
 
+    await database.prepare(`
+      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run('user-1', 'Owner', 'owner', '$argon2id$v=19$m=1,t=1,p=1$salt$hash', 'admin', now);
+
     for (const [id, sortIndex] of [['ready-video', 1], ['failed-video', 2], ['preparing-video', 3]] as const) {
       await database.prepare(`
-        INSERT INTO videos (id, title, duration_seconds, created_at, updated_at, sort_index)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(id, id, 10.5, now, now, sortIndex);
+        INSERT INTO videos (id, title, duration_seconds, owner_id, visibility, created_at, updated_at, sort_index)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, id, 10.5, 'user-1', 'private', now, now, sortIndex);
     }
 
     await database.prepare(`

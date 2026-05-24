@@ -94,11 +94,12 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
 
     await expect(useCase.execute({
       contentTypeSlug: ' Movie ',
-      description: 'A test upload',
+      description: '   ',
       genreSlugs: ['Drama', 'Action'],
       stagingId: 'staging-123',
+      ownerId: 'owner-1',
       tags: ['fixture', 'Good Boy-comedy', 'good_boy-comedy'],
-      title: 'Fixture Video',
+      title: '  Fixture Video  ',
     })).resolves.toEqual({
       ok: true,
       data: {
@@ -132,14 +133,16 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
     });
     expect(writeVideoRecord).toHaveBeenCalledWith({
       contentTypeSlug: 'movie',
-      description: 'A test upload',
+      description: undefined,
       duration: 120,
       genreSlugs: ['drama', 'action'],
       id: 'video-123',
+      ownerId: 'owner-1',
       tags: ['fixture', 'good_boy-comedy'],
       thumbnailUrl: '/api/thumbnail/video-123',
       title: 'Fixture Video',
       videoUrl: '/videos/video-123/manifest.mpd',
+      visibility: 'private',
     });
     expect(update).toHaveBeenNthCalledWith(1, 'staging-123', {
       committedVideoId: 'video-123',
@@ -150,6 +153,54 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
       title: 'Fixture Video',
       videoId: 'video-123',
     });
+  });
+
+  test('rejects a blank title before touching staged upload state', async () => {
+    const executeReaper = vi.fn(async () => ({ deletedCount: 0 }));
+    const findByStagingId = vi.fn();
+    const useCase = new CommitStagedUploadToLibraryUseCase({
+      reapExpiredStagedUploads: {
+        execute: executeReaper,
+      },
+      stagedUploadRepository: {
+        beginCommit: vi.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        findByStagingId,
+        listExpired: vi.fn(),
+        reserveCommittedVideoId: vi.fn(),
+        update: vi.fn(),
+      },
+      stagedUploadStorage: {
+        delete: vi.fn(),
+        deleteTemp: vi.fn(),
+        promote: vi.fn(),
+      },
+      videoAnalysis: {
+        analyze: vi.fn(),
+      },
+      videoMetadataWriter: {
+        deleteVideoRecord: vi.fn(),
+        writeVideoRecord: vi.fn(),
+      },
+      mediaPreparation: createMediaPreparation({
+        prepareMedia: vi.fn(),
+      }),
+    });
+
+    await expect(useCase.execute({
+      stagingId: 'staging-123',
+      ownerId: 'owner-1',
+      tags: [],
+      title: '   ',
+    })).resolves.toEqual({
+      ok: false,
+      message: 'Title cannot be empty',
+      reason: 'COMMIT_STAGED_UPLOAD_REJECTED',
+    });
+
+    expect(executeReaper).not.toHaveBeenCalled();
+    expect(findByStagingId).not.toHaveBeenCalled();
   });
 
   test('returns the existing videoId when the staged upload is already committed', async () => {
@@ -195,6 +246,7 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
 
     await expect(useCase.execute({
       stagingId: 'staging-123',
+      ownerId: 'owner-1',
       tags: [],
       title: 'Fixture Video',
     })).resolves.toEqual({
@@ -205,6 +257,179 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
         videoId: 'video-123',
       },
     });
+  });
+
+  test('returns the existing videoId when the commit lease reports an already committed upload', async () => {
+    const findByStagingId = vi.fn()
+      .mockResolvedValueOnce({
+        createdAt: new Date('2026-04-20T00:00:00.000Z'),
+        expiresAt: new Date('2026-04-21T00:00:00.000Z'),
+        filename: 'fixture-video.mp4',
+        mimeType: 'video/mp4',
+        size: 1_024,
+        stagingId: 'staging-123',
+        status: 'uploaded' as const,
+        storagePath: '/tmp/staging-123/video.mp4',
+      })
+      .mockResolvedValueOnce({
+        committedVideoId: 'video-456',
+        createdAt: new Date('2026-04-20T00:00:00.000Z'),
+        expiresAt: new Date('2026-04-21T00:00:00.000Z'),
+        filename: 'fixture-video.mp4',
+        mimeType: 'video/mp4',
+        size: 1_024,
+        stagingId: 'staging-123',
+        status: 'committed' as const,
+        storagePath: '/tmp/staging-123/video.mp4',
+      });
+    const reserveCommittedVideoId = vi.fn();
+    const useCase = new CommitStagedUploadToLibraryUseCase({
+      reapExpiredStagedUploads: {
+        execute: vi.fn(async () => ({ deletedCount: 0 })),
+      },
+      stagedUploadRepository: {
+        beginCommit: vi.fn(async () => 'already_committed' as const),
+        create: vi.fn(),
+        delete: vi.fn(),
+        findByStagingId,
+        listExpired: vi.fn(),
+        reserveCommittedVideoId,
+        update: vi.fn(),
+      },
+      stagedUploadStorage: {
+        delete: vi.fn(),
+        deleteTemp: vi.fn(),
+        promote: vi.fn(),
+      },
+      videoAnalysis: {
+        analyze: vi.fn(),
+      },
+      videoMetadataWriter: {
+        deleteVideoRecord: vi.fn(),
+        writeVideoRecord: vi.fn(),
+      },
+      mediaPreparation: createMediaPreparation({
+        prepareMedia: vi.fn(),
+      }),
+    });
+
+    await expect(useCase.execute({
+      stagingId: 'staging-123',
+      ownerId: 'owner-1',
+      tags: [],
+      title: 'Fixture Video',
+    })).resolves.toEqual({
+      ok: true,
+      data: {
+        dashEnabled: true,
+        message: 'Video already committed',
+        videoId: 'video-456',
+      },
+    });
+
+    expect(findByStagingId).toHaveBeenCalledTimes(2);
+    expect(reserveCommittedVideoId).not.toHaveBeenCalled();
+  });
+
+  test('returns not found when the staged upload row is missing', async () => {
+    const beginCommit = vi.fn();
+    const useCase = new CommitStagedUploadToLibraryUseCase({
+      reapExpiredStagedUploads: {
+        execute: vi.fn(async () => ({ deletedCount: 0 })),
+      },
+      stagedUploadRepository: {
+        beginCommit,
+        create: vi.fn(),
+        delete: vi.fn(),
+        findByStagingId: vi.fn(async () => null),
+        listExpired: vi.fn(),
+        reserveCommittedVideoId: vi.fn(),
+        update: vi.fn(),
+      },
+      stagedUploadStorage: {
+        delete: vi.fn(),
+        deleteTemp: vi.fn(),
+        promote: vi.fn(),
+      },
+      videoAnalysis: {
+        analyze: vi.fn(),
+      },
+      videoMetadataWriter: {
+        deleteVideoRecord: vi.fn(),
+        writeVideoRecord: vi.fn(),
+      },
+      mediaPreparation: createMediaPreparation({
+        prepareMedia: vi.fn(),
+      }),
+    });
+
+    await expect(useCase.execute({
+      stagingId: 'missing-staging',
+      ownerId: 'owner-1',
+      tags: [],
+      title: 'Fixture Video',
+    })).resolves.toEqual({
+      ok: false,
+      message: 'Staged upload not found',
+      reason: 'COMMIT_STAGED_UPLOAD_NOT_FOUND',
+    });
+
+    expect(beginCommit).not.toHaveBeenCalled();
+  });
+
+  test('returns not found when the commit lease cannot find the staged upload', async () => {
+    const update = vi.fn();
+    const useCase = new CommitStagedUploadToLibraryUseCase({
+      reapExpiredStagedUploads: {
+        execute: vi.fn(async () => ({ deletedCount: 0 })),
+      },
+      stagedUploadRepository: {
+        beginCommit: vi.fn(async () => 'missing' as const),
+        create: vi.fn(),
+        delete: vi.fn(),
+        findByStagingId: vi.fn(async () => ({
+          createdAt: new Date('2026-04-20T00:00:00.000Z'),
+          expiresAt: new Date('2026-04-21T00:00:00.000Z'),
+          filename: 'fixture-video.mp4',
+          mimeType: 'video/mp4',
+          size: 1_024,
+          stagingId: 'staging-123',
+          status: 'uploaded' as const,
+          storagePath: '/tmp/staging-123/video.mp4',
+        })),
+        listExpired: vi.fn(),
+        reserveCommittedVideoId: vi.fn(),
+        update,
+      },
+      stagedUploadStorage: {
+        delete: vi.fn(),
+        deleteTemp: vi.fn(),
+        promote: vi.fn(),
+      },
+      videoAnalysis: {
+        analyze: vi.fn(),
+      },
+      videoMetadataWriter: {
+        deleteVideoRecord: vi.fn(),
+        writeVideoRecord: vi.fn(),
+      },
+      mediaPreparation: createMediaPreparation({
+        prepareMedia: vi.fn(),
+      }),
+    });
+
+    await expect(useCase.execute({
+      stagingId: 'staging-123',
+      ownerId: 'owner-1',
+      tags: [],
+      title: 'Fixture Video',
+    })).resolves.toEqual({
+      ok: false,
+      message: 'Staged upload not found',
+      reason: 'COMMIT_STAGED_UPLOAD_NOT_FOUND',
+    });
+
+    expect(update).not.toHaveBeenCalled();
   });
 
   test('returns unavailable and restores the row to uploaded when processing fails', async () => {
@@ -275,6 +500,7 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
 
     await expect(useCase.execute({
       stagingId: 'staging-123',
+      ownerId: 'owner-1',
       tags: [],
       title: 'Fixture Video',
     })).resolves.toEqual({
@@ -362,6 +588,7 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
 
     await expect(useCase.execute({
       stagingId: 'staging-123',
+      ownerId: 'owner-1',
       tags: [],
       title: 'Fixture Video',
     })).resolves.toEqual({
@@ -460,6 +687,7 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
 
       await expect(useCase.execute({
         stagingId: 'staging-123',
+        ownerId: 'owner-1',
         tags: [],
         title: 'Fixture Video',
       })).resolves.toEqual({
@@ -543,6 +771,7 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
 
     await expect(useCase.execute({
       stagingId: 'staging-123',
+      ownerId: 'owner-1',
       tags: [],
       title: 'Fixture Audio',
     })).resolves.toEqual({
@@ -597,6 +826,7 @@ describe('CommitStagedUploadToLibraryUseCase', () => {
 
     await expect(useCase.execute({
       stagingId: 'staging-123',
+      ownerId: 'owner-1',
       tags: [],
       title: 'Fixture Video',
     })).resolves.toEqual({

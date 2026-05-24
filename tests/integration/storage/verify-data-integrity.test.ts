@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import { verifyPrimaryStorageIntegrity } from '../../../scripts/verify-data-integrity';
 
+type TestDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
+
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 const workspaces: string[] = [];
 
@@ -27,6 +29,27 @@ function writeReadyMediaFiles(storageDir: string, videoId: string) {
   writeFileSync(path.join(videoDir, 'audio', 'segment-0001.m4s'), 'audio segment');
   writeFileSync(path.join(videoDir, 'video', 'init.mp4'), 'video init');
   writeFileSync(path.join(videoDir, 'video', 'segment-0001.m4s'), 'video segment');
+}
+
+async function seedIntegrityOwner(database: TestDatabase) {
+  await database.prepare(`
+    INSERT INTO auth_users (
+      id,
+      username,
+      username_key,
+      password_hash,
+      role,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO NOTHING
+  `).run(
+    'owner-1',
+    'Owner',
+    'owner',
+    'test-password-hash',
+    'user',
+    '2026-05-23T00:00:00.000Z',
+  );
 }
 
 beforeEach(() => {
@@ -75,11 +98,12 @@ describe('primary storage integrity verification', () => {
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
+    await seedIntegrityOwner(database);
 
     await database.prepare(`
-      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, created_at, updated_at, sort_index)
-      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?)
-    `).run(videoId, 'Integrity Video', 1, now, now, 1);
+      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
+    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
     await database.prepare(`
       INSERT INTO video_media_assets (
         video_id,
@@ -124,11 +148,12 @@ describe('primary storage integrity verification', () => {
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
+    await seedIntegrityOwner(database);
 
     await database.prepare(`
-      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, created_at, updated_at, sort_index)
-      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?)
-    `).run(videoId, 'Missing Asset Video', 1, now, now, 1);
+      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
+    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
 
     const report = await verifyPrimaryStorageIntegrity();
 
@@ -150,11 +175,12 @@ describe('primary storage integrity verification', () => {
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
+    await seedIntegrityOwner(database);
 
     await database.prepare(`
-      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, created_at, updated_at, sort_index)
-      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?)
-    `).run(videoId, 'Escaped Ready Media Video', 1, now, now, 1);
+      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
+    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
     await database.prepare(`
       INSERT INTO video_media_assets (
         video_id,
@@ -222,11 +248,12 @@ describe('primary storage integrity verification', () => {
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
+    await seedIntegrityOwner(database);
 
     await database.prepare(`
-      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, created_at, updated_at, sort_index)
-      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?)
-    `).run(videoId, 'Escaped Segment Glob Video', 1, now, now, 1);
+      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
+    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
     await database.prepare(`
       INSERT INTO video_media_assets (
         video_id,
@@ -294,11 +321,12 @@ describe('primary storage integrity verification', () => {
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
+    await seedIntegrityOwner(database);
 
     await database.prepare(`
-      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, created_at, updated_at, sort_index)
-      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?)
-    `).run(videoId, 'Symlink Directory Video', 1, now, now, 1);
+      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
+    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
     await database.prepare(`
       INSERT INTO video_media_assets (
         video_id,
@@ -354,11 +382,12 @@ describe('primary storage integrity verification', () => {
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
+    await seedIntegrityOwner(database);
 
     await database.prepare(`
-      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, created_at, updated_at, sort_index)
-      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?)
-    `).run(videoId, 'Symlink Glob Directory Video', 1, now, now, 1);
+      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
+    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
     await database.prepare(`
       INSERT INTO video_media_assets (
         video_id,
@@ -412,11 +441,12 @@ describe('primary storage integrity verification', () => {
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
+    await seedIntegrityOwner(database);
 
     await database.prepare(`
-      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, created_at, updated_at, sort_index)
-      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?)
-    `).run(videoId, 'Symlink Segment Video', 1, now, now, 1);
+      INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
+      VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
+    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
     await database.prepare(`
       INSERT INTO video_media_assets (
         video_id,
@@ -469,6 +499,7 @@ describe('primary storage integrity verification', () => {
 
     const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
+    await seedIntegrityOwner(database);
 
     await database.prepare(`
       INSERT INTO ingest_uploads (

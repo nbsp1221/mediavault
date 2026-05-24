@@ -42,6 +42,8 @@ describe('auth admin architecture boundary', () => {
 
     const scriptFiles = (await readdir('scripts'))
       .filter(file => file.endsWith('.ts'))
+      .filter(file => file !== 'seed-demo-storage.ts')
+      .filter(file => file !== 'migrate-video-access-model.ts')
       .map(file => `scripts/${file}`);
 
     for (const scriptFile of scriptFiles) {

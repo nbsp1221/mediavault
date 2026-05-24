@@ -36,6 +36,17 @@ describe('primary SQLite encryption at rest', () => {
       dbPath,
       encryptionKey: TEST_DATABASE_ENCRYPTION_KEY,
     });
+    await database.prepare(`
+      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      'encrypted-owner-id',
+      'Encrypted Owner',
+      'encrypted-owner',
+      'test-password-hash',
+      'user',
+      '2026-05-17T00:00:00.000Z',
+    );
 
     await database.prepare(`
       INSERT INTO videos (
@@ -44,16 +55,20 @@ describe('primary SQLite encryption at rest', () => {
         description,
         duration_seconds,
         content_type_slug,
+        owner_id,
+        visibility,
         created_at,
         updated_at,
         sort_index
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       'encrypted-video-id',
       FIXTURE_TITLE,
       null,
       1,
       'clip',
+      'encrypted-owner-id',
+      'private',
       '2026-05-17T00:00:00.000Z',
       '2026-05-17T00:00:00.000Z',
       1,

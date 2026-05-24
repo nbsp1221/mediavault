@@ -10,7 +10,48 @@
 
 **Milestone 1A Survey:** `docs/plans/2026-05-22-video-access-milestone-1a-domain-boundary-survey.md`
 
+**Milestone 1B Plan:** `docs/plans/2026-05-23-video-access-milestone-1b-ownership-visibility-persistence-plan.md`
+
 **Architecture Reference:** The project already follows a modular-monolith, Clean Architecture, and DDD-lite direction. This milestone should strengthen that direction for the video access core without importing a full framework or large generic base-class hierarchy. Use Domain-Driven Hexagon guidance selectively: explicit bounded contexts, domain/application/infrastructure layers, value objects where they protect invariants, ports for infrastructure, and architecture boundary checks.
+
+## Current Status
+
+Milestone 1A is complete.
+
+Completed in commit:
+
+- `d69380e` - `🏗️ Establish user auth library boundaries`
+
+Verified by:
+
+- Local `bun run check`.
+- Local Docker worktree CI-like verification.
+- Local Docker Compose smoke.
+- Local Playwright MCP browser QA.
+- GitHub Actions `CI`.
+- GitHub Actions `Docker Compose Smoke`.
+
+The current code now has the first bounded-context split needed for the video
+access model:
+
+- `user` owns user identity, username, user lifecycle use cases, and user deletion policy.
+- `auth` owns login, credential verification, and session behavior.
+- `library` owns the new video aggregate language, visibility value object, and access policy.
+
+Behavior status:
+
+- Existing route behavior is intentionally preserved.
+- Anonymous site access is not implemented yet.
+- `videos.owner_id` and `videos.visibility` are not persisted yet.
+- Public/private UI and route enforcement are not implemented yet.
+
+Next implementation phase:
+
+- Milestone 1B: video ownership and visibility persistence.
+- Add the intended storage schema for `videos.owner_id` and `videos.visibility`.
+- Update canonical library persistence and ingest commit so new videos require an owner and default to `private`.
+- Provide explicit operator migration guidance or scripts for existing data instead of runtime auto-repair logic.
+- Update fixtures, integrity checks, and repository tests to treat owner and visibility as required canonical video data.
 
 ## Confirmed Product Inputs
 
@@ -648,6 +689,40 @@ Expected response policy:
 
 - Operator/admin user deletion API should return a clear client error when deletion is blocked because the user owns videos.
 - The response should not delete sessions or the user when ownership blocks deletion.
+
+## Milestone 1B: Ownership and Visibility Persistence
+
+Goal:
+
+Make owner and visibility durable canonical video data without changing the
+public/private product behavior yet.
+
+Scope:
+
+1. Add `videos.owner_id` and `videos.visibility` to the intended SQLite schema.
+2. Add a deliberate migration path for existing databases.
+3. Update canonical video row reads/writes to include owner and visibility.
+4. Update ingest commit inputs so the authenticated uploader becomes `ownerId` and visibility defaults to `private`.
+5. Update test fixtures and direct SQL inserts to include owner and visibility.
+6. Update user deletion tests so owned-video counting uses real owner data once the schema exists.
+7. Add repository/integration tests proving owner and visibility are persisted and required.
+
+Out of scope:
+
+- Anonymous home access.
+- Public/private filtering in home, search, related videos, thumbnails, or playback.
+- Visibility management UI.
+- Owner transfer.
+- Runtime automatic repair of legacy ownerless videos.
+
+Exit criteria:
+
+- Fresh databases create `videos.owner_id` and `videos.visibility`.
+- Existing database migration has explicit operator-facing handling for current rows.
+- New uploads write `owner_id` from the authenticated uploader and `visibility = 'private'`.
+- Canonical video repositories read and write owner/visibility.
+- User deletion is blocked through a real `owner_id` count.
+- Full verification passes, including runtime-sensitive Docker and browser checks where required.
 
 ## Canonical Read/Write Surfaces To Update
 

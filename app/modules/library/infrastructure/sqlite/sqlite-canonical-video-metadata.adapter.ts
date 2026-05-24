@@ -50,10 +50,12 @@ implements LibraryVideoSourcePort, IngestVideoMetadataWriterPort {
         duration: record.duration,
         genreSlugs: record.genreSlugs,
         id: record.id,
+        ownerId: record.ownerId,
         tags: record.tags,
         thumbnailUrl: record.thumbnailUrl,
         title: record.title,
         videoUrl: record.videoUrl,
+        visibility: record.visibility,
       });
       createdVideoRecord = true;
       if (this.shouldWriteMediaAsset) {

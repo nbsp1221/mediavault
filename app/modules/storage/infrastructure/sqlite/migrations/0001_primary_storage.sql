@@ -42,10 +42,21 @@ CREATE TABLE videos (
   description TEXT,
   duration_seconds REAL NOT NULL CHECK (duration_seconds >= 0),
   content_type_slug TEXT REFERENCES video_content_types(slug) ON UPDATE CASCADE ON DELETE RESTRICT,
+  owner_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE RESTRICT,
+  visibility TEXT NOT NULL CHECK (visibility IN ('private', 'public')),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   sort_index INTEGER NOT NULL UNIQUE
 ) STRICT;
+
+CREATE INDEX idx_videos_owner_id
+  ON videos(owner_id);
+
+CREATE INDEX idx_videos_visibility_sort_index
+  ON videos(visibility, sort_index);
+
+CREATE INDEX idx_videos_owner_visibility_sort_index
+  ON videos(owner_id, visibility, sort_index);
 
 CREATE TABLE tags (
   slug TEXT PRIMARY KEY CHECK (

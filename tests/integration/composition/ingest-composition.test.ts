@@ -204,6 +204,7 @@ describe('server ingest composition root', () => {
       tempFilePath: '/tmp/request-123/fixture-video.mp4',
     });
     await first.commitStagedUploadToLibrary.execute({
+      ownerId: 'owner-1',
       stagingId: 'staging-123',
       tags: [],
       title: 'Fixture Video',

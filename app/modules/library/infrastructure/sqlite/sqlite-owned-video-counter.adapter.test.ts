@@ -18,73 +18,66 @@ describe('SqliteOwnedVideoCounterAdapter', () => {
     await rm(tempDir, { force: true, recursive: true });
   });
 
-  test('conservatively counts all videos before the owner_id schema slice exists', async () => {
+  test('counts videos by required owner_id', async () => {
     const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    await database.prepare(`
+      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
+      VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)
+    `).run(
+      'user-1',
+      'Owner One',
+      'owner-one',
+      'test-password-hash',
+      'user',
+      '2026-05-16T00:00:00.000Z',
+      'user-2',
+      'Owner Two',
+      'owner-two',
+      'test-password-hash',
+      'user',
+      '2026-05-16T00:00:00.000Z',
+    );
     await database.prepare(`
       INSERT INTO videos (
         id,
         title,
         duration_seconds,
+        owner_id,
+        visibility,
         created_at,
         updated_at,
         sort_index
-      ) VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      'video-without-owner',
-      'Existing video',
-      10,
-      '2026-05-16T00:00:00.000Z',
-      '2026-05-16T00:00:00.000Z',
-      1,
-    );
-
-    const adapter = new SqliteOwnedVideoCounterAdapter({ dbPath });
-
-    await expect(adapter.countOwnedVideos('user-1')).resolves.toBe(1);
-  });
-
-  test('counts by owner_id when the schema slice exists', async () => {
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
-    await database.prepare(`
-      ALTER TABLE videos ADD COLUMN owner_id TEXT
-    `).run();
-    await database.prepare(`
-      INSERT INTO videos (
-        id,
-        title,
-        duration_seconds,
-        created_at,
-        updated_at,
-        sort_index,
-        owner_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       'video-1',
       'Owned video',
       10,
+      'user-1',
+      'private',
       '2026-05-16T00:00:00.000Z',
       '2026-05-16T00:00:00.000Z',
       1,
-      'user-1',
     );
     await database.prepare(`
       INSERT INTO videos (
         id,
         title,
         duration_seconds,
+        owner_id,
+        visibility,
         created_at,
         updated_at,
-        sort_index,
-        owner_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        sort_index
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       'video-2',
       'Other video',
       10,
+      'user-2',
+      'public',
       '2026-05-16T00:00:00.000Z',
       '2026-05-16T00:00:00.000Z',
       2,
-      'user-2',
     );
 
     const adapter = new SqliteOwnedVideoCounterAdapter({ dbPath });

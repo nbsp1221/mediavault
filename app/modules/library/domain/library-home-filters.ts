@@ -2,6 +2,11 @@ import type { LibraryVideo } from './library-video';
 import { normalizeVideoTags } from './video-tag';
 import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from './video-taxonomy';
 
+type FilterableLibraryVideo = Pick<
+  LibraryVideo,
+  'contentTypeSlug' | 'genreSlugs' | 'id' | 'tags' | 'title'
+>;
+
 export interface LibraryHomeFiltersInput {
   rawContentTypeSlug?: string | null;
   rawExcludeTags?: string[];
@@ -37,7 +42,7 @@ export function createLibraryHomeFilters(input: LibraryHomeFiltersInput): Librar
 }
 
 export function doesLibraryVideoMatchHomeFilters(
-  video: LibraryVideo,
+  video: FilterableLibraryVideo,
   filters: LibraryHomeFilters,
 ): boolean {
   const normalizedVideoTags = normalizeVideoTags(video.tags);

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createServerIngestServices } from '../app/composition/server/ingest';
 import { SqliteLibraryVideoMetadataRepository } from '../app/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
 import { getPrimaryStorageConfig } from '../app/modules/storage/infrastructure/config/storage-config.server';
+import { createMigratedPrimarySqliteDatabase } from '../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import { getFFmpegPath } from '../app/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '../app/shared/lib/server/ffmpeg-process-manager.server';
 
@@ -25,6 +26,7 @@ interface DemoSeedIngestServices {
       contentTypeSlug?: string;
       description?: string;
       genreSlugs?: string[];
+      ownerId: string;
       stagingId: string;
       tags: string[];
       title: string;
@@ -72,6 +74,7 @@ interface DemoSeedReport {
     tags: string[];
     title: string;
   };
+  ownerId?: string;
   primary: {
     databasePath: string;
     storageDir: string;
@@ -124,6 +127,25 @@ async function countExistingDemoVideos(): Promise<number> {
   const existingVideos = await repository.findByTag(DEMO_TAGS[0]!);
 
   return existingVideos.filter(video => video.title === DEMO_TITLE).length;
+}
+
+async function findDemoSeedOwnerId(): Promise<string> {
+  const config = getPrimaryStorageConfig();
+  const database = await createMigratedPrimarySqliteDatabase({
+    dbPath: config.databasePath,
+  });
+  const owner = await database.prepare<{ id: string }>(`
+    SELECT id
+    FROM auth_users
+    ORDER BY created_at ASC, id ASC
+    LIMIT 1
+  `).get();
+
+  if (!owner) {
+    throw new Error('Cannot seed demo storage before creating a user account.');
+  }
+
+  return owner.id;
 }
 
 function assertSeedRuntimeEnv(): void {
@@ -199,6 +221,7 @@ export async function seedDemoStorage(
   const tempDir = await mkdtemp(path.join(tmpdir(), 'local-streamer-demo-seed-'));
 
   try {
+    const ownerId = await findDemoSeedOwnerId();
     const sourcePath = await (dependencies.generateDemoSource ?? generateDemoSource)(tempDir);
     const sourceFile = await stat(sourcePath);
     const services = (dependencies.createIngestServices ?? createServerIngestServices)();
@@ -217,6 +240,7 @@ export async function seedDemoStorage(
       contentTypeSlug: DEMO_CONTENT_TYPE_SLUG,
       description: 'Tiny generated demo video for local development.',
       genreSlugs: DEMO_GENRE_SLUGS,
+      ownerId,
       stagingId: staged.data.stagingId,
       tags: DEMO_TAGS,
       title: DEMO_TITLE,
@@ -228,6 +252,7 @@ export async function seedDemoStorage(
 
     return {
       ...baseReport,
+      ownerId,
       seededVideoId: committed.data.videoId,
     };
   }

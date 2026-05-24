@@ -15,10 +15,12 @@ describe('sqlite canonical video metadata adapter', () => {
         duration: 95,
         genreSlugs: ['action'],
         id: 'video-1',
+        ownerId: 'owner-1',
         tags: ['Action', 'Drama'],
         thumbnailUrl: '/api/thumbnail/video-1',
         title: 'Fixture Video',
         videoUrl: '/videos/video-1/manifest.mpd',
+        visibility: 'private' as const,
       },
     ]);
     const create = vi.fn(async () => ({
@@ -28,10 +30,12 @@ describe('sqlite canonical video metadata adapter', () => {
       duration: 120,
       genreSlugs: ['documentary'],
       id: 'video-123',
+      ownerId: 'owner-1',
       tags: ['fixture', 'test'],
       thumbnailUrl: '/api/thumbnail/video-123',
       title: 'Fixture Video',
       videoUrl: '/videos/video-123/manifest.mpd',
+      visibility: 'private' as const,
     }));
     const deleteVideo = vi.fn(async () => true);
 
@@ -64,10 +68,12 @@ describe('sqlite canonical video metadata adapter', () => {
       duration: 120,
       genreSlugs: ['documentary'],
       id: 'video-123',
+      ownerId: 'owner-1',
       tags: ['fixture', 'test'],
       thumbnailUrl: '/api/thumbnail/video-123',
       title: 'Fixture Video',
       videoUrl: '/videos/video-123/manifest.mpd',
+      visibility: 'private' as const,
     })).resolves.toBeUndefined();
     await expect(adapter.deleteVideoRecord('video-123')).resolves.toBeUndefined();
 
@@ -84,10 +90,12 @@ describe('sqlite canonical video metadata adapter', () => {
       duration: 120,
       genreSlugs: ['documentary'],
       id: 'video-123',
+      ownerId: 'owner-1',
       tags: ['fixture', 'test'],
       thumbnailUrl: '/api/thumbnail/video-123',
       title: 'Fixture Video',
       videoUrl: '/videos/video-123/manifest.mpd',
+      visibility: 'private' as const,
     });
     expect(deleteVideo).toHaveBeenCalledWith('video-123');
   });
@@ -114,10 +122,12 @@ describe('sqlite canonical video metadata adapter', () => {
       duration: 120,
       genreSlugs: [],
       id: 'existing-video',
+      ownerId: 'owner-1',
       tags: [],
       thumbnailUrl: '/api/thumbnail/existing-video',
       title: 'Existing Video',
       videoUrl: '/videos/existing-video/manifest.mpd',
+      visibility: 'private' as const,
     })).rejects.toThrow(/UNIQUE constraint/);
     expect(deleteVideo).not.toHaveBeenCalled();
   });

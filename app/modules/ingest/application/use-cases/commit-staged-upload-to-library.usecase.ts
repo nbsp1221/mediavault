@@ -25,6 +25,7 @@ export interface CommitStagedUploadToLibraryCommand {
   contentTypeSlug?: string;
   description?: string;
   genreSlugs?: string[];
+  ownerId: string;
   stagingId: string;
   tags: string[];
   title: string;
@@ -146,10 +147,12 @@ export class CommitStagedUploadToLibraryUseCase {
         duration: analysis.duration,
         genreSlugs: normalizeTaxonomySlugs(command.genreSlugs ?? []),
         id: videoId,
+        ownerId: command.ownerId,
         tags: normalizeVideoTags(command.tags),
         thumbnailUrl: `/api/thumbnail/${videoId}`,
         title: trimmedTitle,
         videoUrl: `/videos/${videoId}/manifest.mpd`,
+        visibility: 'private',
       });
       metadataRecordWritten = true;
       await this.deps.stagedUploadRepository.update(command.stagingId, {

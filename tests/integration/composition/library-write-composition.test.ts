@@ -26,18 +26,22 @@ describe('server library mutation composition root', () => {
       createdAt: new Date('2026-03-11T00:00:00.000Z'),
       duration: 180,
       id: videoId,
+      ownerId: 'owner-1',
       tags: ['Action'],
       title: 'Fixture Video',
       videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private' as const,
     }));
     const updateLibraryVideo = vi.fn(async input => ({
       createdAt: new Date('2026-03-11T00:00:00.000Z'),
       description: input.description,
       duration: 180,
       id: input.videoId,
+      ownerId: 'owner-1',
       tags: input.tags,
       title: input.title,
       videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private' as const,
     }));
     const deleteLibraryVideo = vi.fn(async () => ({
       deleted: true,

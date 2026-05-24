@@ -82,26 +82,39 @@ async function loginOwner(input: {
   };
 }
 
-async function insertLegacyOwnerlessVideo() {
+async function insertOwnedVideo() {
   const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
   const { createMigratedPrimarySqliteDatabase } = await import('../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database');
   const database = await createMigratedPrimarySqliteDatabase({
     dbPath: getPrimaryStorageConfig().databasePath,
   });
+  const owner = await database.prepare<{ id: string }>(`
+    SELECT id
+    FROM auth_users
+    WHERE username_key = ?
+  `).get('owner');
+
+  if (!owner) {
+    throw new Error('Expected owner user');
+  }
 
   await database.prepare(`
     INSERT INTO videos (
       id,
       title,
       duration_seconds,
+      owner_id,
+      visibility,
       created_at,
       updated_at,
       sort_index
-    ) VALUES (?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    'video-without-owner',
+    'video-owned-by-user',
     'Existing video',
     10,
+    owner.id,
+    'private',
     '2026-05-16T00:00:00.000Z',
     '2026-05-16T00:00:00.000Z',
     1,
@@ -463,7 +476,7 @@ describe('admin user API', () => {
 
     expect(liveLoginResponse.status).toBe(200);
 
-    await insertLegacyOwnerlessVideo();
+    await insertOwnedVideo();
 
     process.env.MEDIAVAULT_ADMIN_API_MODE = 'always';
     vi.resetModules();

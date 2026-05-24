@@ -61,8 +61,8 @@ export async function createRuntimeTestWorkspace(): Promise<RuntimeTestWorkspace
     })),
   );
 
-  await seedLibraryVideoMetadata(databasePath, SEEDED_VIDEOS);
   await seedRuntimeAuthUser(databasePath);
+  await seedLibraryVideoMetadata(databasePath, SEEDED_VIDEOS);
 
   return {
     authDbPath,

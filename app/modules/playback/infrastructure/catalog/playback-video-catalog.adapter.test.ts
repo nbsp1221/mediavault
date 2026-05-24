@@ -28,25 +28,31 @@ describe('PlaybackVideoCatalogAdapter', () => {
             createdAt: new Date('2026-03-02T00:00:00.000Z'),
             duration: 120,
             id: 'video-1',
+            ownerId: 'owner-1',
             tags: ['Drama', 'Vault'],
             title: 'Current video',
             videoUrl: '/videos/video-1/manifest.mpd',
+            visibility: 'private',
           },
           {
             createdAt: new Date('2026-03-01T00:00:00.000Z'),
             duration: 40,
             id: 'video-2',
+            ownerId: 'owner-1',
             tags: ['drama'],
             title: 'Related video',
             videoUrl: '/videos/video-2/manifest.mpd',
+            visibility: 'private',
           },
           {
             createdAt: new Date('2026-02-28T00:00:00.000Z'),
             duration: 60,
             id: 'video-3',
+            ownerId: 'owner-1',
             tags: ['other'],
             title: 'Unrelated video',
             videoUrl: '/videos/video-3/manifest.mpd',
+            visibility: 'private',
           },
         ],
       },
@@ -60,18 +66,22 @@ describe('PlaybackVideoCatalogAdapter', () => {
           createdAt: new Date('2026-03-01T00:00:00.000Z'),
           duration: 40,
           id: 'video-2',
+          ownerId: 'owner-1',
           tags: ['drama'],
           title: 'Related video',
           videoUrl: '/videos/video-2/manifest.mpd',
+          visibility: 'private',
         },
       ],
       video: {
         createdAt: new Date('2026-03-02T00:00:00.000Z'),
         duration: 120,
         id: 'video-1',
+        ownerId: 'owner-1',
         tags: ['Drama', 'Vault'],
         title: 'Current video',
         videoUrl: '/videos/video-1/manifest.mpd',
+        visibility: 'private',
       },
     });
   });
@@ -96,6 +106,7 @@ describe('PlaybackVideoCatalogAdapter', () => {
   }) {
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
     const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    await seedOwner(database, 'owner-1');
 
     await repository.create({
       contentTypeSlug: 'movie',
@@ -104,11 +115,13 @@ describe('PlaybackVideoCatalogAdapter', () => {
       duration: input.duration ?? 120,
       genreSlugs: [],
       id: input.id,
+      ownerId: 'owner-1',
       sortIndex: Number(input.id.match(/\d+$/)?.[0] ?? 1),
       tags: input.tags ?? [],
       thumbnailUrl: `/api/thumbnail/${input.id}`,
       title: input.title,
       videoUrl: `/videos/${input.id}/manifest.mpd`,
+      visibility: 'private',
     });
     await database.prepare(`
       INSERT INTO video_media_assets (
@@ -174,16 +187,20 @@ describe('PlaybackVideoCatalogAdapter', () => {
     const sqlitePath = path.join(storageDir, 'db.sqlite');
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath: sqlitePath });
+    const database = await createMigratedPrimarySqliteDatabase({ dbPath: sqlitePath });
+    await seedOwner(database, 'owner-1');
     await repository.create({
       contentTypeSlug: 'movie',
       createdAt: new Date('2026-03-02T00:00:00.000Z'),
       duration: 120,
       genreSlugs: [],
       id: 'video-1',
+      ownerId: 'owner-1',
       sortIndex: 1,
       tags: ['Drama'],
       title: 'Unready video',
       videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private',
     });
 
     try {
@@ -227,3 +244,26 @@ describe('PlaybackVideoCatalogAdapter', () => {
     }
   });
 });
+
+type TestDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
+
+async function seedOwner(database: TestDatabase, ownerId: string) {
+  await database.prepare(`
+    INSERT INTO auth_users (
+      id,
+      username,
+      username_key,
+      password_hash,
+      role,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO NOTHING
+  `).run(
+    ownerId,
+    ownerId,
+    ownerId,
+    'test-password-hash',
+    'user',
+    '2026-05-23T00:00:00.000Z',
+  );
+}

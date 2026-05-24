@@ -13,11 +13,17 @@ export interface SeedLibraryVideoInput {
   genreSlugs?: string[];
   id: string;
   mediaStatus?: 'none' | 'ready';
+  ownerId?: string;
   tags?: string[];
   thumbnailUrl?: string;
   title: string;
+  visibility?: 'private' | 'public';
   videoUrl: string;
 }
+
+const DEFAULT_SEEDED_VIDEO_OWNER_ID = 'seeded-owner-1';
+
+type MigratedPrimarySqliteDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
 
 function resolveCreatedAt(input: Pick<SeedLibraryVideoInput, 'addedAt' | 'createdAt'>) {
   const rawTimestamp = input.createdAt instanceof Date
@@ -39,6 +45,8 @@ export async function seedLibraryVideoMetadata(
   let sortIndex = existingVideos.length + videos.length;
 
   for (const video of videos) {
+    await ensureVideoOwner(database, video.ownerId ?? DEFAULT_SEEDED_VIDEO_OWNER_ID);
+
     if (existingIds.has(video.id)) {
       continue;
     }
@@ -50,11 +58,13 @@ export async function seedLibraryVideoMetadata(
       contentTypeSlug: video.contentTypeSlug ? normalizeTaxonomySlug(video.contentTypeSlug) ?? undefined : undefined,
       genreSlugs: normalizeTaxonomySlugs(video.genreSlugs ?? []),
       id: video.id,
+      ownerId: video.ownerId ?? DEFAULT_SEEDED_VIDEO_OWNER_ID,
       sortIndex,
       tags: normalizeVideoTags(video.tags ?? []),
       thumbnailUrl: video.thumbnailUrl,
       title: video.title,
       videoUrl: video.videoUrl,
+      visibility: video.visibility ?? 'private',
     });
     if (video.mediaStatus !== 'none') {
       await database.prepare(`
@@ -90,4 +100,25 @@ export async function seedLibraryVideoMetadata(
     sortIndex -= 1;
     existingIds.add(video.id);
   }
+}
+
+async function ensureVideoOwner(database: MigratedPrimarySqliteDatabase, ownerId: string) {
+  await database.prepare(`
+    INSERT INTO auth_users (
+      id,
+      username,
+      username_key,
+      password_hash,
+      role,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO NOTHING
+  `).run(
+    ownerId,
+    ownerId,
+    ownerId.toLowerCase(),
+    'test-password-hash',
+    'user',
+    '2026-05-23T00:00:00.000Z',
+  );
 }

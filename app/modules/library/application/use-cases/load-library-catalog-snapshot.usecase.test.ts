@@ -7,9 +7,11 @@ function createFixtureVideo(overrides: Partial<LibraryVideo> = {}): LibraryVideo
     createdAt: new Date('2026-03-10T00:00:00.000Z'),
     duration: 120,
     id: 'video-1',
+    ownerId: 'owner-1',
     tags: ['Action'],
     title: 'Library Fixture',
     videoUrl: '/videos/video-1/manifest.mpd',
+    visibility: 'private',
     ...overrides,
   };
 }

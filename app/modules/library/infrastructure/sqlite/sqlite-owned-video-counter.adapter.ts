@@ -30,12 +30,6 @@ export class SqliteOwnedVideoCounterAdapter implements OwnedVideoCounterPort {
 
   async countOwnedVideos(userId: string): Promise<number> {
     const database = await this.getDatabase();
-    const canCountByOwnerId = await videosHaveOwnerColumn(database);
-
-    if (!canCountByOwnerId) {
-      return await countVideosConservatively(database);
-    }
-
     const row = await database.prepare<{ count: number }>(`
       SELECT COUNT(*) AS count
       FROM videos
@@ -44,21 +38,4 @@ export class SqliteOwnedVideoCounterAdapter implements OwnedVideoCounterPort {
 
     return row?.count ?? 0;
   }
-}
-
-async function countVideosConservatively(database: SqliteDatabaseAdapter): Promise<number> {
-  const row = await database.prepare<{ count: number }>(`
-    SELECT COUNT(*) AS count
-    FROM videos
-  `).get();
-
-  return row?.count ?? 0;
-}
-
-async function videosHaveOwnerColumn(database: SqliteDatabaseAdapter): Promise<boolean> {
-  const rows = await database.prepare<{ name: string }>(`
-    PRAGMA table_info(videos)
-  `).all();
-
-  return rows.some(row => row.name === 'owner_id');
 }
