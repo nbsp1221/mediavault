@@ -77,4 +77,22 @@ describe('player route', () => {
       status: 404,
     });
   });
+
+  test('does not resolve player data when the protected page guard rejects the request', async () => {
+    const redirectResponse = new Response(null, {
+      headers: {
+        Location: '/login?redirectTo=%2Fplayer%2Fvideo-1',
+      },
+      status: 302,
+    });
+    requireProtectedPageSessionMock.mockRejectedValue(redirectResponse);
+    const { loader } = await importPlayerRoute();
+
+    await expect(loader({
+      params: { id: 'video-1' },
+      request: new Request('http://localhost/player/video-1'),
+    } as never)).rejects.toBe(redirectResponse);
+
+    expect(fakePlaybackServices.resolvePlayerVideo.execute).not.toHaveBeenCalled();
+  });
 });

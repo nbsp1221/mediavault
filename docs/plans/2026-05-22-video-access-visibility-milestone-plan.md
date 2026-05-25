@@ -16,6 +16,8 @@ Milestone 1A is complete in commit:
 
 Milestone 1B is complete locally.
 
+Milestone 2 is complete in the working tree.
+
 Verified by:
 
 - Local `bun run check`.
@@ -38,6 +40,9 @@ Current implemented state:
 - New uploads persist the authenticated uploader as owner and default to `private`.
 - Existing databases have an operator-owned migration script instead of runtime compatibility repair.
 - Existing route behavior is intentionally unchanged.
+- Anonymous and authenticated request subjects are now represented explicitly through auth-owned `RequestViewer` types.
+- Dangling sessions resolve as anonymous for request-viewer purposes and fail closed for protected page, API, API-value, and media helpers.
+- Auth request identity is adapted to library video policy identity through composition, not through cross-context imports.
 
 Not implemented yet:
 
@@ -46,9 +51,10 @@ Not implemented yet:
 
 Next phase:
 
-- Milestone 2: viewer model refactor.
-- This starts only after the schema and canonical video persistence can represent owner and visibility as required data.
-- Milestone 2 should not add visibility management UI or playback authorization yet; it should first make anonymous and authenticated viewers explicit request subjects.
+- Milestone 3: video access policy.
+- Milestone 3 should centralize owner/visibility decisions for `view`, `play`, `edit`, `delete`, and `manage_visibility`.
+- Milestone 3 must still avoid opening anonymous home or playback routes until the route and media rewiring milestones connect the policy everywhere.
+- The completed Milestone 2 plan remains at `docs/plans/2026-05-24-video-access-milestone-2-viewer-model-refactor-plan.md`.
 
 **Current Model:**
 
@@ -269,6 +275,32 @@ Exit criteria:
 ## Milestone 2: Viewer Model Refactor
 
 Replace the assumption that every meaningful request has an authenticated site session.
+
+Detailed implementation plan:
+
+- `docs/plans/2026-05-24-video-access-milestone-2-viewer-model-refactor-plan.md`
+
+Review status:
+
+- Reviewed against OWASP Authorization guidance, OWASP Developer Guide access-control guidance, NIST SP 800-63B session guidance, Microsoft DDD guidance, and `/tmp/domain-driven-hexagon`.
+- Reviewed by read-only DDD/Hexagonal, security, and codebase-fit subagents.
+- Accepted correction: `RequestViewer` must not include `role`; video access is owner/visibility based.
+- Accepted correction: existing account projections such as root `user` and `/api/auth/me` are not the same thing as server-side request viewer authorization subjects.
+- Accepted correction: current session-only player/media authorization is a blocking follow-up before public playback, not a Milestone 2 behavior change.
+
+Implementation status:
+
+- Complete in the working tree.
+- Commit: pending maintainer request.
+- Scope: explicit request viewer model, composition adapter to library video policy identity, dangling-session fail-closed handling, and protected-route regression coverage.
+- Out of scope: anonymous home access, anonymous player access, public/private filtering, playback authorization, and visibility management UI/API.
+
+Verification status:
+
+- Passed local focused auth, architecture, player, and playback route tests.
+- Passed local `bun run check`.
+- Passed local Docker CI-like verification with `bun run verify:ci-worktree:docker`.
+- Passed Playwright MCP browser QA for anonymous player redirect/no pre-login media requests and authenticated playback.
 
 Target viewer model:
 

@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { redirect } from 'react-router';
-import type { AuthSession } from '~/modules/auth/domain/auth-session';
+import type { AuthDecision, AuthSession } from '~/modules/auth/domain/auth-session';
+import type { RequestViewer } from '~/modules/auth/domain/request-viewer';
 import type { SiteViewer } from '~/modules/auth/domain/site-viewer';
 import { type AdminApiOperation, evaluateAdminApiAccess } from '~/modules/auth/application/policies/admin-api-access.policy';
 import { CreateAuthSessionUseCase } from '~/modules/auth/application/use-cases/create-auth-session.usecase';
 import { DestroyAuthSessionUseCase } from '~/modules/auth/application/use-cases/destroy-auth-session.usecase';
 import { EvaluateSiteAccessUseCase } from '~/modules/auth/application/use-cases/evaluate-site-access.usecase';
 import { ResolveAuthSessionUseCase } from '~/modules/auth/application/use-cases/resolve-auth-session.usecase';
+import { ANONYMOUS_VIEWER } from '~/modules/auth/domain/request-viewer';
 import { Argon2PasswordHashService } from '~/modules/auth/infrastructure/password/argon2-password-hash.service';
 import { InMemoryLoginAttemptGuard } from '~/modules/auth/infrastructure/security/in-memory-login-attempt-guard';
 import { SqliteSessionRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-session.repository';
@@ -58,6 +60,12 @@ type DeleteUserCommand = Parameters<DeleteUserUseCase['execute']>[0];
 
 interface DeleteAuthUserService {
   execute(input: DeleteUserCommand): Promise<DeleteUserUseCaseResult>;
+}
+
+interface ProtectedSessionAccess {
+  decision: AuthDecision;
+  session: AuthSession | null;
+  staleSessionId?: string;
 }
 
 let cachedAuthServices: ServerAuthServices | null = null;
@@ -259,17 +267,67 @@ export async function getOptionalSiteViewer(request: Request): Promise<SiteViewe
   return session ? sessionServices.resolveSiteViewerByUserId(session.userId) : null;
 }
 
+export async function resolveRequestViewer(request: Request): Promise<RequestViewer> {
+  const sessionServices = getServerSessionServices();
+  const session = await sessionServices.resolveAuthSession.execute({
+    now: new Date(),
+    sessionId: getSiteSessionId(request),
+  });
+
+  if (!session) {
+    return ANONYMOUS_VIEWER;
+  }
+
+  const siteViewer = await sessionServices.resolveSiteViewerByUserId(session.userId);
+
+  if (!siteViewer) {
+    await sessionServices.destroyAuthSession.execute({
+      sessionId: session.id,
+    });
+
+    return ANONYMOUS_VIEWER;
+  }
+
+  return {
+    type: 'authenticated',
+    userId: siteViewer.id,
+    username: siteViewer.username,
+  };
+}
+
 async function requireProtectedSessionAccess(
   request: Request,
   surface: 'protected-page' | 'protected-api' | 'media-resource',
-) {
+): Promise<ProtectedSessionAccess> {
   const sessionServices = getServerSessionServices();
-
-  return sessionServices.evaluateSiteAccess.execute({
+  const access = await sessionServices.evaluateSiteAccess.execute({
     now: new Date(),
     sessionId: getSiteSessionId(request),
     surface,
   });
+
+  if (!access.decision.allowed || !access.session) {
+    return access;
+  }
+
+  const siteViewer = await sessionServices.resolveSiteViewerByUserId(access.session.userId);
+
+  if (siteViewer) {
+    return access;
+  }
+
+  await sessionServices.destroyAuthSession.execute({
+    sessionId: access.session.id,
+  });
+
+  return {
+    decision: {
+      allowed: false,
+      reason: 'AUTH_SESSION_USER_REQUIRED',
+    },
+    session: null,
+    staleSessionId: access.session.id,
+  };
 }
 
 export async function requireProtectedPageSession(request: Request) {
@@ -279,7 +337,9 @@ export async function requireProtectedPageSession(request: Request) {
     const url = new URL(request.url);
     const redirectTo = url.pathname + url.search;
     const searchParams = new URLSearchParams([['redirectTo', redirectTo]]);
-    throw redirect(`/login?${searchParams}`);
+    throw redirect(`/login?${searchParams}`, {
+      headers: createStaleSessionHeaders(access),
+    });
   }
 
   return access.session;
@@ -289,14 +349,28 @@ export async function requireProtectedApiSessionValue(request: Request) {
   const access = await requireProtectedSessionAccess(request, 'protected-api');
 
   if (!access.decision.allowed || !access.session) {
-    return createUnauthorizedAuthResponse(401, 'Authentication required');
+    return createUnauthorizedAuthResponse(401, 'Authentication required', createStaleSessionHeaders(access));
   }
 
   return access.session;
 }
 
-function createUnauthorizedAuthResponse(status: 401 | 503, error: string): Response {
-  return Response.json({ success: false, error }, { status });
+function createStaleSessionHeaders(access: ProtectedSessionAccess): HeadersInit | undefined {
+  if (!access.staleSessionId) {
+    return undefined;
+  }
+
+  return {
+    'Set-Cookie': createClearedSessionCookieHeader(),
+  };
+}
+
+function createUnauthorizedAuthResponse(
+  status: 401 | 503,
+  error: string,
+  headers?: HeadersInit,
+): Response {
+  return Response.json({ success: false, error }, { headers, status });
 }
 
 async function requireProtectedHttpSession(
@@ -306,7 +380,7 @@ async function requireProtectedHttpSession(
   const access = await requireProtectedSessionAccess(request, surface);
 
   if (!access.decision.allowed) {
-    return createUnauthorizedAuthResponse(401, 'Authentication required');
+    return createUnauthorizedAuthResponse(401, 'Authentication required', createStaleSessionHeaders(access));
   }
 
   return null;

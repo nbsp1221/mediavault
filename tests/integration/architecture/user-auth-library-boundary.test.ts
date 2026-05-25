@@ -42,6 +42,12 @@ const AUTH_APPLICATION_FILES = [
   'app/modules/auth/application/ports/user-credential-reader.port.ts',
 ] as const;
 
+const AUTH_DOMAIN_FILES = [
+  'app/modules/auth/domain/auth-session.ts',
+  'app/modules/auth/domain/request-viewer.ts',
+  'app/modules/auth/domain/site-viewer.ts',
+] as const;
+
 const USER_FILES = [
   ...USER_DOMAIN_APPLICATION_FILES,
   'app/modules/user/infrastructure/sqlite/sqlite-user.repository.ts',
@@ -98,11 +104,36 @@ describe('user/auth/library architecture boundary', () => {
     expect(createSessionSource).not.toContain('UserRepository');
   });
 
+  test('auth domain request identity does not depend on user, library, or infrastructure modules', async () => {
+    for (const file of AUTH_DOMAIN_FILES) {
+      const source = await readFile(resolve(PROJECT_ROOT, file), 'utf8');
+      expect(source, file).not.toContain('~/modules/user/');
+      expect(source, file).not.toContain('~/modules/library/');
+      expect(source, file).not.toContain('/infrastructure/');
+    }
+  });
+
   test('library domain and application do not import auth or user infrastructure', async () => {
     for (const file of LIBRARY_DOMAIN_APPLICATION_FILES) {
       const source = await readFile(resolve(PROJECT_ROOT, file), 'utf8');
       expect(source, file).not.toContain('~/modules/auth/');
       expect(source, file).not.toContain('~/modules/user/infrastructure');
+    }
+  });
+
+  test('request viewer to video policy viewer adapter stays in composition', async () => {
+    const adapterSource = await readFile(
+      resolve(PROJECT_ROOT, 'app/composition/server/video-access-viewer.ts'),
+      'utf8',
+    );
+
+    expect(adapterSource).toContain('~/modules/auth/domain/request-viewer');
+    expect(adapterSource).toContain('~/modules/library/domain/policies/video-access.policy');
+
+    for (const file of LIBRARY_DOMAIN_APPLICATION_FILES) {
+      const source = await readFile(resolve(PROJECT_ROOT, file), 'utf8');
+      expect(source, file).not.toContain('request-viewer');
+      expect(source, file).not.toContain('RequestViewer');
     }
   });
 

@@ -57,6 +57,10 @@ async function importThumbnailRoute() {
   return import('../../../app/routes/api.thumbnail.$id');
 }
 
+async function importServerAuthComposition() {
+  return import('../../../app/composition/server/auth');
+}
+
 async function importPlaylistsRoute() {
   return import('../../../app/routes/api.playlists');
 }
@@ -123,6 +127,73 @@ async function seedStorage(storageDir: string, overrides?: {
       playlist.updatedAt,
     );
   }
+}
+
+async function loginAndGetCookieHeader(): Promise<string> {
+  const { action } = await importLoginAction();
+  const loginResponse = await action({
+    request: new Request('http://localhost/api/auth/login', {
+      body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+    }),
+  } as never);
+
+  const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
+  expect(cookie).toBeTruthy();
+  return cookie;
+}
+
+function getRequestCookieValue(cookieHeader: string, name: string): string | undefined {
+  return Object.fromEntries(
+    cookieHeader
+      .split(/;\s*/)
+      .map(cookiePair => cookiePair.split('='))
+      .filter(([cookieName, value]) => cookieName && value)
+      .map(([cookieName, ...valueParts]) => [cookieName, decodeURIComponent(valueParts.join('='))]),
+  )[name];
+}
+
+async function pointSessionAtMissingUser(databasePath: string, cookieHeader: string) {
+  const sessionId = getRequestCookieValue(cookieHeader, '__Host-mediavault-session');
+  expect(sessionId).toBeTruthy();
+  if (!sessionId) {
+    throw new Error('Expected seeded login to create a session cookie');
+  }
+
+  const database = await createMigratedPrimarySqliteDatabase({
+    dbPath: databasePath,
+  });
+  await database.exec('PRAGMA foreign_keys = OFF');
+  await database
+    .prepare(`
+      UPDATE auth_sessions
+      SET user_id = ?
+      WHERE id = ?
+    `)
+    .run('missing-user', sessionId);
+  await database.exec('PRAGMA foreign_keys = ON');
+}
+
+async function expireSession(databasePath: string, cookieHeader: string) {
+  const sessionId = getRequestCookieValue(cookieHeader, '__Host-mediavault-session');
+  expect(sessionId).toBeTruthy();
+  if (!sessionId) {
+    throw new Error('Expected seeded login to create a session cookie');
+  }
+
+  const database = await createMigratedPrimarySqliteDatabase({
+    dbPath: databasePath,
+  });
+  await database
+    .prepare(`
+      UPDATE auth_sessions
+      SET expires_at = ?
+      WHERE id = ?
+    `)
+    .run('2026-03-07T00:00:00.000Z', sessionId);
 }
 
 describe('auth gate routes', () => {
@@ -312,6 +383,161 @@ describe('auth gate routes', () => {
       user: loginPayload.user,
     });
     expectAdminViewerShape(payload.user);
+  });
+
+  test('request viewer resolves no, unknown, expired, revoked, and dangling sessions as anonymous', async () => {
+    const { resolveRequestViewer } = await importServerAuthComposition();
+
+    await expect(resolveRequestViewer(new Request('http://localhost/'))).resolves.toEqual({
+      type: 'anonymous',
+    });
+
+    await expect(resolveRequestViewer(new Request('http://localhost/', {
+      headers: {
+        cookie: '__Host-mediavault-session=unknown-session',
+      },
+    }))).resolves.toEqual({
+      type: 'anonymous',
+    });
+
+    const expiredCookie = await loginAndGetCookieHeader();
+    await expireSession(databasePath, expiredCookie);
+    await expect(resolveRequestViewer(new Request('http://localhost/', {
+      headers: {
+        cookie: expiredCookie,
+      },
+    }))).resolves.toEqual({
+      type: 'anonymous',
+    });
+
+    const revokedCookie = await loginAndGetCookieHeader();
+    const { action: logoutAction } = await importLogoutRoute();
+    await logoutAction({
+      request: new Request('http://localhost/api/auth/logout', {
+        headers: {
+          cookie: revokedCookie,
+        },
+        method: 'POST',
+      }),
+    } as never);
+    await expect(resolveRequestViewer(new Request('http://localhost/', {
+      headers: {
+        cookie: revokedCookie,
+      },
+    }))).resolves.toEqual({
+      type: 'anonymous',
+    });
+
+    const danglingCookie = await loginAndGetCookieHeader();
+    await pointSessionAtMissingUser(databasePath, danglingCookie);
+    await expect(resolveRequestViewer(new Request('http://localhost/', {
+      headers: {
+        cookie: danglingCookie,
+      },
+    }))).resolves.toEqual({
+      type: 'anonymous',
+    });
+  });
+
+  test('request viewer resolves an active user-backed session without role authority', async () => {
+    const cookie = await loginAndGetCookieHeader();
+    const { resolveRequestViewer } = await importServerAuthComposition();
+
+    const viewer = await resolveRequestViewer(new Request('http://localhost/', {
+      headers: {
+        cookie,
+      },
+    }));
+
+    expect(viewer).toEqual({
+      type: 'authenticated',
+      userId: SEEDED_OWNER_ID,
+      username: SEEDED_USERNAME,
+    });
+    expect(viewer).not.toHaveProperty('role');
+  });
+
+  test('root and auth me preserve account projection contracts for dangling sessions', async () => {
+    const cookie = await loginAndGetCookieHeader();
+    await pointSessionAtMissingUser(databasePath, cookie);
+
+    const { loader: rootLoader } = await importRootModule();
+    const rootResponse = await rootLoader({
+      request: new Request('http://localhost/', {
+        headers: {
+          cookie,
+        },
+      }),
+    } as never);
+
+    expect(rootResponse).toEqual({
+      user: null,
+    });
+
+    const { loader: authMeLoader } = await importAuthMeRoute();
+    const authMeResponse = await authMeLoader({
+      request: new Request('http://localhost/api/auth/me', {
+        headers: {
+          cookie,
+        },
+      }),
+    } as never);
+
+    expect(authMeResponse.status).toBe(401);
+    await expect(authMeResponse.json()).resolves.toEqual({
+      error: 'Not authenticated',
+      success: false,
+    });
+  });
+
+  test('protected page, api, and media helpers reject dangling sessions fail-closed', async () => {
+    const {
+      requireProtectedApiSession,
+      requireProtectedApiSessionValue,
+      requireProtectedMediaSession,
+      requireProtectedPageSession,
+    } = await importServerAuthComposition();
+
+    const pageCookie = await loginAndGetCookieHeader();
+    await pointSessionAtMissingUser(databasePath, pageCookie);
+    await expect(requireProtectedPageSession(new Request('http://localhost/', {
+      headers: {
+        cookie: pageCookie,
+      },
+    }))).rejects.toMatchObject({
+      status: 302,
+    });
+
+    const apiCookie = await loginAndGetCookieHeader();
+    await pointSessionAtMissingUser(databasePath, apiCookie);
+    const apiGuardResponse = await requireProtectedApiSession(new Request('http://localhost/api/uploads', {
+      headers: {
+        cookie: apiCookie,
+      },
+    }));
+    expect(apiGuardResponse?.status).toBe(401);
+    expect(apiGuardResponse?.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
+
+    const apiValueCookie = await loginAndGetCookieHeader();
+    await pointSessionAtMissingUser(databasePath, apiValueCookie);
+    const apiValueGuardResponse = await requireProtectedApiSessionValue(new Request('http://localhost/api/playlists', {
+      headers: {
+        cookie: apiValueCookie,
+      },
+    }));
+    expect(apiValueGuardResponse).toBeInstanceOf(Response);
+    expect((apiValueGuardResponse as Response).status).toBe(401);
+    expect((apiValueGuardResponse as Response).headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
+
+    const mediaCookie = await loginAndGetCookieHeader();
+    await pointSessionAtMissingUser(databasePath, mediaCookie);
+    const mediaGuardResponse = await requireProtectedMediaSession(new Request('http://localhost/videos/video-1/token', {
+      headers: {
+        cookie: mediaCookie,
+      },
+    }));
+    expect(mediaGuardResponse?.status).toBe(401);
+    expect(mediaGuardResponse?.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
   });
 
   test('logout revokes the active session cookie', async () => {
