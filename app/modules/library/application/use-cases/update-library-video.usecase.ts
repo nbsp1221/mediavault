@@ -1,6 +1,8 @@
 import type { LibraryVideo } from '../../domain/library-video';
+import type { VideoViewer } from '../../domain/policies/video-access.policy';
 import type { UpdateLibraryVideoInput as UpdateLibraryVideoMutationInput } from '../ports/library-video-mutation.port';
 import type { LibraryVideoMutationPort } from '../ports/library-video-mutation.port';
+import { VideoAccessPolicy } from '../../domain/policies/video-access.policy';
 import { normalizeVideoTags } from '../../domain/video-tag';
 import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from '../../domain/video-taxonomy';
 
@@ -10,6 +12,7 @@ export interface UpdateLibraryVideoInput {
   genreSlugs?: unknown;
   tags?: unknown;
   title?: unknown;
+  viewer: VideoViewer;
   videoId: string;
 }
 
@@ -91,6 +94,18 @@ function copyPresentStructuredMetadataFields(
   }
 }
 
+function canUpdateVideo(input: {
+  existingVideo: LibraryVideo;
+  viewer: VideoViewer;
+}) {
+  return VideoAccessPolicy.evaluate({
+    operation: 'edit',
+    ownerId: input.existingVideo.ownerId,
+    viewer: input.viewer,
+    visibility: input.existingVideo.visibility,
+  }).allowed;
+}
+
 export class UpdateLibraryVideoUseCase {
   constructor(
     private readonly deps: UpdateLibraryVideoUseCaseDependencies,
@@ -121,6 +136,14 @@ export class UpdateLibraryVideoUseCase {
     const existingVideo = await this.deps.videoMutation.findLibraryVideoById(videoId);
 
     if (!existingVideo) {
+      return {
+        message: 'Video not found',
+        ok: false,
+        reason: 'VIDEO_NOT_FOUND',
+      };
+    }
+
+    if (!canUpdateVideo({ existingVideo, viewer: input.viewer })) {
       return {
         message: 'Video not found',
         ok: false,

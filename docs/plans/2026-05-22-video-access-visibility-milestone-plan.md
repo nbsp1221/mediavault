@@ -18,6 +18,8 @@ Milestone 1B is complete locally.
 
 Milestone 2 is complete in the working tree.
 
+Milestone 3 is implemented in the working tree.
+
 Verified by:
 
 - Local `bun run check`.
@@ -43,17 +45,26 @@ Current implemented state:
 - Anonymous and authenticated request subjects are now represented explicitly through auth-owned `RequestViewer` types.
 - Dangling sessions resolve as anonymous for request-viewer purposes and fail closed for protected page, API, API-value, and media helpers.
 - Auth request identity is adapted to library video policy identity through composition, not through cross-context imports.
+- `VideoAccessPolicy` is now the canonical owner/visibility policy for `view`, `play`, `edit`, `delete`, and `manage_visibility`.
+- `VideoReadAccessScope` now records the reusable read-side scope contract for future list/search/filter work.
+- Existing update and delete use cases now require a trusted actor and enforce owner-only mutation before side effects.
+- Update and delete routes pass the authenticated actor through composition into library commands.
+- Missing and inaccessible update/delete targets keep the same neutral outward response.
+- Architecture tests now guard library domain/application boundaries and route/playback policy-consumption seams.
 
 Not implemented yet:
 
 - Anonymous site access.
-- Public/private filtering, playback authorization, thumbnail authorization, or UI visibility controls.
+- Public/private home filtering, playback authorization, thumbnail authorization, or UI visibility controls.
 
 Next phase:
 
-- Milestone 3: video access policy.
-- Milestone 3 should centralize owner/visibility decisions for `view`, `play`, `edit`, `delete`, and `manage_visibility`.
-- Milestone 3 must still avoid opening anonymous home or playback routes until the route and media rewiring milestones connect the policy everywhere.
+- Milestone 4: read-side access scoping for home, search, filters, counts, taxonomy candidates, and related videos.
+- Milestone 4 should wire `VideoReadAccessScope` through library query ports and page composition before opening anonymous home.
+- Milestone 4 must keep upload, edit, delete, and management affordances authenticated and owner-only.
+- Completed Milestone 3 plan: `docs/plans/2026-05-25-video-access-milestone-3-policy-plan.md`.
+- The Milestone 3 plan has been reviewed against OWASP, NIST ABAC, Microsoft DDD, OPA policy-decision/enforcement guidance, and the local `/tmp/domain-driven-hexagon` reference with read-only subagent review. It now treats existing update/delete commands as mandatory current object-access surfaces, requires not-found/not-accessible response collapse for direct and mutation lookups, records a reusable read-scope contract for future query work, requires fail-secure trusted policy-input construction, and keeps playback tokens subordinate to current per-request video authorization.
+- Milestone 3 implementation was reviewed by subagents after coding. Blocking architecture and testing findings were fixed before verification.
 - The completed Milestone 2 plan remains at `docs/plans/2026-05-24-video-access-milestone-2-viewer-model-refactor-plan.md`.
 
 **Current Model:**
@@ -327,6 +338,38 @@ Exit criteria:
 ## Milestone 3: Video Access Policy
 
 Introduce a single application/domain policy for video resource access.
+
+Detailed implementation plan:
+
+- `docs/plans/2026-05-25-video-access-milestone-3-policy-plan.md`
+
+Review status:
+
+- Reviewed against OWASP Authorization, OWASP Developer Guide access control, OWASP IDOR/BOLA, NIST SP 800-162 ABAC, Microsoft DDD guidance, and Open Policy Agent policy-decision/enforcement guidance.
+- Reviewed by read-only security, DDD/maintainability, and correctness/testing subagents.
+- Accepted correction: existing update/delete command paths are current object-access surfaces and must not remain authenticated-only in the target model.
+- Accepted correction: direct video lookup responses must collapse not-found and inaccessible cases per surface to avoid existence oracles.
+- Accepted correction: Milestone 4 read queries need the canonical accessible-set predicate before search, filtering, counts, taxonomy candidates, and related-video aggregation.
+- Accepted correction: library boundary tests should be glob-based rather than a fixed file list.
+- Accepted correction: update/delete owner authorization is mandatory in Milestone 3, not optional preparation.
+- Accepted correction: read access needs a reusable query-scope contract or equivalent single construction point, with equivalence tests against the policy matrix.
+- Accepted correction: playback-facing requests must re-evaluate current video access before honoring playback tokens.
+- Accepted correction: policy input must be built from trusted server-side attributes and fail closed on missing or malformed object attributes.
+- Accepted correction: routes/playback should consume video authorization through approved seams instead of importing library internals or duplicating owner/visibility branches.
+
+Implementation status:
+
+- Complete in the working tree.
+- Commit: pending maintainer request.
+- Scope: canonical video access policy contract, reusable read access scope, owner-authorized update/delete commands, trusted route actor propagation, privacy-preserving mutation denial, and architecture guardrails.
+- Out of scope: anonymous home access, anonymous player access, public/private read filtering, playback authorization, thumbnail authorization, and visibility management UI/API.
+
+Verification status:
+
+- Passed focused module and integration tests for policy, read scope, mutation use cases, route delegation, composition, auth viewer adaptation, and architecture boundaries.
+- Passed local `bun run check`.
+- Passed local Docker CI-like verification with `bun run verify:ci-worktree:docker`, including the hermetic E2E smoke suite.
+- Passed Playwright MCP browser QA for login, authenticated home loading, owner Quick view, owner Edit Info, and owner title save.
 
 Expected policy inputs:
 

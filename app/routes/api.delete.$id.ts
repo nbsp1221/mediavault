@@ -1,19 +1,18 @@
 import type { ActionFunctionArgs } from 'react-router';
-import type { DeleteLibraryVideoUseCaseResult } from '~/modules/library/application/use-cases/delete-library-video.usecase';
-import { requireProtectedApiSession } from '~/composition/server/auth';
+import type { DeleteLibraryVideoInput, DeleteLibraryVideoUseCaseResult } from '~/modules/library/application/use-cases/delete-library-video.usecase';
+import { requireProtectedApiSessionValue } from '~/composition/server/auth';
 import { getServerLibraryServices } from '~/composition/server/library';
+import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer';
 
 type DeleteVideoRouteServices = {
   deleteLibraryVideo: {
-    execute(input: {
-      videoId: string;
-    }): Promise<DeleteLibraryVideoUseCaseResult>;
+    execute(input: DeleteLibraryVideoInput): Promise<DeleteLibraryVideoUseCaseResult>;
   };
 };
 
 type DeleteVideoActionDependencies = {
   getServerLibraryServices: () => DeleteVideoRouteServices;
-  requireProtectedApiSession: typeof requireProtectedApiSession;
+  requireProtectedApiSessionValue: typeof requireProtectedApiSessionValue;
 };
 
 type DeleteVideoFailureReason = Extract<DeleteLibraryVideoUseCaseResult, { ok: false }>['reason'];
@@ -34,8 +33,8 @@ export function createDeleteVideoAction(
   deps: DeleteVideoActionDependencies,
 ) {
   return async function action({ request, params }: ActionFunctionArgs) {
-    const unauthorizedResponse = await deps.requireProtectedApiSession(request);
-    if (unauthorizedResponse) return unauthorizedResponse;
+    const authSession = await deps.requireProtectedApiSessionValue(request);
+    if (authSession instanceof Response) return authSession;
 
     if (request.method !== 'DELETE') {
       return Response.json({
@@ -54,6 +53,7 @@ export function createDeleteVideoAction(
       }
 
       const result = await deps.getServerLibraryServices().deleteLibraryVideo.execute({
+        viewer: toAuthenticatedVideoPolicyViewer(authSession),
         videoId,
       });
 
@@ -83,5 +83,5 @@ export function createDeleteVideoAction(
 
 export const action = createDeleteVideoAction({
   getServerLibraryServices,
-  requireProtectedApiSession,
+  requireProtectedApiSessionValue,
 });

@@ -1,6 +1,17 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { LibraryVideo } from '../../domain/library-video';
+import type { VideoViewer } from '../../domain/policies/video-access.policy';
 import { UpdateLibraryVideoUseCase } from './update-library-video.usecase';
+
+const ownerViewer: VideoViewer = {
+  type: 'authenticated',
+  userId: 'owner-1',
+};
+
+const nonOwnerViewer: VideoViewer = {
+  type: 'authenticated',
+  userId: 'other-user',
+};
 
 function createLibraryVideo(overrides: Partial<LibraryVideo> = {}): LibraryVideo {
   return {
@@ -61,6 +72,7 @@ describe('UpdateLibraryVideoUseCase', () => {
       genreSlugs: ['Documentary', 'documentary'],
       tags: [' Good Boy-comedy ', '', 'good_boy-comedy', 'Neo', '   '],
       title: '  Updated title  ',
+      viewer: ownerViewer,
       videoId: 'video-1',
     })).resolves.toEqual({
       data: {
@@ -100,6 +112,7 @@ describe('UpdateLibraryVideoUseCase', () => {
       description: 'Updated description',
       tags: ['Neo'],
       title: 'Updated title',
+      viewer: ownerViewer,
       videoId: 'video-1',
     })).resolves.toEqual(expect.objectContaining({ ok: true }));
 
@@ -128,6 +141,7 @@ describe('UpdateLibraryVideoUseCase', () => {
       genreSlugs: [],
       tags: ['Neo'],
       title: 'Updated title',
+      viewer: ownerViewer,
       videoId: 'video-1',
     })).resolves.toEqual(expect.objectContaining({ ok: true }));
 
@@ -155,6 +169,7 @@ describe('UpdateLibraryVideoUseCase', () => {
     await expect(useCase.execute({
       tags: ['Action'],
       title: '   ',
+      viewer: ownerViewer,
       videoId: '',
     })).resolves.toEqual({
       message: 'Video ID is required',
@@ -176,6 +191,7 @@ describe('UpdateLibraryVideoUseCase', () => {
       description: 'Updated description',
       tags: ['Action'],
       title: 'Updated title',
+      viewer: ownerViewer,
       videoId: 'video-1',
     })).resolves.toEqual({
       message: 'Video not found',
@@ -198,6 +214,7 @@ describe('UpdateLibraryVideoUseCase', () => {
     await expect(useCase.execute({
       tags: ['Action'],
       title: undefined,
+      viewer: ownerViewer,
       videoId: 'video-1',
     })).resolves.toEqual({
       message: 'Title is required',
@@ -208,11 +225,66 @@ describe('UpdateLibraryVideoUseCase', () => {
     await expect(useCase.execute({
       tags: ['Action'],
       title: 123 as never,
+      viewer: ownerViewer,
       videoId: 'video-1',
     })).resolves.toEqual({
       message: 'Title is required',
       ok: false,
       reason: 'INVALID_INPUT',
     });
+  });
+
+  test('returns the same unavailable result for non-owner update without mutating', async () => {
+    const missingSetup = setupUseCase({
+      existingVideo: null,
+      updatedVideo: null,
+    });
+    const inaccessibleSetup = setupUseCase();
+
+    const input = {
+      description: 'Updated description',
+      tags: ['Action'],
+      title: 'Updated title',
+      videoId: 'video-1',
+    };
+
+    const missingResult = await missingSetup.useCase.execute({
+      ...input,
+      viewer: ownerViewer,
+    });
+    const inaccessibleResult = await inaccessibleSetup.useCase.execute({
+      ...input,
+      viewer: nonOwnerViewer,
+    });
+
+    expect(inaccessibleResult).toEqual(missingResult);
+    expect(inaccessibleResult).toEqual({
+      message: 'Video not found',
+      ok: false,
+      reason: 'VIDEO_NOT_FOUND',
+    });
+    expect(inaccessibleSetup.updateLibraryVideo).not.toHaveBeenCalled();
+  });
+
+  test('rejects authenticated non-owner updates for public videos before mutation', async () => {
+    const { updateLibraryVideo, useCase } = setupUseCase({
+      existingVideo: createLibraryVideo({
+        visibility: 'public',
+      }),
+    });
+
+    await expect(useCase.execute({
+      description: 'Updated description',
+      tags: ['Action'],
+      title: 'Updated title',
+      viewer: nonOwnerViewer,
+      videoId: 'video-1',
+    })).resolves.toEqual({
+      message: 'Video not found',
+      ok: false,
+      reason: 'VIDEO_NOT_FOUND',
+    });
+
+    expect(updateLibraryVideo).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,11 @@
+import type { LibraryVideo } from '../../domain/library-video';
+import type { VideoViewer } from '../../domain/policies/video-access.policy';
 import type { LibraryVideoArtifactRemovalPort } from '../ports/library-video-artifact-removal.port';
 import type { LibraryVideoMutationPort } from '../ports/library-video-mutation.port';
+import { VideoAccessPolicy } from '../../domain/policies/video-access.policy';
 
-interface DeleteLibraryVideoInput {
+export interface DeleteLibraryVideoInput {
+  viewer: VideoViewer;
   videoId: string;
 }
 
@@ -30,6 +34,18 @@ interface DeleteLibraryVideoUseCaseDependencies {
   videoMutation: LibraryVideoMutationPort;
 }
 
+function canDeleteVideo(input: {
+  existingVideo: LibraryVideo;
+  viewer: VideoViewer;
+}) {
+  return VideoAccessPolicy.evaluate({
+    operation: 'delete',
+    ownerId: input.existingVideo.ownerId,
+    viewer: input.viewer,
+    visibility: input.existingVideo.visibility,
+  }).allowed;
+}
+
 export class DeleteLibraryVideoUseCase {
   constructor(
     private readonly deps: DeleteLibraryVideoUseCaseDependencies,
@@ -49,6 +65,14 @@ export class DeleteLibraryVideoUseCase {
     const existingVideo = await this.deps.videoMutation.findLibraryVideoById(videoId);
 
     if (!existingVideo) {
+      return {
+        message: 'Video not found',
+        ok: false,
+        reason: 'VIDEO_NOT_FOUND',
+      };
+    }
+
+    if (!canDeleteVideo({ existingVideo, viewer: input.viewer })) {
       return {
         message: 'Video not found',
         ok: false,

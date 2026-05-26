@@ -69,6 +69,10 @@ describe('server library mutation composition root', () => {
       description: ' Updated description ',
       tags: [' Action ', 'Neo'],
       title: ' Updated title ',
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
       videoId: 'video-1',
     })).resolves.toEqual({
       data: {
@@ -81,6 +85,10 @@ describe('server library mutation composition root', () => {
       ok: true,
     });
     await expect(services.deleteLibraryVideo.execute({
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
       videoId: 'video-1',
     })).resolves.toEqual({
       data: {
@@ -105,17 +113,21 @@ describe('server library mutation composition root', () => {
         createdAt: new Date('2026-03-11T00:00:00.000Z'),
         duration: 180,
         id: videoId,
+        ownerId: 'owner-1',
         tags: ['Action'],
         title: 'Fixture Video',
         videoUrl: '/videos/video-1/manifest.mpd',
+        visibility: 'private' as const,
       })),
       updateLibraryVideo: vi.fn(async input => ({
         createdAt: new Date('2026-03-11T00:00:00.000Z'),
         duration: 180,
         id: input.videoId,
+        ownerId: 'owner-1',
         tags: input.tags,
         title: input.title,
         videoUrl: '/videos/video-1/manifest.mpd',
+        visibility: 'private' as const,
       })),
     }));
     FilesystemLibraryVideoArtifactRemovalAdapterMock.mockImplementation(() => ({

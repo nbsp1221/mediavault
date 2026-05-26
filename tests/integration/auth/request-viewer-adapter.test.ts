@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { toVideoPolicyViewer } from '../../../app/composition/server/video-access-viewer';
+import {
+  toAuthenticatedVideoPolicyViewer,
+  toVideoPolicyViewer,
+} from '../../../app/composition/server/video-access-viewer';
 import { type RequestViewer, ANONYMOUS_VIEWER } from '../../../app/modules/auth/domain/request-viewer';
 
 describe('request viewer to video policy viewer adapter', () => {
@@ -22,5 +25,14 @@ describe('request viewer to video policy viewer adapter', () => {
     });
     expect(toVideoPolicyViewer(viewer)).not.toHaveProperty('username');
     expect(toVideoPolicyViewer(viewer)).not.toHaveProperty('role');
+  });
+
+  test('maps authenticated sessions to authenticated video policy viewers without session fields', () => {
+    expect(toAuthenticatedVideoPolicyViewer({
+      userId: 'owner-1',
+    })).toEqual({
+      type: 'authenticated',
+      userId: 'owner-1',
+    });
   });
 });

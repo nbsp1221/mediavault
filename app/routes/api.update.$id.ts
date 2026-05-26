@@ -3,8 +3,9 @@ import type {
   UpdateLibraryVideoInput,
   UpdateLibraryVideoUseCaseResult,
 } from '~/modules/library/application/use-cases/update-library-video.usecase';
-import { requireProtectedApiSession } from '~/composition/server/auth';
+import { requireProtectedApiSessionValue } from '~/composition/server/auth';
 import { getServerLibraryServices } from '~/composition/server/library';
+import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer';
 
 type UpdateVideoRouteServices = {
   updateLibraryVideo: {
@@ -14,7 +15,7 @@ type UpdateVideoRouteServices = {
 
 type UpdateVideoActionDependencies = {
   getServerLibraryServices: () => UpdateVideoRouteServices;
-  requireProtectedApiSession: typeof requireProtectedApiSession;
+  requireProtectedApiSessionValue: typeof requireProtectedApiSessionValue;
 };
 
 type UpdateVideoFailureReason = Extract<UpdateLibraryVideoUseCaseResult, { ok: false }>['reason'];
@@ -48,8 +49,8 @@ export function createUpdateVideoAction(
   deps: UpdateVideoActionDependencies,
 ) {
   return async function action({ request, params }: ActionFunctionArgs) {
-    const unauthorizedResponse = await deps.requireProtectedApiSession(request);
-    if (unauthorizedResponse) return unauthorizedResponse;
+    const authSession = await deps.requireProtectedApiSessionValue(request);
+    if (authSession instanceof Response) return authSession;
 
     if (request.method !== 'PUT' && request.method !== 'PATCH') {
       return Response.json({ success: false, error: 'Method not allowed' }, { status: 405 });
@@ -69,6 +70,7 @@ export function createUpdateVideoAction(
         description: input.description,
         tags: input.tags,
         title: input.title,
+        viewer: toAuthenticatedVideoPolicyViewer(authSession),
         videoId,
       };
 
@@ -101,5 +103,5 @@ export function createUpdateVideoAction(
 
 export const action = createUpdateVideoAction({
   getServerLibraryServices,
-  requireProtectedApiSession,
+  requireProtectedApiSessionValue,
 });

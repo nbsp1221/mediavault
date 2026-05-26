@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { UpdateLibraryVideoUseCase } from '../../../app/modules/library/application/use-cases/update-library-video.usecase';
 
-const requireProtectedApiSessionMock = vi.fn();
+const requireProtectedApiSessionValueMock = vi.fn();
 const updateLibraryVideoExecuteMock = vi.fn();
 const deleteLibraryVideoExecuteMock = vi.fn();
 const getServerLibraryServicesMock = vi.fn(() => ({
@@ -18,7 +18,7 @@ const getServerLibraryServicesMock = vi.fn(() => ({
 }));
 
 vi.mock('~/composition/server/auth', () => ({
-  requireProtectedApiSession: requireProtectedApiSessionMock,
+  requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
 }));
 
 vi.mock('~/composition/server/library', () => ({
@@ -45,7 +45,10 @@ describe('home write route library slice adapters', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    requireProtectedApiSessionMock.mockResolvedValue(null);
+    requireProtectedApiSessionValueMock.mockResolvedValue({
+      id: 'session-1',
+      userId: 'owner-1',
+    });
   });
 
   test('update route delegates to the library composition root and preserves the current success contract', async () => {
@@ -70,7 +73,7 @@ describe('home write route library slice adapters', () => {
 
     const response = await createUpdateVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
-      requireProtectedApiSession: requireProtectedApiSessionMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     })(createActionArgs(
       new Request('http://localhost/api/update/video-1', {
         body: JSON.stringify({
@@ -88,7 +91,7 @@ describe('home write route library slice adapters', () => {
       { id: 'video-1' },
     ));
 
-    expect(requireProtectedApiSessionMock).toHaveBeenCalledOnce();
+    expect(requireProtectedApiSessionValueMock).toHaveBeenCalledOnce();
     expect(getServerLibraryServicesMock).toHaveBeenCalledOnce();
     expect(updateLibraryVideoExecuteMock).toHaveBeenCalledWith({
       contentTypeSlug: 'home_video',
@@ -96,6 +99,10 @@ describe('home write route library slice adapters', () => {
       genreSlugs: ['documentary'],
       tags: ['Action', 'Neo'],
       title: 'Updated title',
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
       videoId: 'video-1',
     });
     expect(response.status).toBe(200);
@@ -136,7 +143,7 @@ describe('home write route library slice adapters', () => {
 
     await createUpdateVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
-      requireProtectedApiSession: requireProtectedApiSessionMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     })(createActionArgs(
       new Request('http://localhost/api/update/video-1', {
         body: JSON.stringify({
@@ -154,6 +161,10 @@ describe('home write route library slice adapters', () => {
     expect(updateLibraryVideoExecuteMock).toHaveBeenCalledWith({
       tags: ['Neo'],
       title: 'Updated title',
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
       videoId: 'video-1',
     });
   });
@@ -172,7 +183,7 @@ describe('home write route library slice adapters', () => {
 
     const response = await createDeleteVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
-      requireProtectedApiSession: requireProtectedApiSessionMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     })(createActionArgs(
       new Request('http://localhost/api/delete/video-1', {
         method: 'DELETE',
@@ -180,9 +191,13 @@ describe('home write route library slice adapters', () => {
       { id: 'video-1' },
     ));
 
-    expect(requireProtectedApiSessionMock).toHaveBeenCalledOnce();
+    expect(requireProtectedApiSessionValueMock).toHaveBeenCalledOnce();
     expect(getServerLibraryServicesMock).toHaveBeenCalledOnce();
     expect(deleteLibraryVideoExecuteMock).toHaveBeenCalledWith({
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
       videoId: 'video-1',
     });
     expect(response.status).toBe(200);
@@ -195,13 +210,13 @@ describe('home write route library slice adapters', () => {
   });
 
   test('returns auth gate response without touching library services when unauthorized', async () => {
-    requireProtectedApiSessionMock.mockResolvedValue(new Response('unauthorized', { status: 401 }));
+    requireProtectedApiSessionValueMock.mockResolvedValue(new Response('unauthorized', { status: 401 }));
     const routeModule = await importUpdateRoute();
     const { createUpdateVideoAction } = routeModule;
 
     const response = await createUpdateVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
-      requireProtectedApiSession: requireProtectedApiSessionMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     })(createActionArgs(
       new Request('http://localhost/api/update/video-1', {
         method: 'PUT',
@@ -219,7 +234,7 @@ describe('home write route library slice adapters', () => {
 
     const response = await createUpdateVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
-      requireProtectedApiSession: requireProtectedApiSessionMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     })(createActionArgs(
       new Request('http://localhost/api/update/video-1', { method: 'POST' }),
       { id: 'video-1' },
@@ -237,7 +252,7 @@ describe('home write route library slice adapters', () => {
 
     const response = await createDeleteVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
-      requireProtectedApiSession: requireProtectedApiSessionMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     })(createActionArgs(
       new Request('http://localhost/api/delete', { method: 'DELETE' }),
       {},
@@ -246,6 +261,58 @@ describe('home write route library slice adapters', () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: 'Video ID is required',
+      success: false,
+    });
+  });
+
+  test('update and delete routes preserve the neutral unavailable response contract', async () => {
+    updateLibraryVideoExecuteMock.mockResolvedValue({
+      message: 'Video not found',
+      ok: false as const,
+      reason: 'VIDEO_NOT_FOUND' as const,
+    });
+    deleteLibraryVideoExecuteMock.mockResolvedValue({
+      message: 'Video not found',
+      ok: false as const,
+      reason: 'VIDEO_NOT_FOUND' as const,
+    });
+    const { createUpdateVideoAction } = await importUpdateRoute();
+    const { createDeleteVideoAction } = await importDeleteRoute();
+
+    const updateResponse = await createUpdateVideoAction({
+      getServerLibraryServices: getServerLibraryServicesMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
+    })(createActionArgs(
+      new Request('http://localhost/api/update/video-1', {
+        body: JSON.stringify({
+          tags: ['Action'],
+          title: 'Updated title',
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        method: 'PUT',
+      }),
+      { id: 'video-1' },
+    ));
+    const deleteResponse = await createDeleteVideoAction({
+      getServerLibraryServices: getServerLibraryServicesMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
+    })(createActionArgs(
+      new Request('http://localhost/api/delete/video-1', {
+        method: 'DELETE',
+      }),
+      { id: 'video-1' },
+    ));
+
+    expect(updateResponse.status).toBe(404);
+    expect(deleteResponse.status).toBe(404);
+    await expect(updateResponse.json()).resolves.toEqual({
+      error: 'Video not found',
+      success: false,
+    });
+    await expect(deleteResponse.json()).resolves.toEqual({
+      error: 'Video not found',
       success: false,
     });
   });
@@ -263,7 +330,7 @@ describe('home write route library slice adapters', () => {
           },
         }),
       }),
-      requireProtectedApiSession: requireProtectedApiSessionMock,
+      requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     })(createActionArgs(
       new Request('http://localhost/api/update/video-1', {
         body: JSON.stringify({

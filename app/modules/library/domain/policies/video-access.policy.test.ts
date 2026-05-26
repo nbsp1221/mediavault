@@ -1,67 +1,76 @@
 import { describe, expect, test } from 'vitest';
-import { type VideoAccessOperation, VideoAccessPolicy } from './video-access.policy';
+import type { VideoVisibility } from '../value-objects/video-visibility';
+import {
+  type VideoAccessOperation,
+  type VideoViewer,
+  canAccessVideoForRead,
+  VideoAccessPolicy,
+} from './video-access.policy';
 
 const operations: VideoAccessOperation[] = ['view', 'play', 'edit', 'delete', 'manage_visibility'];
 
 describe('VideoAccessPolicy', () => {
-  test('allows owners to perform every video operation', () => {
-    for (const operation of operations) {
-      expect(VideoAccessPolicy.evaluate({
-        operation,
-        ownerId: 'user-1',
-        viewer: {
-          type: 'authenticated',
-          userId: 'user-1',
-        },
-        visibility: 'private',
-      })).toEqual({ allowed: true });
-    }
-  });
+  const viewers: Array<{
+    name: string;
+    viewer: VideoViewer;
+  }> = [
+    {
+      name: 'anonymous',
+      viewer: { type: 'anonymous' },
+    },
+    {
+      name: 'owner',
+      viewer: {
+        type: 'authenticated',
+        userId: 'user-1',
+      },
+    },
+    {
+      name: 'authenticated non-owner',
+      viewer: {
+        type: 'authenticated',
+        userId: 'user-2',
+      },
+    },
+  ];
 
-  test('allows anonymous and non-owner viewers to view and play public videos only', () => {
-    for (const viewer of [
-      { type: 'anonymous' as const },
-      { type: 'authenticated' as const, userId: 'user-2' },
-    ]) {
-      expect(VideoAccessPolicy.evaluate({
-        operation: 'view',
-        ownerId: 'user-1',
-        viewer,
-        visibility: 'public',
-      })).toEqual({ allowed: true });
-      expect(VideoAccessPolicy.evaluate({
-        operation: 'play',
-        ownerId: 'user-1',
-        viewer,
-        visibility: 'public',
-      })).toEqual({ allowed: true });
-      expect(VideoAccessPolicy.evaluate({
-        operation: 'edit',
-        ownerId: 'user-1',
-        viewer,
-        visibility: 'public',
-      })).toEqual({
-        allowed: false,
-        reason: 'VIDEO_NOT_ACCESSIBLE',
-      });
-    }
-  });
+  const visibilities: VideoVisibility[] = ['public', 'private'];
 
-  test('denies private videos to anonymous and non-owner viewers', () => {
-    for (const viewer of [
-      { type: 'anonymous' as const },
-      { type: 'authenticated' as const, userId: 'user-2' },
-    ]) {
+  test.each(viewers)('evaluates every visibility and operation for $name viewers', ({ name, viewer }) => {
+    for (const visibility of visibilities) {
       for (const operation of operations) {
+        const expectedAllowed = name === 'owner' ||
+          (visibility === 'public' && (operation === 'view' || operation === 'play'));
+
         expect(VideoAccessPolicy.evaluate({
           operation,
           ownerId: 'user-1',
           viewer,
-          visibility: 'private',
-        })).toEqual({
-          allowed: false,
-          reason: 'VIDEO_NOT_ACCESSIBLE',
+          visibility,
+        })).toEqual(expectedAllowed
+          ? { allowed: true }
+          : {
+              allowed: false,
+              reason: 'VIDEO_NOT_ACCESSIBLE',
+            });
+      }
+    }
+  });
+
+  test('keeps the read helper equivalent to the view operation', () => {
+    for (const { viewer } of viewers) {
+      for (const visibility of visibilities) {
+        const policyDecision = VideoAccessPolicy.evaluate({
+          operation: 'view',
+          ownerId: 'user-1',
+          viewer,
+          visibility,
         });
+
+        expect(canAccessVideoForRead(viewer, {
+          ownerId: 'user-1',
+          visibility,
+        })).toBe(policyDecision.allowed);
       }
     }
   });

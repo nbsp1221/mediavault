@@ -15,10 +15,15 @@ export type VideoAccessDecision =
   | { allowed: true }
   | { allowed: false; reason: 'VIDEO_NOT_ACCESSIBLE' };
 
-interface VideoAccessPolicyInput {
+export interface VideoAccessPolicyInput {
   operation: VideoAccessOperation;
   ownerId: string;
   viewer: VideoViewer;
+  visibility: VideoVisibility;
+}
+
+interface VideoAccessPolicyVideo {
+  ownerId: string;
   visibility: VideoVisibility;
 }
 
@@ -39,4 +44,13 @@ export class VideoAccessPolicy {
       reason: 'VIDEO_NOT_ACCESSIBLE',
     };
   }
+}
+
+export function canAccessVideoForRead(viewer: VideoViewer, video: VideoAccessPolicyVideo): boolean {
+  return VideoAccessPolicy.evaluate({
+    operation: 'view',
+    ownerId: video.ownerId,
+    viewer,
+    visibility: video.visibility,
+  }).allowed;
 }
