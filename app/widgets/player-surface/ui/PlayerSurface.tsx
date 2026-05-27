@@ -10,7 +10,7 @@ import {
   DefaultVideoLayout,
 } from '@vidstack/react/player/layouts/default';
 import { ArrowLeft } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
 import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
 import { Button } from '~/shared/ui/button';
@@ -91,11 +91,7 @@ export function PlayerSurface({ video, relatedVideos }: PlayerSurfaceProps) {
 
 function PlaybackViewport({ video }: { video: PlaybackCatalogVideo }) {
   const playerRef = useRef<MediaPlayerInstance>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useIsHydrated();
 
   const {
     drmConfig,
@@ -170,6 +166,26 @@ function PlaybackViewport({ video }: { video: PlaybackCatalogVideo }) {
         </div>
       )}
     </div>
+  );
+}
+
+function subscribeToHydration() {
+  return () => {};
+}
+
+function getClientHydrationSnapshot() {
+  return true;
+}
+
+function getServerHydrationSnapshot() {
+  return false;
+}
+
+function useIsHydrated() {
+  return useSyncExternalStore(
+    subscribeToHydration,
+    getClientHydrationSnapshot,
+    getServerHydrationSnapshot,
   );
 }
 

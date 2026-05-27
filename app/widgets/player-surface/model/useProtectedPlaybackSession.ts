@@ -98,13 +98,7 @@ export function useProtectedPlaybackSession(
   ));
 
   useEffect(() => {
-    if (!input.enabled) {
-      return;
-    }
-
-    if (isExternalVideo) {
-      setState(createExternalPlaybackState(sourceKey, input.videoUrl));
-
+    if (!input.enabled || isExternalVideo) {
       return;
     }
 
@@ -193,8 +187,6 @@ export function useProtectedPlaybackSession(
         });
       }
     };
-
-    setState(createBootstrapPendingState(sourceKey));
 
     void hydrateProtectedPlaybackSession(false);
 
