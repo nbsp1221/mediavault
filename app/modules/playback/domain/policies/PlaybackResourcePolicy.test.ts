@@ -6,8 +6,9 @@ describe('PlaybackResourcePolicy', () => {
 
     const decision = PlaybackResourcePolicy.evaluate({
       requestedVideoId: 'video-1',
+      requestedUserId: 'owner-1',
       resource: 'manifest',
-      token: { videoId: 'video-1' },
+      token: { userId: 'owner-1', videoId: 'video-1' },
     });
 
     expect(decision).toEqual({
@@ -26,6 +27,7 @@ describe('PlaybackResourcePolicy', () => {
 
     const decision = PlaybackResourcePolicy.evaluate({
       requestedVideoId: 'video-1',
+      requestedUserId: 'owner-1',
       resource,
       token: null,
     });
@@ -34,6 +36,7 @@ describe('PlaybackResourcePolicy', () => {
       allowed: false,
       metadata: {
         requestedVideoId: 'video-1',
+        requestedUserId: 'owner-1',
         resource,
       },
       reason: 'PLAYBACK_TOKEN_REQUIRED',
@@ -45,18 +48,43 @@ describe('PlaybackResourcePolicy', () => {
 
     const decision = PlaybackResourcePolicy.evaluate({
       requestedVideoId: 'video-2',
+      requestedUserId: 'owner-1',
       resource: 'segment',
-      token: { videoId: 'video-1' },
+      token: { userId: 'owner-1', videoId: 'video-1' },
     });
 
     expect(decision).toEqual({
       allowed: false,
       metadata: {
         requestedVideoId: 'video-2',
+        requestedUserId: 'owner-1',
         resource: 'segment',
         tokenVideoId: 'video-1',
+        tokenUserId: 'owner-1',
       },
       reason: 'VIDEO_SCOPE_MISMATCH',
+    });
+  });
+
+  test('denies resource access when the playback token is bound to a different user', async () => {
+    const { PlaybackResourcePolicy } = await import('./PlaybackResourcePolicy');
+
+    const decision = PlaybackResourcePolicy.evaluate({
+      requestedVideoId: 'video-1',
+      requestedUserId: 'owner-2',
+      resource: 'manifest',
+      token: { userId: 'owner-1', videoId: 'video-1' },
+    });
+
+    expect(decision).toEqual({
+      allowed: false,
+      metadata: {
+        requestedVideoId: 'video-1',
+        requestedUserId: 'owner-2',
+        resource: 'manifest',
+        tokenUserId: 'owner-1',
+      },
+      reason: 'USER_SCOPE_MISMATCH',
     });
   });
 });

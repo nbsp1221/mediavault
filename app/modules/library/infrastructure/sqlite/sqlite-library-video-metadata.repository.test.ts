@@ -81,6 +81,93 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
     ]);
   });
 
+  test('lists videos by read access scope before rows are mapped', async () => {
+    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
+    await seedOwner(database, 'owner-2');
+
+    await repository.create({
+      createdAt: new Date('2026-03-21T00:00:00.000Z'),
+      id: 'owner-private',
+      ownerId,
+      sortIndex: 4,
+      tags: ['owner-secret'],
+      title: 'Owner private',
+      videoUrl: '/videos/owner-private/manifest.mpd',
+      visibility: 'private',
+    });
+    await repository.create({
+      createdAt: new Date('2026-03-22T00:00:00.000Z'),
+      id: 'owner-public',
+      ownerId,
+      sortIndex: 3,
+      tags: ['owner-public'],
+      title: 'Owner public',
+      videoUrl: '/videos/owner-public/manifest.mpd',
+      visibility: 'public',
+    });
+    await repository.create({
+      createdAt: new Date('2026-03-23T00:00:00.000Z'),
+      id: 'other-private',
+      ownerId: 'owner-2',
+      sortIndex: 2,
+      tags: ['other-secret'],
+      title: 'Other private',
+      videoUrl: '/videos/other-private/manifest.mpd',
+      visibility: 'private',
+    });
+    await repository.create({
+      createdAt: new Date('2026-03-24T00:00:00.000Z'),
+      id: 'other-public',
+      ownerId: 'owner-2',
+      sortIndex: 1,
+      tags: ['other-public'],
+      title: 'Other public',
+      videoUrl: '/videos/other-public/manifest.mpd',
+      visibility: 'public',
+    });
+
+    await expect(repository.findAllByReadAccessScope({
+      type: 'public_only',
+    })).resolves.toEqual([
+      expect.objectContaining({ id: 'owner-public' }),
+      expect.objectContaining({ id: 'other-public' }),
+    ]);
+    await expect(repository.findAllByReadAccessScope({
+      ownerId,
+      type: 'public_or_owned',
+    })).resolves.toEqual([
+      expect.objectContaining({ id: 'owner-private' }),
+      expect.objectContaining({ id: 'owner-public' }),
+      expect.objectContaining({ id: 'other-public' }),
+    ]);
+    await expect(repository.findAllByReadAccessScope({
+      ownerId: 'owner-2',
+      type: 'public_or_owned',
+    })).resolves.toEqual([
+      expect.objectContaining({ id: 'owner-public' }),
+      expect.objectContaining({ id: 'other-private' }),
+      expect.objectContaining({ id: 'other-public' }),
+    ]);
+    await expect(repository.findByIdByReadAccessScope('other-private', {
+      ownerId,
+      type: 'public_or_owned',
+    })).resolves.toBeNull();
+    await expect(repository.findByIdByReadAccessScope('other-private', {
+      type: 'public_only',
+    })).resolves.toBeNull();
+    await expect(repository.findByIdByReadAccessScope('other-public', {
+      type: 'public_only',
+    })).resolves.toEqual(expect.objectContaining({ id: 'other-public' }));
+    await expect(repository.findByIdByReadAccessScope('missing-video', {
+      type: 'public_only',
+    })).resolves.toBeNull();
+    await expect(repository.findByIdByReadAccessScope('other-private', {
+      ownerId: 'owner-2',
+      type: 'public_or_owned',
+    })).resolves.toEqual(expect.objectContaining({ id: 'other-private' }));
+  });
+
   test('supports update, tag/title search, and delete without losing createdAt', async () => {
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
 

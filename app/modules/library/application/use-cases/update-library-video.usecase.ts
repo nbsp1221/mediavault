@@ -133,7 +133,18 @@ export class UpdateLibraryVideoUseCase {
       };
     }
 
-    const existingVideo = await this.deps.videoMutation.findLibraryVideoById(videoId);
+    if (input.viewer.type !== 'authenticated') {
+      return {
+        message: 'Video not found',
+        ok: false,
+        reason: 'VIDEO_NOT_FOUND',
+      };
+    }
+
+    const existingVideo = await this.deps.videoMutation.findOwnedLibraryVideoById({
+      ownerId: input.viewer.userId,
+      videoId,
+    });
 
     if (!existingVideo) {
       return {

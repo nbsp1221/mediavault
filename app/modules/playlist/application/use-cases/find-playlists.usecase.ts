@@ -1,6 +1,8 @@
+import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { Playlist, PlaylistFilters, PlaylistStats } from '../../domain/playlist';
 import type { PlaylistSortField, PlaylistSortOrder } from '../../domain/playlist-sorting';
 import type { PlaylistRepositoryPort } from '../ports/playlist-repository.port';
+import type { PlaylistVideoCatalogPort } from '../ports/playlist-video-catalog.port';
 import { sortPlaylists } from '../../domain/playlist-sorting';
 import { PlaylistAccessPolicy } from '../../domain/policies/playlist-access.policy';
 import { PlaylistStatsPolicy } from '../../domain/policies/playlist-stats.policy';
@@ -42,7 +44,8 @@ export type FindPlaylistsUseCaseResult =
   };
 
 interface FindPlaylistsUseCaseDependencies {
-  playlistRepository: Pick<PlaylistRepositoryPort, 'findWithFilters'>;
+  playlistRepository: Pick<PlaylistRepositoryPort, 'findWithFilters' | 'getPlaylistItems'>;
+  videoCatalog: PlaylistVideoCatalogPort;
 }
 
 function isIntegerInRange(value: number, minimum: number, maximum: number) {
@@ -56,6 +59,10 @@ function isNonNegativeInteger(value: number) {
   return Number.isFinite(value) &&
     Number.isInteger(value) &&
     value >= 0;
+}
+
+function createScopedPlaylistStats(playlist: Playlist): PlaylistStats {
+  return PlaylistStatsPolicy.build(playlist);
 }
 
 export class FindPlaylistsUseCase {
@@ -89,9 +96,25 @@ export class FindPlaylistsUseCase {
         ownerId: input.ownerId,
         playlist,
       }));
+      const readScope = createVideoReadAccessScope(
+        input.ownerId
+          ? { type: 'authenticated', userId: input.ownerId }
+          : { type: 'anonymous' },
+      );
+      const scopedPlaylists = [];
+
+      for (const playlist of accessiblePlaylists) {
+        const playlistItems = await this.deps.playlistRepository.getPlaylistItems(playlist.id);
+        const videos = await this.deps.videoCatalog.getPlaylistVideos(playlistItems, readScope);
+        scopedPlaylists.push({
+          ...playlist,
+          videoIds: videos.map(video => video.id),
+        });
+      }
+
       const visiblePlaylists = input.includeEmpty
-        ? accessiblePlaylists
-        : accessiblePlaylists.filter(playlist => playlist.videoIds.length > 0);
+        ? scopedPlaylists
+        : scopedPlaylists.filter(playlist => playlist.videoIds.length > 0);
       const sortedPlaylists = sortPlaylists(visiblePlaylists, {
         sortBy: input.sortBy,
         sortOrder: input.sortOrder,
@@ -112,7 +135,7 @@ export class FindPlaylistsUseCase {
           },
           playlists,
           stats: input.includeStats
-            ? playlists.map(PlaylistStatsPolicy.build)
+            ? playlists.map(createScopedPlaylistStats)
             : undefined,
           totalCount,
         },

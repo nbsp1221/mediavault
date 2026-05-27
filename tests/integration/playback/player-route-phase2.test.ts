@@ -24,7 +24,10 @@ describe('player route', () => {
     vi.resetModules();
     vi.clearAllMocks();
     fakePlaybackServices.resolvePlayerVideo.execute.mockReset();
-    requireProtectedPageSessionMock.mockResolvedValue({ id: 'session-1' });
+    requireProtectedPageSessionMock.mockResolvedValue({
+      id: 'session-1',
+      userId: 'owner-1',
+    });
   });
 
   test('loads player data through the playback composition root instead of a route-owned repository', async () => {
@@ -48,6 +51,10 @@ describe('player route', () => {
     } as never);
 
     expect(fakePlaybackServices.resolvePlayerVideo.execute).toHaveBeenCalledWith({
+      readScope: {
+        ownerId: 'owner-1',
+        type: 'public_or_owned',
+      },
       videoId: 'video-1',
     });
     expect(data).toEqual({

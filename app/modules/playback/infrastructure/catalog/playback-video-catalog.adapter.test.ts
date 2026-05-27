@@ -6,6 +6,10 @@ import { SqliteLibraryVideoMetadataRepository } from '~/modules/library/infrastr
 import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
+const ownerReadScope = {
+  ownerId: 'owner-1',
+  type: 'public_or_owned' as const,
+};
 
 afterEach(() => {
   vi.resetModules();
@@ -58,7 +62,7 @@ describe('PlaybackVideoCatalogAdapter', () => {
       },
     });
 
-    const result = await adapter.getPlayerVideo('video-1');
+    const result = await adapter.getPlayerVideo('video-1', ownerReadScope);
 
     expect(result).toEqual({
       relatedVideos: [
@@ -94,19 +98,22 @@ describe('PlaybackVideoCatalogAdapter', () => {
       },
     });
 
-    await expect(adapter.getPlayerVideo('missing-video')).resolves.toBeNull();
+    await expect(adapter.getPlayerVideo('missing-video', ownerReadScope)).resolves.toBeNull();
   });
 
   async function seedReadyVideo(dbPath: string, input: {
     createdAt?: Date;
     duration?: number;
     id: string;
+    ownerId?: string;
+    sortIndex?: number;
     tags?: string[];
     title: string;
+    visibility?: 'private' | 'public';
   }) {
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
     const database = await createMigratedPrimarySqliteDatabase({ dbPath });
-    await seedOwner(database, 'owner-1');
+    await seedOwner(database, input.ownerId ?? 'owner-1');
 
     await repository.create({
       contentTypeSlug: 'movie',
@@ -115,13 +122,13 @@ describe('PlaybackVideoCatalogAdapter', () => {
       duration: input.duration ?? 120,
       genreSlugs: [],
       id: input.id,
-      ownerId: 'owner-1',
-      sortIndex: Number(input.id.match(/\d+$/)?.[0] ?? 1),
+      ownerId: input.ownerId ?? 'owner-1',
+      sortIndex: input.sortIndex ?? Number(input.id.match(/\d+$/)?.[0] ?? 1),
       tags: input.tags ?? [],
       thumbnailUrl: `/api/thumbnail/${input.id}`,
       title: input.title,
       videoUrl: `/videos/${input.id}/manifest.mpd`,
-      visibility: 'private',
+      visibility: input.visibility ?? 'private',
     });
     await database.prepare(`
       INSERT INTO video_media_assets (
@@ -168,7 +175,7 @@ describe('PlaybackVideoCatalogAdapter', () => {
       const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
       const adapter = new PlaybackVideoCatalogAdapter({ dbPath: sqlitePath });
 
-      await expect(adapter.getPlayerVideo('video-1')).resolves.toEqual({
+      await expect(adapter.getPlayerVideo('video-1', ownerReadScope)).resolves.toEqual({
         relatedVideos: [],
         video: expect.objectContaining({
           id: 'video-1',
@@ -207,7 +214,54 @@ describe('PlaybackVideoCatalogAdapter', () => {
       const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
       const adapter = new PlaybackVideoCatalogAdapter({ dbPath: sqlitePath });
 
-      await expect(adapter.getPlayerVideo('video-1')).resolves.toBeNull();
+      await expect(adapter.getPlayerVideo('video-1', ownerReadScope)).resolves.toBeNull();
+    }
+    finally {
+      await rm(rootDir, { force: true, recursive: true });
+    }
+  });
+
+  test('applies read access scope before resolving player and related videos', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'playback-catalog-'));
+    const storageDir = path.join(rootDir, 'storage');
+    const sqlitePath = path.join(storageDir, 'db.sqlite');
+    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
+    await seedReadyVideo(sqlitePath, {
+      id: 'owner-private',
+      ownerId: 'owner-1',
+      sortIndex: 3,
+      tags: ['Drama'],
+      title: 'Owner private',
+      visibility: 'private',
+    });
+    await seedReadyVideo(sqlitePath, {
+      id: 'other-private',
+      ownerId: 'owner-2',
+      sortIndex: 2,
+      tags: ['Drama'],
+      title: 'Other private',
+      visibility: 'private',
+    });
+    await seedReadyVideo(sqlitePath, {
+      id: 'other-public',
+      ownerId: 'owner-2',
+      sortIndex: 1,
+      tags: ['Drama'],
+      title: 'Other public',
+      visibility: 'public',
+    });
+
+    try {
+      const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
+      const adapter = new PlaybackVideoCatalogAdapter({ dbPath: sqlitePath });
+
+      await expect(adapter.getPlayerVideo('other-private', ownerReadScope)).resolves.toBeNull();
+      await expect(adapter.getPlayerVideo('owner-private', ownerReadScope)).resolves.toEqual({
+        relatedVideos: [
+          expect.objectContaining({ id: 'other-public' }),
+        ],
+        video: expect.objectContaining({ id: 'owner-private' }),
+      });
     }
     finally {
       await rm(rootDir, { force: true, recursive: true });
@@ -230,7 +284,7 @@ describe('PlaybackVideoCatalogAdapter', () => {
       const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
       const adapter = new PlaybackVideoCatalogAdapter({ dbPath: sqlitePath });
 
-      await expect(adapter.getPlayerVideo('video-1')).resolves.toEqual({
+      await expect(adapter.getPlayerVideo('video-1', ownerReadScope)).resolves.toEqual({
         relatedVideos: [],
         video: expect.objectContaining({
           createdAt: new Date('2025-01-02T03:04:05.000Z'),

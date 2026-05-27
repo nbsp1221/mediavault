@@ -16,8 +16,8 @@ interface VideoActionResult {
 }
 
 export interface HomeLibraryVideoActions {
-  deleteVideo(videoId: string): Promise<void>;
-  updateVideo(videoId: string, updates: UpdateVideoPayload): Promise<HomeLibraryVideo>;
+  deleteVideo(video: HomeLibraryVideo): Promise<void>;
+  updateVideo(video: HomeLibraryVideo, updates: UpdateVideoPayload): Promise<HomeLibraryVideo>;
 }
 
 interface SerializedHomeLibraryVideo extends Omit<HomeLibraryVideo, 'createdAt'> {
@@ -68,14 +68,22 @@ function deserializeUpdatedVideo(result: VideoActionResult, fallbackMessage: str
 }
 
 export function useHomeLibraryVideoActions(): HomeLibraryVideoActions {
-  const deleteVideo = useCallback(async (videoId: string) => {
-    await executeVideoAction(`/api/delete/${videoId}`, {
+  const deleteVideo = useCallback(async (video: HomeLibraryVideo) => {
+    if (!video.permissions.canDelete) {
+      throw new Error('Video cannot be deleted by this viewer');
+    }
+
+    await executeVideoAction(`/api/delete/${video.id}`, {
       method: 'DELETE',
     }, 'Failed to delete video');
   }, []);
 
-  const updateVideo = useCallback(async (videoId: string, updates: UpdateVideoPayload) => {
-    const result = await executeVideoAction(`/api/update/${videoId}`, {
+  const updateVideo = useCallback(async (video: HomeLibraryVideo, updates: UpdateVideoPayload) => {
+    if (!video.permissions.canEdit) {
+      throw new Error('Video cannot be edited by this viewer');
+    }
+
+    const result = await executeVideoAction(`/api/update/${video.id}`, {
       body: JSON.stringify(updates),
       headers: {
         'Content-Type': 'application/json',

@@ -6,6 +6,10 @@ import { seedLibraryVideoMetadata } from '../../support/seed-library-video-metad
 
 const cleanupTasks: Array<() => Promise<void>> = [];
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
+const ownerReadScope = {
+  ownerId: 'seeded-owner-1',
+  type: 'public_or_owned' as const,
+};
 
 afterEach(async () => {
   await Promise.all(cleanupTasks.splice(0).map(task => task()));
@@ -53,7 +57,7 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
     const { PlaybackVideoCatalogAdapter: FirstPlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
     const firstAdapter = new FirstPlaybackVideoCatalogAdapter();
 
-    await expect(firstAdapter.getPlayerVideo('workspace-one-video')).resolves.toEqual({
+    await expect(firstAdapter.getPlayerVideo('workspace-one-video', ownerReadScope)).resolves.toEqual({
       relatedVideos: [],
       video: expect.objectContaining({ id: 'workspace-one-video' }),
     });
@@ -64,7 +68,7 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
     const { PlaybackVideoCatalogAdapter: SecondPlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
     const secondAdapter = new SecondPlaybackVideoCatalogAdapter();
 
-    await expect(secondAdapter.getPlayerVideo('workspace-two-video')).resolves.toEqual({
+    await expect(secondAdapter.getPlayerVideo('workspace-two-video', ownerReadScope)).resolves.toEqual({
       relatedVideos: [],
       video: expect.objectContaining({ id: 'workspace-two-video' }),
     });
@@ -94,6 +98,6 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
     const { PlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
     const adapter = new PlaybackVideoCatalogAdapter();
 
-    await expect(adapter.getPlayerVideo('legacy-catalog-video')).resolves.toBeNull();
+    await expect(adapter.getPlayerVideo('legacy-catalog-video', ownerReadScope)).resolves.toBeNull();
   });
 });

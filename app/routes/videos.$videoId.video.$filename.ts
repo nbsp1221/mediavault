@@ -1,5 +1,5 @@
 import { type LoaderFunctionArgs } from 'react-router';
-import { requireProtectedMediaSession } from '~/composition/server/auth';
+import { requireProtectedMediaSessionValue } from '~/composition/server/auth';
 import { getServerPlaybackServices } from '~/composition/server/playback';
 import {
   createPlaybackDeniedResponse,
@@ -13,8 +13,8 @@ import {
  */
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { videoId, filename } = params;
-  const unauthorizedResponse = await requireProtectedMediaSession(request);
-  if (unauthorizedResponse) return unauthorizedResponse;
+  const mediaSession = await requireProtectedMediaSessionValue(request);
+  if ('response' in mediaSession) return mediaSession.response;
 
   if (!videoId || !filename) {
     throw new Response('Video ID and filename required', { status: 400 });
@@ -27,6 +27,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       mediaType: 'video',
       rangeHeader: request.headers.get('range'),
       token: extractPlaybackToken(request),
+      userId: mediaSession.session.userId,
       videoId,
     });
 

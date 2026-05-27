@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const requireProtectedMediaSessionMock = vi.fn();
+const requireProtectedMediaSessionValueMock = vi.fn();
 const fakePlaybackServices = {
   servePlaybackClearKeyLicense: {
     execute: vi.fn(),
@@ -15,6 +16,7 @@ const fakePlaybackServices = {
 
 vi.mock('~/composition/server/auth', () => ({
   requireProtectedMediaSession: requireProtectedMediaSessionMock,
+  requireProtectedMediaSessionValue: requireProtectedMediaSessionValueMock,
 }));
 
 vi.mock('~/composition/server/playback', () => ({
@@ -41,6 +43,12 @@ describe('playback resource route error mapping', () => {
     fakePlaybackServices.servePlaybackManifest.execute.mockReset();
     fakePlaybackServices.servePlaybackMediaSegment.execute.mockReset();
     requireProtectedMediaSessionMock.mockResolvedValue(null);
+    requireProtectedMediaSessionValueMock.mockResolvedValue({
+      session: {
+        id: 'session-1',
+        userId: 'owner-1',
+      },
+    });
   });
 
   test('manifest route maps validation errors back to a 400 response', async () => {

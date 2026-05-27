@@ -50,7 +50,7 @@ export class JsonWebTokenPlaybackTokenService implements PlaybackTokenService {
     return this.jwt.sign({
       ...(input.ipAddress ? { ip: input.ipAddress } : {}),
       ...(input.userAgent ? { userAgent: input.userAgent } : {}),
-      userId: 'system',
+      userId: input.userId,
       videoId: input.videoId,
     }, this.config.jwtSecret, {
       audience: this.config.jwtAudience,

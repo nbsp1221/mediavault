@@ -20,6 +20,8 @@ Milestone 2 is complete in the working tree.
 
 Milestone 3 is implemented in the working tree.
 
+Milestone 4 is implemented in the working tree.
+
 Verified by:
 
 - Local `bun run check`.
@@ -55,13 +57,15 @@ Current implemented state:
 Not implemented yet:
 
 - Anonymous site access.
-- Public/private home filtering, playback authorization, thumbnail authorization, or UI visibility controls.
+- Visibility management UI/API.
 
 Next phase:
 
-- Milestone 4: read-side access scoping for home, search, filters, counts, taxonomy candidates, and related videos.
-- Milestone 4 should wire `VideoReadAccessScope` through library query ports and page composition before opening anonymous home.
-- Milestone 4 must keep upload, edit, delete, and management affordances authenticated and owner-only.
+- Milestone 5: route opening for anonymous home and then anonymous public video playback.
+- Milestone 5 should replace protected page/media guards with optional request-viewer resolution only on read-only public surfaces.
+- Milestone 5 must keep upload, edit, delete, and management affordances authenticated and owner-only.
+- Detailed Milestone 4 plan: `docs/plans/2026-05-26-video-access-milestone-4-read-scope-plan.md`.
+- Milestone 4 wired `VideoReadAccessScope` through home/catalog reads, player catalog, playback token issuance, manifest/segment/ClearKey serving, thumbnail reads, and playlist video summaries before opening anonymous routes. It also added public non-owner read-only browser coverage.
 - Completed Milestone 3 plan: `docs/plans/2026-05-25-video-access-milestone-3-policy-plan.md`.
 - The Milestone 3 plan has been reviewed against OWASP, NIST ABAC, Microsoft DDD, OPA policy-decision/enforcement guidance, and the local `/tmp/domain-driven-hexagon` reference with read-only subagent review. It now treats existing update/delete commands as mandatory current object-access surfaces, requires not-found/not-accessible response collapse for direct and mutation lookups, records a reusable read-scope contract for future query work, requires fail-secure trusted policy-input construction, and keeps playback tokens subordinate to current per-request video authorization.
 - Milestone 3 implementation was reviewed by subagents after coding. Blocking architecture and testing findings were fixed before verification.

@@ -1,3 +1,5 @@
+import type { VideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
+
 export interface PlaybackCatalogVideo {
   createdAt: Date;
   description?: string;
@@ -15,5 +17,5 @@ export interface PlayerVideoResult {
 }
 
 export interface VideoCatalogPort {
-  getPlayerVideo: (videoId: string) => Promise<PlayerVideoResult | null>;
+  getPlayerVideo: (videoId: string, scope: VideoReadAccessScope) => Promise<PlayerVideoResult | null>;
 }

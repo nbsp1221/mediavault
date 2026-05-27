@@ -1,6 +1,8 @@
 type PlaybackDeniedReason =
   | 'PLAYBACK_TOKEN_REQUIRED'
   | 'SITE_SESSION_REQUIRED'
+  | 'USER_SCOPE_MISMATCH'
+  | 'VIDEO_NOT_FOUND'
   | 'VIDEO_SCOPE_MISMATCH';
 
 export function extractPlaybackToken(request: Request): string | null {
@@ -38,6 +40,10 @@ export function createPlaybackDeniedResponse(reason: PlaybackDeniedReason): Resp
   switch (reason) {
     case 'VIDEO_SCOPE_MISMATCH':
       return new Response('Playback token video scope mismatch', { status: 401 });
+    case 'USER_SCOPE_MISMATCH':
+      return new Response('Playback token user scope mismatch', { status: 401 });
+    case 'VIDEO_NOT_FOUND':
+      return new Response('Video not found', { status: 404 });
     case 'SITE_SESSION_REQUIRED':
       return new Response('Authentication required', { status: 401 });
     case 'PLAYBACK_TOKEN_REQUIRED':

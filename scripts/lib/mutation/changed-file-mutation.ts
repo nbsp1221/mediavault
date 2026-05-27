@@ -48,6 +48,10 @@ export function isMutationEligibleChangedProductionFile(path: string): boolean {
     return false;
   }
 
+  if (normalizedPath.startsWith('app/routes/')) {
+    return false;
+  }
+
   if (isSideEffectInfrastructureModuleFile(normalizedPath)) {
     return false;
   }

@@ -8,6 +8,7 @@ export interface PlaybackTokenPayload {
 export interface PlaybackTokenIssueInput {
   ipAddress?: string;
   userAgent?: string;
+  userId: string;
   videoId: string;
 }
 

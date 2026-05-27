@@ -1,5 +1,5 @@
 import { type ActionFunctionArgs, type LoaderFunctionArgs } from 'react-router';
-import { requireProtectedMediaSession } from '~/composition/server/auth';
+import { requireProtectedMediaSessionValue } from '~/composition/server/auth';
 import { getServerPlaybackServices } from '~/composition/server/playback';
 import {
   createPlaybackDeniedResponse,
@@ -10,7 +10,7 @@ import {
 /**
  * Handle Clear Key DRM license requests
  */
-async function handleClearKeyRequest(request: Request, videoId: string) {
+async function handleClearKeyRequest(request: Request, videoId: string, userId: string) {
   if (!videoId) {
     throw new Response('Video ID required', { status: 400 });
   }
@@ -19,6 +19,7 @@ async function handleClearKeyRequest(request: Request, videoId: string) {
     const playbackServices = getServerPlaybackServices();
     const result = await playbackServices.servePlaybackClearKeyLicense.execute({
       token: extractPlaybackToken(request),
+      userId,
       videoId,
     });
 
@@ -41,23 +42,23 @@ async function handleClearKeyRequest(request: Request, videoId: string) {
 // Handle GET requests
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { videoId } = params;
-  const unauthorizedResponse = await requireProtectedMediaSession(request);
-  if (unauthorizedResponse) return unauthorizedResponse;
+  const mediaSession = await requireProtectedMediaSessionValue(request);
+  if ('response' in mediaSession) return mediaSession.response;
 
   if (!videoId) {
     throw new Response('Video ID required', { status: 400 });
   }
-  return await handleClearKeyRequest(request, videoId);
+  return await handleClearKeyRequest(request, videoId, mediaSession.session.userId);
 }
 
 // Handle POST requests
 export async function action({ request, params }: ActionFunctionArgs) {
   const { videoId } = params;
-  const unauthorizedResponse = await requireProtectedMediaSession(request);
-  if (unauthorizedResponse) return unauthorizedResponse;
+  const mediaSession = await requireProtectedMediaSessionValue(request);
+  if ('response' in mediaSession) return mediaSession.response;
 
   if (!videoId) {
     throw new Response('Video ID required', { status: 400 });
   }
-  return await handleClearKeyRequest(request, videoId);
+  return await handleClearKeyRequest(request, videoId, mediaSession.session.userId);
 }

@@ -58,4 +58,27 @@ describe('home UI ownership boundary', () => {
       expect(hasForbiddenImport, `Forbidden legacy import found in ${relative(projectRoot, filePath)}`).toBe(false);
     }
   });
+
+  test('home UI does not derive video authorization from owner or visibility fields', async () => {
+    const files = (await Promise.all(activeHomeRoots.map(collectFiles))).flat();
+    const forbiddenAuthorizationPatterns = [
+      /VideoAccessPolicy/,
+      /video-access\.policy/,
+      /VideoViewer/,
+      /visibility\s*===/,
+      /ownerId\s*===/,
+      /userId\s*===/,
+    ];
+
+    for (const filePath of files) {
+      const source = await readFile(filePath, 'utf8');
+
+      for (const pattern of forbiddenAuthorizationPatterns) {
+        expect(
+          pattern.test(source),
+          `Forbidden UI authorization derivation found in ${relative(projectRoot, filePath)}: ${pattern}`,
+        ).toBe(false);
+      }
+    }
+  });
 });

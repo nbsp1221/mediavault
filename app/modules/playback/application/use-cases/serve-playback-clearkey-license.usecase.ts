@@ -1,17 +1,20 @@
+import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import type { PlaybackClearKeyService } from '../ports/playback-clearkey-service.port';
 import type { PlaybackTokenService } from '../ports/playback-token-service.port';
 import {
-  type PlaybackResourceDecision,
-  PlaybackResourcePolicy,
-} from '../../domain/policies/PlaybackResourcePolicy';
+  type PlaybackResourceReadAuthorizationResult,
+  authorizePlaybackResourceRead,
+} from './authorize-playback-resource-read';
 
 interface ServePlaybackClearKeyLicenseUseCaseDependencies {
   clearKeyService: PlaybackClearKeyService;
   tokenService: PlaybackTokenService;
+  videoRead: LibraryVideoReadPort;
 }
 
 interface ServePlaybackClearKeyLicenseUseCaseInput {
   token: string | null;
+  userId: string;
   videoId: string;
 }
 
@@ -21,29 +24,23 @@ type ServePlaybackClearKeyLicenseUseCaseResult =
     headers: Record<string, string>;
     ok: true;
   }
-  | ({
-    ok: false;
-  } & Omit<Extract<PlaybackResourceDecision, { allowed: false }>, 'allowed'>);
+  | Exclude<PlaybackResourceReadAuthorizationResult<'clearkey-license'>, { ok: true }>;
 
 export class ServePlaybackClearKeyLicenseUseCase {
   constructor(private readonly deps: ServePlaybackClearKeyLicenseUseCaseDependencies) {}
 
   async execute(input: ServePlaybackClearKeyLicenseUseCaseInput): Promise<ServePlaybackClearKeyLicenseUseCaseResult> {
-    const payload = input.token
-      ? await this.deps.tokenService.validate(input.token)
-      : null;
-    const decision = PlaybackResourcePolicy.evaluate({
-      requestedVideoId: input.videoId,
+    const authorization = await authorizePlaybackResourceRead({
       resource: 'clearkey-license',
-      token: payload,
+      token: input.token,
+      tokenService: this.deps.tokenService,
+      userId: input.userId,
+      videoId: input.videoId,
+      videoRead: this.deps.videoRead,
     });
 
-    if (!decision.allowed) {
-      return {
-        metadata: decision.metadata,
-        ok: false,
-        reason: decision.reason,
-      };
+    if (!authorization.ok) {
+      return authorization;
     }
 
     const license = await this.deps.clearKeyService.serveLicense({

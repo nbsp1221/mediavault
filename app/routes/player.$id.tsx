@@ -5,6 +5,8 @@ import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router
 import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
 import { requireProtectedPageSession } from '~/composition/server/auth';
 import { getServerPlaybackServices } from '~/composition/server/playback';
+import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer';
+import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import { PlayerPage } from '~/pages/player/ui/PlayerPage';
 import { Button } from '~/shared/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/shared/ui/card';
@@ -28,7 +30,7 @@ function deserializeVideo(serialized: SerializedVideo): PlaybackCatalogVideo {
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await requireProtectedPageSession(request);
+  const authSession = await requireProtectedPageSession(request);
 
   const videoId = params.id;
   if (!videoId) {
@@ -37,6 +39,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   const playbackServices = getServerPlaybackServices();
   const result = await playbackServices.resolvePlayerVideo.execute({
+    readScope: createVideoReadAccessScope(toAuthenticatedVideoPolicyViewer(authSession)),
     videoId,
   });
 

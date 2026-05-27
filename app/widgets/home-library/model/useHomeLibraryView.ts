@@ -24,27 +24,29 @@ interface UpdateVideoPayload {
   description?: string;
 }
 
-function areVideoSnapshotsEqual(a: HomeLibraryVideo[], b: HomeLibraryVideo[]) {
-  if (a.length !== b.length) {
-    return false;
-  }
-
-  return a.every((video, index) => {
-    const other = b[index];
-
-    return video.id === other.id &&
-      video.title === other.title &&
-      video.videoUrl === other.videoUrl &&
-      video.thumbnailUrl === other.thumbnailUrl &&
-      video.duration === other.duration &&
-      video.description === other.description &&
-      video.contentTypeSlug === other.contentTypeSlug &&
-      video.createdAt.getTime() === other.createdAt.getTime() &&
-      (video.genreSlugs ?? []).length === (other.genreSlugs ?? []).length &&
-      (video.genreSlugs ?? []).every((genreSlug, genreIndex) => genreSlug === (other.genreSlugs ?? [])[genreIndex]) &&
-      video.tags.length === other.tags.length &&
-      video.tags.every((tag, tagIndex) => tag === other.tags[tagIndex]);
+function createVideoSnapshotKey(video: HomeLibraryVideo) {
+  return JSON.stringify({
+    contentTypeSlug: video.contentTypeSlug,
+    createdAt: video.createdAt.getTime(),
+    description: video.description,
+    duration: video.duration,
+    genreSlugs: video.genreSlugs ?? [],
+    id: video.id,
+    isPrivate: video.isPrivate,
+    permissions: video.permissions,
+    tags: video.tags,
+    thumbnailUrl: video.thumbnailUrl,
+    title: video.title,
+    videoUrl: video.videoUrl,
   });
+}
+
+function createVideoListSnapshotKey(videos: HomeLibraryVideo[]) {
+  return videos.map(createVideoSnapshotKey).join('\n');
+}
+
+function areVideoSnapshotsEqual(a: HomeLibraryVideo[], b: HomeLibraryVideo[]) {
+  return createVideoListSnapshotKey(a) === createVideoListSnapshotKey(b);
 }
 
 function createClosedModalState(): HomeLibraryModalState {
@@ -66,6 +68,26 @@ function syncModalStateAfterCanonicalVideoUpdate(
     isOpen: true,
     video: updatedVideo,
   };
+}
+
+function syncModalStateAfterCanonicalVideoListUpdate(
+  modalState: HomeLibraryModalState,
+  nextVideos: HomeLibraryVideo[],
+): HomeLibraryModalState {
+  const openVideoId = modalState.video?.id;
+
+  if (!modalState.isOpen || !openVideoId) {
+    return modalState;
+  }
+
+  const nextVideo = nextVideos.find(video => video.id === openVideoId);
+
+  return nextVideo
+    ? {
+        isOpen: true,
+        video: nextVideo,
+      }
+    : createClosedModalState();
 }
 
 export function useHomeLibraryView({
@@ -102,15 +124,23 @@ export function useHomeLibraryView({
     setModalState(createClosedModalState());
   };
 
-  const handleDeleteVideo = async (videoId: string) => {
-    await actions.deleteVideo(videoId);
-    setVideos(prev => prev.filter(video => video.id !== videoId));
-    setModalState(prev => (prev.video?.id === videoId ? createClosedModalState() : prev));
+  const handleDeleteVideo = async (video: HomeLibraryVideo) => {
+    if (!video.permissions.canDelete) {
+      throw new Error('Video cannot be deleted by this viewer');
+    }
+
+    await actions.deleteVideo(video);
+    setVideos(prev => prev.filter(candidate => candidate.id !== video.id));
+    setModalState(prev => (prev.video?.id === video.id ? createClosedModalState() : prev));
   };
 
-  const handleUpdateVideo = async (videoId: string, updates: UpdateVideoPayload) => {
-    const updatedVideo = await actions.updateVideo(videoId, updates);
-    setVideos(prev => prev.map(video => (video.id === videoId ? updatedVideo : video)));
+  const handleUpdateVideo = async (video: HomeLibraryVideo, updates: UpdateVideoPayload) => {
+    if (!video.permissions.canEdit) {
+      throw new Error('Video cannot be edited by this viewer');
+    }
+
+    const updatedVideo = await actions.updateVideo(video, updates);
+    setVideos(prev => prev.map(candidate => (candidate.id === video.id ? updatedVideo : candidate)));
     setModalState(prev => syncModalStateAfterCanonicalVideoUpdate(prev, updatedVideo));
   };
 
@@ -121,6 +151,7 @@ export function useHomeLibraryView({
 
     previousInitialVideosRef.current = initialVideos;
     setVideos(initialVideos);
+    setModalState(prev => syncModalStateAfterCanonicalVideoListUpdate(prev, initialVideos));
   }, [initialVideos]);
 
   useEffect(() => {

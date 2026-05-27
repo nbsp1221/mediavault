@@ -1,4 +1,5 @@
 import type { IngestVideoMetadataWriterPort } from '~/modules/ingest/application/ports/ingest-video-metadata-writer.port';
+import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import type { LibraryVideoSourcePort } from '~/modules/library/application/ports/library-video-source.port';
 import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
@@ -6,7 +7,7 @@ import { SqliteLibraryVideoMetadataRepository } from './sqlite-library-video-met
 
 type SqliteCanonicalVideoMetadataAdapterRepository = Pick<
   SqliteLibraryVideoMetadataRepository,
-  'create' | 'delete' | 'findAll' | 'listActiveContentTypes' | 'listActiveGenres'
+  'create' | 'delete' | 'findAllByReadAccessScope' | 'findByIdByReadAccessScope' | 'listActiveContentTypes' | 'listActiveGenres'
 >;
 
 interface SqliteCanonicalVideoMetadataAdapterDependencies {
@@ -15,7 +16,7 @@ interface SqliteCanonicalVideoMetadataAdapterDependencies {
 }
 
 export class SqliteCanonicalVideoMetadataAdapter
-implements LibraryVideoSourcePort, IngestVideoMetadataWriterPort {
+implements LibraryVideoSourcePort, LibraryVideoReadPort, IngestVideoMetadataWriterPort {
   private readonly dbPath: string;
   private readonly shouldWriteMediaAsset: boolean;
   private readonly repository: SqliteCanonicalVideoMetadataAdapterRepository;
@@ -28,8 +29,15 @@ implements LibraryVideoSourcePort, IngestVideoMetadataWriterPort {
     });
   }
 
-  async listLibraryVideos() {
-    return this.repository.findAll();
+  async listLibraryVideos(scope: Parameters<LibraryVideoSourcePort['listLibraryVideos']>[0]) {
+    return this.repository.findAllByReadAccessScope(scope);
+  }
+
+  async findLibraryVideoById(
+    videoId: Parameters<LibraryVideoReadPort['findLibraryVideoById']>[0],
+    scope: Parameters<LibraryVideoReadPort['findLibraryVideoById']>[1],
+  ) {
+    return this.repository.findByIdByReadAccessScope(videoId, scope);
   }
 
   async listActiveContentTypes() {

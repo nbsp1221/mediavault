@@ -39,8 +39,8 @@ interface HomeQuickViewDialogProps {
   isOpen?: boolean;
   onClose: () => void;
   onTagClick: (tag: string) => void;
-  onDeleteVideo: (videoId: string) => Promise<void>;
-  onUpdateVideo: (videoId: string, updates: UpdateVideoPayload) => Promise<void>;
+  onDeleteVideo: (video: HomeLibraryVideo) => Promise<void>;
+  onUpdateVideo: (video: HomeLibraryVideo, updates: UpdateVideoPayload) => Promise<void>;
 }
 
 export function HomeQuickViewDialog({
@@ -65,6 +65,10 @@ export function HomeQuickViewDialog({
     return null;
   }
 
+  const canDelete = video.permissions.canDelete;
+  const canEdit = video.permissions.canEdit;
+  const effectiveEditMode = isEditMode && canEdit;
+
   const clearActionErrors = () => {
     setDeleteError(null);
     setEditError(null);
@@ -82,7 +86,7 @@ export function HomeQuickViewDialog({
     setDeleteError(null);
 
     try {
-      await onDeleteVideo(video.id);
+      await onDeleteVideo(video);
       setShowDeleteConfirm(false);
       setDeleteError(null);
       onClose();
@@ -101,7 +105,7 @@ export function HomeQuickViewDialog({
     setEditError(null);
 
     try {
-      await onUpdateVideo(video.id, data);
+      await onUpdateVideo(video, data);
       setEditError(null);
       setIsEditMode(false);
     }
@@ -129,9 +133,9 @@ export function HomeQuickViewDialog({
           <DialogHeader>
             <div className="space-y-3">
               <DialogTitle className="pr-8 text-lg font-semibold line-clamp-2">
-                {isEditMode ? 'Edit Video Information' : video.title}
+                {effectiveEditMode ? 'Edit Video Information' : video.title}
               </DialogTitle>
-              {!isEditMode && (
+              {!effectiveEditMode && canEdit && (
                 <div className="flex justify-start">
                   <Button
                     variant="ghost"
@@ -153,7 +157,7 @@ export function HomeQuickViewDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {isEditMode
+          {effectiveEditMode
             ? (
                 <div className="space-y-4">
                   {editError && (
@@ -252,18 +256,20 @@ export function HomeQuickViewDialog({
                       </Link>
                     </Button>
 
-                    <Button
-                      variant="destructive"
-                      size="default"
-                      onClick={() => {
-                        setDeleteError(null);
-                        setShowDeleteConfirm(true);
-                      }}
-                      type="button"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </Button>
+                    {canDelete && (
+                      <Button
+                        variant="destructive"
+                        size="default"
+                        onClick={() => {
+                          setDeleteError(null);
+                          setShowDeleteConfirm(true);
+                        }}
+                        type="button"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    )}
 
                     <Button variant="outline" size="default" onClick={onClose} type="button">
                       <X className="mr-2 h-4 w-4" />

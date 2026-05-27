@@ -1,3 +1,4 @@
+import type { VideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
 import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
@@ -15,7 +16,7 @@ interface PlaybackVideoCatalogRepositoryRecord {
 }
 
 interface PlaybackVideoCatalogRepository {
-  findAll: () => Promise<PlaybackVideoCatalogRepositoryRecord[]>;
+  findAll: (scope: VideoReadAccessScope) => Promise<PlaybackVideoCatalogRepositoryRecord[]>;
 }
 
 interface PlaybackVideoCatalogAdapterDependencies {
@@ -50,9 +51,12 @@ class PrimaryPlaybackVideoCatalogRepository implements PlaybackVideoCatalogRepos
     return this.databasePromise;
   }
 
-  async findAll(): Promise<PlaybackVideoCatalogRepositoryRecord[]> {
+  async findAll(scope: VideoReadAccessScope): Promise<PlaybackVideoCatalogRepositoryRecord[]> {
     const database = await this.getDatabase();
-    const rows = await database.prepare<PlaybackVideoRow>(`
+    const accessWhereClause = scope.type === 'public_only'
+      ? 'videos.visibility = \'public\''
+      : '(videos.visibility = \'public\' OR videos.owner_id = ?)';
+    const statement = database.prepare<PlaybackVideoRow>(`
       SELECT
         videos.id,
         videos.title,
@@ -63,8 +67,12 @@ class PrimaryPlaybackVideoCatalogRepository implements PlaybackVideoCatalogRepos
       INNER JOIN video_media_assets
         ON video_media_assets.video_id = videos.id
        AND video_media_assets.status = 'ready'
+      WHERE ${accessWhereClause}
       ORDER BY videos.sort_index DESC
-    `).all();
+    `);
+    const rows = scope.type === 'public_only'
+      ? await statement.all()
+      : await statement.all(scope.ownerId);
 
     return Promise.all(rows.map(async row => ({
       createdAt: new Date(row.created_at),
@@ -94,8 +102,8 @@ export class PlaybackVideoCatalogAdapter implements VideoCatalogPort {
     });
   }
 
-  async getPlayerVideo(videoId: string) {
-    const videos = await this.repository.findAll();
+  async getPlayerVideo(videoId: string, scope: VideoReadAccessScope) {
+    const videos = await this.repository.findAll(scope);
     const currentVideo = videos.find(video => video.id === videoId);
 
     if (!currentVideo) {

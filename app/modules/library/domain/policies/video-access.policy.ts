@@ -27,6 +27,12 @@ interface VideoAccessPolicyVideo {
   visibility: VideoVisibility;
 }
 
+export interface VideoPermissions {
+  canDelete: boolean;
+  canEdit: boolean;
+  canManageVisibility: boolean;
+}
+
 export class VideoAccessPolicy {
   static evaluate(input: VideoAccessPolicyInput): VideoAccessDecision {
     const isOwner = input.viewer.type === 'authenticated' && input.viewer.userId === input.ownerId;
@@ -42,6 +48,23 @@ export class VideoAccessPolicy {
     return {
       allowed: false,
       reason: 'VIDEO_NOT_ACCESSIBLE',
+    };
+  }
+
+  static describePermissions(input: Omit<VideoAccessPolicyInput, 'operation'>): VideoPermissions {
+    return {
+      canDelete: this.evaluate({
+        ...input,
+        operation: 'delete',
+      }).allowed,
+      canEdit: this.evaluate({
+        ...input,
+        operation: 'edit',
+      }).allowed,
+      canManageVisibility: this.evaluate({
+        ...input,
+        operation: 'manage_visibility',
+      }).allowed,
     };
   }
 }

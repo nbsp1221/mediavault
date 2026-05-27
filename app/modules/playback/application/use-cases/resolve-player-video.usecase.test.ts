@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
 describe('ResolvePlayerVideoUseCase', () => {
+  const readScope = {
+    ownerId: 'owner-1',
+    type: 'public_or_owned' as const,
+  };
+
   test('returns the current video plus related videos from the catalog port', async () => {
     const { ResolvePlayerVideoUseCase } = await import('./resolve-player-video.usecase');
     const useCase = new ResolvePlayerVideoUseCase({
@@ -31,6 +36,7 @@ describe('ResolvePlayerVideoUseCase', () => {
     });
 
     const result = await useCase.execute({
+      readScope,
       videoId: 'video-1',
     });
 
@@ -66,6 +72,7 @@ describe('ResolvePlayerVideoUseCase', () => {
     });
 
     const result = await useCase.execute({
+      readScope,
       videoId: 'missing-video',
     });
 

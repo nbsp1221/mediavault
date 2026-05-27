@@ -37,18 +37,18 @@ function setupUseCase({
   existingVideo?: LibraryVideo | null;
   updatedVideo?: LibraryVideo | null;
 } = {}) {
-  const findLibraryVideoById = vi.fn(async () => existingVideo);
+  const findOwnedLibraryVideoById = vi.fn(async () => existingVideo);
   const updateLibraryVideo = vi.fn(async () => updatedVideo);
   const useCase = new UpdateLibraryVideoUseCase({
     videoMutation: {
       deleteLibraryVideo: vi.fn(),
-      findLibraryVideoById,
+      findOwnedLibraryVideoById,
       updateLibraryVideo,
     },
   });
 
   return {
-    findLibraryVideoById,
+    findOwnedLibraryVideoById,
     updateLibraryVideo,
     useCase,
   };
@@ -56,7 +56,7 @@ function setupUseCase({
 
 describe('UpdateLibraryVideoUseCase', () => {
   test('trims scalar fields, canonicalizes metadata, and returns the updated library video', async () => {
-    const { findLibraryVideoById, updateLibraryVideo, useCase } = setupUseCase({
+    const { findOwnedLibraryVideoById, updateLibraryVideo, useCase } = setupUseCase({
       updatedVideo: createLibraryVideo({
         contentTypeSlug: 'home_video',
         description: 'Updated description',
@@ -88,7 +88,10 @@ describe('UpdateLibraryVideoUseCase', () => {
       ok: true,
     });
 
-    expect(findLibraryVideoById).toHaveBeenCalledWith('video-1');
+    expect(findOwnedLibraryVideoById).toHaveBeenCalledWith({
+      ownerId: 'owner-1',
+      videoId: 'video-1',
+    });
     expect(updateLibraryVideo).toHaveBeenCalledWith({
       contentTypeSlug: 'home_video',
       description: 'Updated description',
@@ -156,12 +159,12 @@ describe('UpdateLibraryVideoUseCase', () => {
   });
 
   test('rejects invalid input before touching the mutation port', async () => {
-    const findLibraryVideoById = vi.fn();
+    const findOwnedLibraryVideoById = vi.fn();
     const updateLibraryVideo = vi.fn();
     const useCase = new UpdateLibraryVideoUseCase({
       videoMutation: {
         deleteLibraryVideo: vi.fn(),
-        findLibraryVideoById,
+        findOwnedLibraryVideoById,
         updateLibraryVideo,
       },
     });
@@ -177,7 +180,7 @@ describe('UpdateLibraryVideoUseCase', () => {
       reason: 'INVALID_INPUT',
     });
 
-    expect(findLibraryVideoById).not.toHaveBeenCalled();
+    expect(findOwnedLibraryVideoById).not.toHaveBeenCalled();
     expect(updateLibraryVideo).not.toHaveBeenCalled();
   });
 
@@ -206,7 +209,7 @@ describe('UpdateLibraryVideoUseCase', () => {
     const useCase = new UpdateLibraryVideoUseCase({
       videoMutation: {
         deleteLibraryVideo: vi.fn(),
-        findLibraryVideoById: vi.fn(),
+        findOwnedLibraryVideoById: vi.fn(),
         updateLibraryVideo: vi.fn(),
       },
     });

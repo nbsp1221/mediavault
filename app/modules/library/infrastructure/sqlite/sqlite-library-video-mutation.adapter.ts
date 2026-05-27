@@ -4,7 +4,7 @@ import { SqliteLibraryVideoMetadataRepository } from './sqlite-library-video-met
 
 type SqliteLibraryVideoMutationAdapterRepository = Pick<
   SqliteLibraryVideoMetadataRepository,
-  'delete' | 'findById' | 'update'
+  'delete' | 'findById' | 'findOwnedById' | 'update'
 >;
 
 interface SqliteLibraryVideoMutationAdapterDependencies {
@@ -55,8 +55,8 @@ export class SqliteLibraryVideoMutationAdapter implements LibraryVideoMutationPo
     };
   }
 
-  async findLibraryVideoById(videoId: string) {
-    return this.repository.findById(videoId);
+  async findOwnedLibraryVideoById(input: { ownerId: string; videoId: string }) {
+    return this.repository.findOwnedById(input.videoId, input.ownerId);
   }
 
   async updateLibraryVideo(input: UpdateLibraryVideoInput) {

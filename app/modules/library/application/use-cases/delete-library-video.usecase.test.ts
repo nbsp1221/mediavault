@@ -29,7 +29,7 @@ function createLibraryVideo(overrides: Partial<LibraryVideo> = {}): LibraryVideo
 
 describe('DeleteLibraryVideoUseCase', () => {
   test('deletes the canonical record, attempts artifact cleanup, and returns the current success contract', async () => {
-    const findLibraryVideoById = vi.fn(async () => createLibraryVideo());
+    const findOwnedLibraryVideoById = vi.fn(async () => createLibraryVideo());
     const deleteLibraryVideo = vi.fn(async () => ({
       deleted: true,
       title: 'Catalog Fixture',
@@ -41,7 +41,7 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
       videoMutation: {
         deleteLibraryVideo,
-        findLibraryVideoById,
+        findOwnedLibraryVideoById,
         updateLibraryVideo: vi.fn(),
       },
     });
@@ -58,7 +58,10 @@ describe('DeleteLibraryVideoUseCase', () => {
       ok: true,
     });
 
-    expect(findLibraryVideoById).toHaveBeenCalledWith('video-1');
+    expect(findOwnedLibraryVideoById).toHaveBeenCalledWith({
+      ownerId: 'owner-1',
+      videoId: 'video-1',
+    });
     expect(deleteLibraryVideo).toHaveBeenCalledWith({
       videoId: 'video-1',
     });
@@ -76,7 +79,7 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
       videoMutation: {
         deleteLibraryVideo,
-        findLibraryVideoById: vi.fn(async () => null),
+        findOwnedLibraryVideoById: vi.fn(async () => null),
         updateLibraryVideo: vi.fn(),
       },
     });
@@ -108,7 +111,7 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
       videoMutation: {
         deleteLibraryVideo,
-        findLibraryVideoById: vi.fn(async () => createLibraryVideo()),
+        findOwnedLibraryVideoById: vi.fn(async () => createLibraryVideo()),
         updateLibraryVideo: vi.fn(),
       },
     });
@@ -136,7 +139,7 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
       videoMutation: {
         deleteLibraryVideo,
-        findLibraryVideoById: vi.fn(),
+        findOwnedLibraryVideoById: vi.fn(),
         updateLibraryVideo: vi.fn(),
       },
     });
@@ -163,7 +166,7 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
       videoMutation: {
         deleteLibraryVideo: missingDeleteLibraryVideo,
-        findLibraryVideoById: vi.fn(async () => null),
+        findOwnedLibraryVideoById: vi.fn(async () => null),
         updateLibraryVideo: vi.fn(),
       },
     });
@@ -175,7 +178,7 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
       videoMutation: {
         deleteLibraryVideo: inaccessibleDeleteLibraryVideo,
-        findLibraryVideoById: vi.fn(async () => createLibraryVideo()),
+        findOwnedLibraryVideoById: vi.fn(async () => createLibraryVideo()),
         updateLibraryVideo: vi.fn(),
       },
     });
@@ -208,7 +211,7 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
       videoMutation: {
         deleteLibraryVideo,
-        findLibraryVideoById: vi.fn(async () => createLibraryVideo({
+        findOwnedLibraryVideoById: vi.fn(async () => createLibraryVideo({
           visibility: 'public',
         })),
         updateLibraryVideo: vi.fn(),

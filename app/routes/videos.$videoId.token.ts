@@ -1,5 +1,5 @@
 import { type LoaderFunctionArgs } from 'react-router';
-import { requireProtectedMediaSession } from '~/composition/server/auth';
+import { requireProtectedMediaSessionValue } from '~/composition/server/auth';
 import { getServerPlaybackServices } from '~/composition/server/playback';
 import { assertValidPlaybackVideoId } from '~/modules/playback/domain/playback-video-id';
 import { getPlaybackRequestIp } from './playback-route-utils';
@@ -10,8 +10,8 @@ import { getPlaybackRequestIp } from './playback-route-utils';
  */
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { videoId } = params;
-  const unauthorizedResponse = await requireProtectedMediaSession(request);
-  if (unauthorizedResponse) return unauthorizedResponse;
+  const mediaSession = await requireProtectedMediaSessionValue(request);
+  if ('response' in mediaSession) return mediaSession.response;
 
   if (!videoId) {
     return Response.json({ success: false, error: 'Video ID is required' }, { status: 400 });
@@ -34,7 +34,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const playbackServices = getServerPlaybackServices();
   try {
     const result = await playbackServices.issuePlaybackToken.execute({
-      hasSiteSession: true,
+      authenticatedUserId: mediaSession.session.userId,
       ipAddress: getPlaybackRequestIp(request),
       userAgent: request.headers.get('user-agent') || 'unknown',
       videoId,
@@ -42,9 +42,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     if (!result.success) {
       return Response.json({
-        error: 'Authentication required',
+        error: result.reason === 'VIDEO_NOT_FOUND' ? 'Video not found' : 'Authentication required',
         success: false,
-      }, { status: 401 });
+      }, { status: result.reason === 'VIDEO_NOT_FOUND' ? 404 : 401 });
     }
 
     return Response.json(result);

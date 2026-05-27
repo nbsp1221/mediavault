@@ -63,13 +63,15 @@ describe('changed-file mutation filtering policy', () => {
     expect(isMutationEligibleChangedProductionFile('app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager.ts')).toBe(true);
   });
 
-  test('excludes tests, generated UI primitives, app entrypoints, composition wiring, side-effect infrastructure, and non-app files', () => {
+  test('excludes tests, generated UI primitives, app entrypoints, route adapters, composition wiring, side-effect infrastructure, and non-app files', () => {
     const paths = [
       'app/modules/library/domain/video-tag.ts',
       'app/modules/library/application/use-cases/update-library-video.usecase.ts',
       'app/modules/library/application/ports/library-video-mutation.port.ts',
       'app/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository.ts',
       'app/composition/server/library.ts',
+      'app/routes/player.$id.tsx',
+      'app/routes/videos.$videoId.token.ts',
       'app/modules/storage/infrastructure/config/storage-config.server.ts',
       'app/modules/playback/infrastructure/license/derive-playback-encryption-key.ts',
       'app/modules/library/domain/video-tag.test.ts',

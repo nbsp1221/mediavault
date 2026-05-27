@@ -28,6 +28,12 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
     createdAt: new Date('2026-03-11T00:00:00.000Z'),
     duration: 180,
     id: 'video-1',
+    isPrivate: false,
+    permissions: {
+      canDelete: true,
+      canEdit: true,
+      canManageVisibility: true,
+    },
     tags: ['Action', 'Neo', 'Vault'],
     thumbnailUrl: '/thumb.jpg',
     title: 'Catalog Fixture',

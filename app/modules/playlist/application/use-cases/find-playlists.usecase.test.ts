@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import type { Playlist } from '../../domain/playlist';
+import type { Playlist, PlaylistItem } from '../../domain/playlist';
 import { FindPlaylistsUseCase } from './find-playlists.usecase';
 
 function createPlaylist(overrides: Partial<Playlist> = {}): Playlist {
@@ -18,7 +18,7 @@ function createPlaylist(overrides: Partial<Playlist> = {}): Playlist {
 
 describe('FindPlaylistsUseCase', () => {
   test('filters inaccessible and empty playlists, then sorts, paginates, and optionally adds stats', async () => {
-    const findWithFilters = vi.fn(async () => [
+    const storedPlaylists = [
       createPlaylist({
         id: 'playlist-visible-large',
         isPublic: true,
@@ -45,10 +45,32 @@ describe('FindPlaylistsUseCase', () => {
         ownerId: 'other-user',
         videoIds: ['video-9'],
       }),
-    ]);
+    ];
+    const findWithFilters = vi.fn(async () => storedPlaylists);
     const useCase = new FindPlaylistsUseCase({
       playlistRepository: {
         findWithFilters,
+        getPlaylistItems: vi.fn(async (playlistId) => {
+          const playlist = storedPlaylists.find(candidate => candidate.id === playlistId);
+          return playlist?.videoIds.map((videoId, index) => ({
+            addedAt: new Date('2026-03-08T00:00:00.000Z'),
+            addedBy: playlist.ownerId,
+            playlistId,
+            position: index,
+            videoId,
+          })) ?? [];
+        }),
+      },
+      videoCatalog: {
+        findById: vi.fn(),
+        getPlaylistVideos: vi.fn(async (items: PlaylistItem[]) => items
+          .filter(item => item.videoId !== 'video-2')
+          .map(item => ({
+            duration: 60,
+            id: item.videoId,
+            position: item.position,
+            title: item.videoId,
+          }))),
       },
     });
 
@@ -87,12 +109,13 @@ describe('FindPlaylistsUseCase', () => {
         playlists: [
           expect.objectContaining({
             id: 'playlist-visible-large',
+            videoIds: ['video-1', 'video-3'],
           }),
         ],
         stats: [
           expect.objectContaining({
             id: 'playlist-visible-large',
-            totalVideos: 3,
+            totalVideos: 2,
           }),
         ],
         totalCount: 2,
@@ -104,6 +127,11 @@ describe('FindPlaylistsUseCase', () => {
     const useCase = new FindPlaylistsUseCase({
       playlistRepository: {
         findWithFilters: vi.fn(),
+        getPlaylistItems: vi.fn(),
+      },
+      videoCatalog: {
+        findById: vi.fn(),
+        getPlaylistVideos: vi.fn(),
       },
     });
 
@@ -127,6 +155,11 @@ describe('FindPlaylistsUseCase', () => {
     const useCase = new FindPlaylistsUseCase({
       playlistRepository: {
         findWithFilters,
+        getPlaylistItems: vi.fn(),
+      },
+      videoCatalog: {
+        findById: vi.fn(),
+        getPlaylistVideos: vi.fn(),
       },
     });
 

@@ -1,3 +1,4 @@
+import type { VideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { PlaylistItem } from '~/modules/playlist/domain/playlist';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
 import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
@@ -32,9 +33,9 @@ export class SqlitePlaylistVideoCatalog {
     return this.databasePromise;
   }
 
-  async findById(videoId: string) {
+  async findById(videoId: string, scope: VideoReadAccessScope) {
     const database = await this.getDatabase();
-    const video = await findReadyVideoById(database, videoId);
+    const video = await findReadyVideoById(database, videoId, scope);
 
     if (!video) {
       return null;
@@ -48,10 +49,10 @@ export class SqlitePlaylistVideoCatalog {
     };
   }
 
-  async getPlaylistVideos(items: PlaylistItem[]) {
+  async getPlaylistVideos(items: PlaylistItem[], scope: VideoReadAccessScope) {
     const database = await this.getDatabase();
     const resolvedVideos = await Promise.all(items.map(async (item) => {
-      const video = await findReadyVideoById(database, item.videoId);
+      const video = await findReadyVideoById(database, item.videoId, scope);
 
       if (!video) {
         return null;
@@ -78,8 +79,15 @@ export class SqlitePlaylistVideoCatalog {
   }
 }
 
-async function findReadyVideoById(database: SqliteDatabaseAdapter, videoId: string) {
-  const row = await database.prepare<PlaylistVideoRow>(`
+async function findReadyVideoById(
+  database: SqliteDatabaseAdapter,
+  videoId: string,
+  scope: VideoReadAccessScope,
+) {
+  const accessWhereClause = scope.type === 'public_only'
+    ? 'videos.visibility = \'public\''
+    : '(videos.visibility = \'public\' OR videos.owner_id = ?)';
+  const statement = database.prepare<PlaylistVideoRow>(`
     SELECT
       videos.id,
       videos.title,
@@ -88,8 +96,11 @@ async function findReadyVideoById(database: SqliteDatabaseAdapter, videoId: stri
     INNER JOIN video_media_assets
       ON video_media_assets.video_id = videos.id
      AND video_media_assets.status = 'ready'
-    WHERE videos.id = ?
-  `).get(videoId);
+    WHERE videos.id = ? AND ${accessWhereClause}
+  `);
+  const row = scope.type === 'public_only'
+    ? await statement.get(videoId)
+    : await statement.get(videoId, scope.ownerId);
 
   return row
     ? {

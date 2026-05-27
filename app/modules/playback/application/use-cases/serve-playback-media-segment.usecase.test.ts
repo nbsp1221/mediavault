@@ -1,5 +1,9 @@
 import { describe, expect, test, vi } from 'vitest';
 
+const accessibleVideoRead = {
+  findLibraryVideoById: vi.fn(async () => ({} as never)),
+};
+
 describe('ServePlaybackMediaSegmentUseCase', () => {
   test('validates the playback token and preserves range-response metadata from the media adapter', async () => {
     const { ServePlaybackMediaSegmentUseCase } = await import('./serve-playback-media-segment.usecase');
@@ -19,8 +23,9 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       },
       tokenService: {
         issue: async () => '',
-        validate: async () => ({ videoId: 'video-1' }),
+        validate: async () => ({ userId: 'owner-1', videoId: 'video-1' }),
       },
+      videoRead: accessibleVideoRead,
     });
 
     const result = await useCase.execute({
@@ -28,6 +33,7 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       mediaType: 'video',
       rangeHeader: 'bytes=0-127',
       token: 'signed-token',
+      userId: 'owner-1',
       videoId: 'video-1',
     });
 
@@ -61,8 +67,9 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       },
       tokenService: {
         issue: async () => '',
-        validate: async () => ({ videoId: 'video-2' }),
+        validate: async () => ({ userId: 'owner-1', videoId: 'video-2' }),
       },
+      videoRead: accessibleVideoRead,
     });
 
     const result = await useCase.execute({
@@ -70,17 +77,55 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       mediaType: 'audio',
       rangeHeader: null,
       token: 'signed-token',
+      userId: 'owner-1',
       videoId: 'video-1',
     });
 
     expect(result).toEqual({
       metadata: {
         requestedVideoId: 'video-1',
+        requestedUserId: 'owner-1',
         resource: 'audio-segment',
         tokenVideoId: 'video-2',
+        tokenUserId: 'owner-1',
       },
       ok: false,
       reason: 'VIDEO_SCOPE_MISMATCH',
     });
+  });
+
+  test('returns not found when current video access is revoked after token issuance', async () => {
+    const { ServePlaybackMediaSegmentUseCase } = await import('./serve-playback-media-segment.usecase');
+    const serveSegment = vi.fn();
+    const useCase = new ServePlaybackMediaSegmentUseCase({
+      mediaSegmentService: {
+        serveSegment,
+      },
+      tokenService: {
+        issue: async () => '',
+        validate: async () => ({ userId: 'owner-1', videoId: 'video-1' }),
+      },
+      videoRead: {
+        findLibraryVideoById: vi.fn(async () => null),
+      },
+    });
+
+    await expect(useCase.execute({
+      filename: 'init.mp4',
+      mediaType: 'video',
+      rangeHeader: null,
+      token: 'signed-token',
+      userId: 'owner-1',
+      videoId: 'video-1',
+    })).resolves.toEqual({
+      metadata: {
+        requestedVideoId: 'video-1',
+        requestedUserId: 'owner-1',
+        resource: 'segment',
+      },
+      ok: false,
+      reason: 'VIDEO_NOT_FOUND',
+    });
+    expect(serveSegment).not.toHaveBeenCalled();
   });
 });

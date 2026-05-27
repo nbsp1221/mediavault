@@ -1,5 +1,7 @@
+import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { CreatePlaylistRequest, PlaylistMetadata } from '../../domain/playlist';
 import type { PlaylistRepositoryPort } from '../ports/playlist-repository.port';
+import type { PlaylistVideoCatalogPort } from '../ports/playlist-video-catalog.port';
 
 export interface CreatePlaylistInput extends CreatePlaylistRequest {
   ownerId: string;
@@ -24,11 +26,13 @@ export type CreatePlaylistUseCaseResult =
       | 'DUPLICATE_PLAYLIST_NAME'
       | 'INVALID_PLAYLIST_DATA'
       | 'INVALID_SERIES_METADATA'
-      | 'PLAYLIST_MUTATION_FAILED';
+      | 'PLAYLIST_MUTATION_FAILED'
+      | 'VIDEO_NOT_FOUND';
   };
 
 interface CreatePlaylistUseCaseDependencies {
   playlistRepository: Pick<PlaylistRepositoryPort, 'create' | 'nameExistsForOwner'>;
+  videoCatalog: Pick<PlaylistVideoCatalogPort, 'findById'>;
 }
 
 function getSuggestedMetadata(input: CreatePlaylistRequest) {
@@ -116,6 +120,24 @@ export class CreatePlaylistUseCase {
         };
       }
 
+      const initialVideoIds = input.initialVideoIds ?? [];
+      const readScope = createVideoReadAccessScope({
+        type: 'authenticated',
+        userId: input.ownerId,
+      });
+
+      for (const videoId of initialVideoIds) {
+        const video = await this.deps.videoCatalog.findById(videoId, readScope);
+
+        if (!video) {
+          return {
+            message: `Video with ID "${videoId}" not found`,
+            ok: false,
+            reason: 'VIDEO_NOT_FOUND',
+          };
+        }
+      }
+
       const playlist = await this.deps.playlistRepository.create({
         description: input.description?.trim() || undefined,
         isPublic: input.isPublic ?? false,
@@ -123,7 +145,7 @@ export class CreatePlaylistUseCase {
         name,
         ownerId: input.ownerId,
         type: input.type,
-        videoIds: input.initialVideoIds ?? [],
+        videoIds: initialVideoIds,
       });
 
       return {

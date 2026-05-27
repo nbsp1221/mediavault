@@ -27,6 +27,12 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
     description: 'A stored vault clip.',
     duration: 180,
     id: 'video-1',
+    isPrivate: false,
+    permissions: {
+      canDelete: true,
+      canEdit: true,
+      canManageVisibility: true,
+    },
     tags: ['Action', 'Neo', 'Vault', 'Hidden'],
     thumbnailUrl: '/thumb.jpg',
     title: 'Catalog Fixture',

@@ -22,6 +22,7 @@ describe('PlaybackTokenService', () => {
     const token = await service.issue({
       ipAddress: '203.0.113.10',
       userAgent: 'vitest',
+      userId: 'owner-1',
       videoId: 'video-1',
     });
     const payload = await service.validate(token);
@@ -29,7 +30,7 @@ describe('PlaybackTokenService', () => {
     expect(payload).toEqual({
       ipAddress: '203.0.113.10',
       userAgent: 'vitest',
-      userId: 'system',
+      userId: 'owner-1',
       videoId: 'video-1',
     });
 
@@ -46,7 +47,7 @@ describe('PlaybackTokenService', () => {
     expect(decoded).toEqual(expect.objectContaining({
       ip: '203.0.113.10',
       userAgent: 'vitest',
-      userId: 'system',
+      userId: 'owner-1',
       videoId: 'video-1',
     }));
   });

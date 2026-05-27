@@ -393,3 +393,21 @@ export async function requireProtectedApiSession(request: Request) {
 export async function requireProtectedMediaSession(request: Request) {
   return requireProtectedHttpSession(request, 'media-resource');
 }
+
+type ProtectedMediaSessionValue =
+  | { response: Response }
+  | { session: AuthSession };
+
+export async function requireProtectedMediaSessionValue(request: Request): Promise<ProtectedMediaSessionValue> {
+  const access = await requireProtectedSessionAccess(request, 'media-resource');
+
+  if (!access.decision.allowed || !access.session) {
+    return {
+      response: createUnauthorizedAuthResponse(401, 'Authentication required', createStaleSessionHeaders(access)),
+    };
+  }
+
+  return {
+    session: access.session,
+  };
+}

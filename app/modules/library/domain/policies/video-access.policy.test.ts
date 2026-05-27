@@ -74,4 +74,32 @@ describe('VideoAccessPolicy', () => {
       }
     }
   });
+
+  test('describes edit, delete, and visibility-management permissions from the same policy matrix', () => {
+    expect(VideoAccessPolicy.describePermissions({
+      ownerId: 'user-1',
+      viewer: {
+        type: 'authenticated',
+        userId: 'user-1',
+      },
+      visibility: 'private',
+    })).toEqual({
+      canDelete: true,
+      canEdit: true,
+      canManageVisibility: true,
+    });
+
+    expect(VideoAccessPolicy.describePermissions({
+      ownerId: 'user-1',
+      viewer: {
+        type: 'authenticated',
+        userId: 'user-2',
+      },
+      visibility: 'public',
+    })).toEqual({
+      canDelete: false,
+      canEdit: false,
+      canManageVisibility: false,
+    });
+  });
 });

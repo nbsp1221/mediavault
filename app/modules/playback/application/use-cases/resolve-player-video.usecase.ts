@@ -1,3 +1,4 @@
+import type { VideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { VideoCatalogPort } from '../ports/video-catalog.port';
 
 interface ResolvePlayerVideoUseCaseDependencies {
@@ -5,6 +6,7 @@ interface ResolvePlayerVideoUseCaseDependencies {
 }
 
 interface ResolvePlayerVideoUseCaseInput {
+  readScope: VideoReadAccessScope;
   videoId: string;
 }
 
@@ -31,7 +33,10 @@ export class ResolvePlayerVideoUseCase {
   constructor(private readonly deps: ResolvePlayerVideoUseCaseDependencies) {}
 
   async execute(input: ResolvePlayerVideoUseCaseInput): Promise<ResolvePlayerVideoUseCaseResult> {
-    const result = await this.deps.videoCatalog.getPlayerVideo(input.videoId);
+    const result = await this.deps.videoCatalog.getPlayerVideo(
+      input.videoId,
+      input.readScope,
+    );
 
     if (!result) {
       return {

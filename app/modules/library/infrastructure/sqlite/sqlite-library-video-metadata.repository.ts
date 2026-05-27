@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
 import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import type { VideoReadAccessScope } from '../../application/policies/video-read-access-scope';
 import type { LibraryVideo } from '../../domain/library-video';
 import type { VideoTaxonomyItem } from '../../domain/video-taxonomy';
 import { type VideoVisibility, createVideoVisibility } from '../../domain/value-objects/video-visibility';
@@ -184,6 +185,43 @@ export class SqliteLibraryVideoMetadataRepository {
     return Promise.all(rows.map(row => mapRowToLibraryVideo(database, row)));
   }
 
+  async findAllByReadAccessScope(scope: VideoReadAccessScope): Promise<LibraryVideo[]> {
+    const database = await this.getDatabase();
+    const rows = scope.type === 'public_only'
+      ? await database.prepare<LibraryVideoRow>(`
+          SELECT
+            id,
+            title,
+            description,
+            duration_seconds,
+            content_type_slug,
+            owner_id,
+            visibility,
+            created_at,
+            sort_index
+          FROM videos
+          WHERE (visibility = 'public')
+          ORDER BY sort_index DESC
+        `).all()
+      : await database.prepare<LibraryVideoRow>(`
+          SELECT
+            id,
+            title,
+            description,
+            duration_seconds,
+            content_type_slug,
+            owner_id,
+            visibility,
+            created_at,
+            sort_index
+          FROM videos
+          WHERE (visibility = 'public' OR owner_id = ?)
+          ORDER BY sort_index DESC
+        `).all(scope.ownerId);
+
+    return Promise.all(rows.map(row => mapRowToLibraryVideo(database, row)));
+  }
+
   async findById(id: string): Promise<LibraryVideo | null> {
     const database = await this.getDatabase();
     const row = await database.prepare<LibraryVideoRow>(`
@@ -200,6 +238,61 @@ export class SqliteLibraryVideoMetadataRepository {
       FROM videos
       WHERE id = ?
     `).get(id);
+
+    return row ? mapRowToLibraryVideo(database, row) : null;
+  }
+
+  async findOwnedById(id: string, ownerId: string): Promise<LibraryVideo | null> {
+    const database = await this.getDatabase();
+    const row = await database.prepare<LibraryVideoRow>(`
+      SELECT
+        id,
+        title,
+        description,
+        duration_seconds,
+        content_type_slug,
+        owner_id,
+        visibility,
+        created_at,
+        sort_index
+      FROM videos
+      WHERE id = ? AND owner_id = ?
+    `).get(id, ownerId);
+
+    return row ? mapRowToLibraryVideo(database, row) : null;
+  }
+
+  async findByIdByReadAccessScope(id: string, scope: VideoReadAccessScope): Promise<LibraryVideo | null> {
+    const database = await this.getDatabase();
+    const row = scope.type === 'public_only'
+      ? await database.prepare<LibraryVideoRow>(`
+          SELECT
+            id,
+            title,
+            description,
+            duration_seconds,
+            content_type_slug,
+            owner_id,
+            visibility,
+            created_at,
+            sort_index
+          FROM videos
+          WHERE id = ? AND (visibility = 'public')
+        `).get(id)
+      : await database.prepare<LibraryVideoRow>(`
+          SELECT
+            id,
+            title,
+            description,
+            duration_seconds,
+            content_type_slug,
+            owner_id,
+            visibility,
+            created_at,
+            sort_index
+          FROM videos
+          WHERE id = ? AND (visibility = 'public' OR owner_id = ?)
+        `).get(id, scope.ownerId);
 
     return row ? mapRowToLibraryVideo(database, row) : null;
   }

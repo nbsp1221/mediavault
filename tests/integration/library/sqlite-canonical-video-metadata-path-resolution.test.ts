@@ -54,7 +54,10 @@ describe('active SQLite metadata path resolution', () => {
     const { SqliteCanonicalVideoMetadataAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter');
     const firstAdapter = new SqliteCanonicalVideoMetadataAdapter();
 
-    await expect(firstAdapter.listLibraryVideos()).resolves.toEqual([
+    await expect(firstAdapter.listLibraryVideos({
+      ownerId: 'seeded-owner-1',
+      type: 'public_or_owned',
+    })).resolves.toEqual([
       expect.objectContaining({ id: 'workspace-one-video' }),
     ]);
 
@@ -62,7 +65,10 @@ describe('active SQLite metadata path resolution', () => {
 
     const secondAdapter = new SqliteCanonicalVideoMetadataAdapter();
 
-    await expect(secondAdapter.listLibraryVideos()).resolves.toEqual([
+    await expect(secondAdapter.listLibraryVideos({
+      ownerId: 'seeded-owner-1',
+      type: 'public_or_owned',
+    })).resolves.toEqual([
       expect.objectContaining({ id: 'workspace-two-video' }),
     ]);
   });
@@ -84,7 +90,10 @@ describe('active SQLite metadata path resolution', () => {
     const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
     const firstAdapter = new SqliteLibraryVideoMutationAdapter();
 
-    await expect(firstAdapter.findLibraryVideoById('mutation-one-video')).resolves.toEqual(
+    await expect(firstAdapter.findOwnedLibraryVideoById({
+      ownerId: 'seeded-owner-1',
+      videoId: 'mutation-one-video',
+    })).resolves.toEqual(
       expect.objectContaining({ id: 'mutation-one-video' }),
     );
 
@@ -92,7 +101,10 @@ describe('active SQLite metadata path resolution', () => {
 
     const secondAdapter = new SqliteLibraryVideoMutationAdapter();
 
-    await expect(secondAdapter.findLibraryVideoById('mutation-two-video')).resolves.toEqual(
+    await expect(secondAdapter.findOwnedLibraryVideoById({
+      ownerId: 'seeded-owner-1',
+      videoId: 'mutation-two-video',
+    })).resolves.toEqual(
       expect.objectContaining({ id: 'mutation-two-video' }),
     );
   });
@@ -125,7 +137,9 @@ describe('active SQLite metadata path resolution', () => {
     const adapter = new SqliteCanonicalVideoMetadataAdapter();
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath: sqlitePath });
 
-    await expect(adapter.listLibraryVideos()).resolves.toEqual([]);
+    await expect(adapter.listLibraryVideos({
+      type: 'public_only',
+    })).resolves.toEqual([]);
     await expect(repository.count()).resolves.toBe(0);
   });
 });

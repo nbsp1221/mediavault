@@ -5,6 +5,7 @@ import type { HomeLibraryVideo } from '~/entities/library-video/model/library-vi
 import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
 import { requireProtectedPageSession } from '~/composition/server/auth';
 import { getHomeLibraryPageServices } from '~/composition/server/home-library-page';
+import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer';
 import { HomePage } from '~/pages/home/ui/HomePage';
 import { createHomeLibraryFilters } from '~/widgets/home-library/model/home-library-filters';
 
@@ -25,6 +26,8 @@ function serializeHomeLibraryVideo(video: {
   duration: number;
   genreSlugs?: string[];
   id: string;
+  isPrivate: boolean;
+  permissions: HomeLibraryVideo['permissions'];
   tags: string[];
   thumbnailUrl?: string;
   title: string;
@@ -37,6 +40,8 @@ function serializeHomeLibraryVideo(video: {
     duration: video.duration,
     genreSlugs: [...(video.genreSlugs ?? [])],
     id: video.id,
+    isPrivate: video.isPrivate,
+    permissions: { ...video.permissions },
     tags: [...video.tags],
     thumbnailUrl: video.thumbnailUrl,
     title: video.title,
@@ -52,8 +57,10 @@ function deserializeHomeLibraryVideo(video: SerializedHomeLibraryVideo): HomeLib
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  await requireProtectedPageSession(request);
-  const result = await getHomeLibraryPageServices().loadHomeLibraryPageData.execute({});
+  const authSession = await requireProtectedPageSession(request);
+  const result = await getHomeLibraryPageServices().loadHomeLibraryPageData.execute({
+    viewer: toAuthenticatedVideoPolicyViewer(authSession),
+  });
 
   if (!result.ok) {
     throw new Response('Unable to load home library', { status: 500 });

@@ -22,7 +22,7 @@ describe('server library mutation composition root', () => {
 
   test('creates prewired update and delete services from the injected mutation port', async () => {
     const { createServerLibraryServices } = await import('../../../app/composition/server/library');
-    const findLibraryVideoById = vi.fn(async videoId => ({
+    const findOwnedLibraryVideoById = vi.fn(async videoId => ({
       createdAt: new Date('2026-03-11T00:00:00.000Z'),
       duration: 180,
       id: videoId,
@@ -55,7 +55,7 @@ describe('server library mutation composition root', () => {
       },
       mutationPort: {
         deleteLibraryVideo,
-        findLibraryVideoById,
+        findOwnedLibraryVideoById,
         updateLibraryVideo,
       },
       videoSource: {
@@ -109,7 +109,7 @@ describe('server library mutation composition root', () => {
         deleted: true,
         title: 'Fixture Video',
       })),
-      findLibraryVideoById: vi.fn(async videoId => ({
+      findOwnedLibraryVideoById: vi.fn(async videoId => ({
         createdAt: new Date('2026-03-11T00:00:00.000Z'),
         duration: 180,
         id: videoId,

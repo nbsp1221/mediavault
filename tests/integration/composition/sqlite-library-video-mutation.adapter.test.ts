@@ -41,11 +41,15 @@ describe('sqlite library video mutation adapter', () => {
       repository: {
         delete: vi.fn(),
         findById,
+        findOwnedById: findById,
         update,
       },
     });
 
-    await expect(adapter.findLibraryVideoById('video-1')).resolves.toEqual(expect.objectContaining({
+    await expect(adapter.findOwnedLibraryVideoById({
+      ownerId: 'owner-1',
+      videoId: 'video-1',
+    })).resolves.toEqual(expect.objectContaining({
       id: 'video-1',
       title: 'Fixture Video',
     }));
@@ -64,7 +68,7 @@ describe('sqlite library video mutation adapter', () => {
       title: 'Updated title',
     }));
 
-    expect(findById).toHaveBeenCalledWith('video-1');
+    expect(findById).toHaveBeenCalledWith('video-1', 'owner-1');
     expect(update).toHaveBeenCalledWith('video-1', {
       contentTypeSlug: 'home_video',
       description: 'Updated description',
@@ -96,6 +100,7 @@ describe('sqlite library video mutation adapter', () => {
       repository: {
         delete: vi.fn(),
         findById,
+        findOwnedById: vi.fn(),
         update,
       },
     });
@@ -173,6 +178,7 @@ describe('sqlite library video mutation adapter', () => {
       repository: {
         delete: remove,
         findById,
+        findOwnedById: vi.fn(),
         update: vi.fn(),
       },
     });

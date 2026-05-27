@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import { getCookieMap, toRequestCookieHeader } from '../../helpers/cookies';
 import { seedRuntimeAuthUser } from '../../support/auth-account';
+import { seedLibraryVideoMetadata } from '../../support/seed-library-video-metadata';
 
 const VALID_JPEG_FIXTURE_PATH = join(process.cwd(), 'public', 'images', 'video-placeholder.jpg');
 
@@ -1294,6 +1295,15 @@ describe('auth gate routes', () => {
       thumbnailPath: plaintextThumbnailPath,
       videoId,
     });
+    await seedLibraryVideoMetadata(join(storageDir, 'db.sqlite'), [{
+      duration: 1,
+      id: videoId,
+      mediaStatus: 'none',
+      ownerId: SEEDED_OWNER_ID,
+      title: 'Thumbnail fixture',
+      videoUrl: `/videos/${videoId}/manifest.mpd`,
+      visibility: 'private',
+    }]);
 
     const { action } = await importLoginAction();
     const loginResponse = await action({

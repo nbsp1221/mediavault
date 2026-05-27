@@ -38,10 +38,12 @@ const SEEDED_VIDEOS = [
     contentTypeSlug: 'clip',
     genreSlugs: ['drama'],
     id: FILTERED_VIDEO_ID,
+    ownerId: 'other-user',
     tags: ['ui'],
     thumbnailUrl: '/api/thumbnail/754c6828-621c-4df6-9cf8-a3d77297b85a',
     title: 'playtime2',
     videoUrl: `/videos/${FILTERED_VIDEO_ID}/manifest.mpd`,
+    visibility: 'public' as const,
   },
 ];
 

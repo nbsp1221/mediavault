@@ -65,7 +65,10 @@ describe('AddVideoToPlaylistUseCase', () => {
       reason: 'VIDEO_NOT_FOUND',
     });
 
-    expect(findById).toHaveBeenCalledWith('missing-video');
+    expect(findById).toHaveBeenCalledWith('missing-video', {
+      ownerId: 'owner-1',
+      type: 'public_or_owned',
+    });
     expect(addVideoToPlaylist).not.toHaveBeenCalled();
   });
 

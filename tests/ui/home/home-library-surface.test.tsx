@@ -22,6 +22,12 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
     createdAt: new Date('2026-03-11T00:00:00.000Z'),
     duration: 180,
     id: 'video-1',
+    isPrivate: false,
+    permissions: {
+      canDelete: true,
+      canEdit: true,
+      canManageVisibility: true,
+    },
     tags: ['Action', 'Neo', 'Vault'],
     thumbnailUrl: '/thumb.jpg',
     title: 'Catalog Fixture',
@@ -110,6 +116,52 @@ describe('home library surfaces', () => {
     expect(screen.getByText('A stored vault clip.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '#good boy-comedy' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Watch' })).toHaveAttribute('href', '/player/video-1');
+  });
+
+  test('HomeQuickViewDialog hides management actions for read-only videos', () => {
+    render(
+      <MemoryRouter>
+        <HomeQuickViewDialog
+          isOpen
+          modalState={{
+            isOpen: true,
+            video: createVideo({
+              permissions: {
+                canDelete: false,
+                canEdit: false,
+                canManageVisibility: false,
+              },
+            }),
+          }}
+          onClose={vi.fn()}
+          onDeleteVideo={vi.fn()}
+          onTagClick={vi.fn()}
+          onUpdateVideo={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: 'Watch' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit Info' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  });
+
+  test('LibraryVideoCard shows private badge only for private videos', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <LibraryVideoCard video={createVideo({ isPrivate: true })} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByLabelText('Private video')).toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <LibraryVideoCard video={createVideo({ isPrivate: false })} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByLabelText('Private video')).not.toBeInTheDocument();
   });
 
   test('HomeLibraryWidget renders a lightweight empty state when no videos match', () => {

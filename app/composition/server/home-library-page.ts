@@ -1,6 +1,8 @@
+import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import type { LoadLibraryCatalogSnapshotResult } from '~/modules/library/application/use-cases/load-library-catalog-snapshot.usecase';
-import type { LibraryVideo } from '~/modules/library/domain/library-video';
+import type { VideoViewer } from '~/modules/library/domain/policies/video-access.policy';
 import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
+import { toHomeLibraryVideoDto } from './home-library-video-dto';
 import { getServerLibraryServices } from './library';
 
 interface LoadHomeLibraryPageDataInput {
@@ -9,6 +11,7 @@ interface LoadHomeLibraryPageDataInput {
   rawGenreSlugs?: string[];
   rawIncludeTags?: string[];
   rawQuery?: string | null;
+  viewer: VideoViewer;
 }
 
 interface LoadHomeLibraryPageDataSuccess {
@@ -16,7 +19,7 @@ interface LoadHomeLibraryPageDataSuccess {
   data: {
     contentTypes: VideoTaxonomyItem[];
     genres: VideoTaxonomyItem[];
-    videos: LibraryVideo[];
+    videos: HomeLibraryVideo[];
   };
 }
 
@@ -56,13 +59,14 @@ function createHomeLibraryUnavailableFailure(): LoadHomeLibraryPageDataFailure {
 
 function mapCatalogResultToHomePageData(
   result: Extract<LoadLibraryCatalogSnapshotResult, { ok: true }>,
+  viewer: VideoViewer,
 ): LoadHomeLibraryPageDataSuccess {
   return {
     ok: true,
     data: {
       contentTypes: result.data.vocabulary.contentTypes,
       genres: result.data.vocabulary.genres,
-      videos: result.data.videos,
+      videos: result.data.videos.map(video => toHomeLibraryVideoDto(video, viewer)),
     },
   };
 }
@@ -89,7 +93,7 @@ export function createHomeLibraryPageServices(
           return createHomeLibraryUnavailableFailure();
         }
 
-        return mapCatalogResultToHomePageData(catalogResult);
+        return mapCatalogResultToHomePageData(catalogResult, input.viewer);
       },
     },
   };

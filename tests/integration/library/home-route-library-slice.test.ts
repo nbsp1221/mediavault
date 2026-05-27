@@ -24,18 +24,26 @@ describe('home route library slice adapter', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    requireProtectedPageSessionMock.mockResolvedValue({ id: 'session-1' });
+    requireProtectedPageSessionMock.mockResolvedValue({ id: 'session-1', userId: 'owner-1' });
   });
 
   test('delegates home page loading to the page-level composition root and preserves the established loader contract', async () => {
     loadHomeLibraryPageDataExecuteMock.mockResolvedValue({
       ok: true,
       data: {
+        contentTypes: [],
+        genres: [],
         videos: [
           {
             createdAt: new Date('2026-03-11T00:00:00.000Z'),
             duration: 180,
             id: 'video-1',
+            isPrivate: false,
+            permissions: {
+              canDelete: true,
+              canEdit: true,
+              canManageVisibility: true,
+            },
             tags: ['Action'],
             title: 'Catalog Fixture',
             videoUrl: '/videos/video-1/manifest.mpd',
@@ -51,12 +59,25 @@ describe('home route library slice adapter', () => {
 
     expect(requireProtectedPageSessionMock).toHaveBeenCalledOnce();
     expect(getHomeLibraryPageServicesMock).toHaveBeenCalledOnce();
-    expect(loadHomeLibraryPageDataExecuteMock).toHaveBeenCalledWith({});
+    expect(loadHomeLibraryPageDataExecuteMock).toHaveBeenCalledWith({
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
+    });
     expect(result).toEqual({
+      contentTypes: [],
+      genres: [],
       videos: [
         expect.objectContaining({
           createdAt: '2026-03-11T00:00:00.000Z',
           id: 'video-1',
+          isPrivate: false,
+          permissions: {
+            canDelete: true,
+            canEdit: true,
+            canManageVisibility: true,
+          },
           title: 'Catalog Fixture',
         }),
       ],
@@ -67,11 +88,19 @@ describe('home route library slice adapter', () => {
     loadHomeLibraryPageDataExecuteMock.mockResolvedValue({
       ok: true,
       data: {
+        contentTypes: [],
+        genres: [],
         videos: [
           {
             createdAt: new Date('2026-03-11T00:00:00.000Z'),
             duration: 180,
             id: 'video-1',
+            isPrivate: false,
+            permissions: {
+              canDelete: true,
+              canEdit: true,
+              canManageVisibility: true,
+            },
             tags: ['Action'],
             title: 'Catalog Fixture',
             videoUrl: '/videos/video-1/manifest.mpd',
@@ -85,8 +114,15 @@ describe('home route library slice adapter', () => {
       request: new Request('http://localhost/?tag=%20Action%20'),
     } as never);
 
-    expect(loadHomeLibraryPageDataExecuteMock).toHaveBeenCalledWith({});
+    expect(loadHomeLibraryPageDataExecuteMock).toHaveBeenCalledWith({
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
+    });
     expect(result).toEqual({
+      contentTypes: [],
+      genres: [],
       videos: [
         expect.objectContaining({
           createdAt: '2026-03-11T00:00:00.000Z',

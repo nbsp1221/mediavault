@@ -1,8 +1,10 @@
 import type { LibraryHomeFilters } from '../../domain/library-home-filters';
 import type { LibraryVideo } from '../../domain/library-video';
+import type { VideoViewer } from '../../domain/policies/video-access.policy';
 import type { VideoTaxonomyItem } from '../../domain/video-taxonomy';
 import type { LibraryVideoSourcePort } from '../ports/library-video-source.port';
 import { createLibraryHomeFilters } from '../../domain/library-home-filters';
+import { createVideoReadAccessScope } from '../policies/video-read-access-scope';
 
 interface LoadLibraryCatalogSnapshotInput {
   rawContentTypeSlug?: string | null;
@@ -10,6 +12,7 @@ interface LoadLibraryCatalogSnapshotInput {
   rawGenreSlugs?: string[];
   rawIncludeTags?: string[];
   rawQuery?: string | null;
+  viewer: VideoViewer;
 }
 
 interface LoadLibraryCatalogSnapshotSuccess {
@@ -44,8 +47,9 @@ export class LoadLibraryCatalogSnapshotUseCase {
 
   async execute(input: LoadLibraryCatalogSnapshotInput): Promise<LoadLibraryCatalogSnapshotResult> {
     try {
+      const readScope = createVideoReadAccessScope(input.viewer);
       const [videos, contentTypes, genres] = await Promise.all([
-        this.deps.videoSource.listLibraryVideos(),
+        this.deps.videoSource.listLibraryVideos(readScope),
         this.deps.videoSource.listActiveContentTypes(),
         this.deps.videoSource.listActiveGenres(),
       ]);

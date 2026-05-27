@@ -6,6 +6,18 @@ const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 
 const mockDecryptThumbnail = vi.fn();
+const authorizedVideoRead = {
+  findLibraryVideoById: vi.fn(async () => ({
+    createdAt: new Date('2026-03-10T00:00:00.000Z'),
+    duration: 95,
+    id: 'video-1',
+    ownerId: 'owner-1',
+    tags: [],
+    title: 'Fixture Video',
+    videoUrl: '/videos/video-1/manifest.mpd',
+    visibility: 'private' as const,
+  })),
+};
 
 function createDecryptedThumbnailRequest(
   request: Request,
@@ -16,6 +28,11 @@ function createDecryptedThumbnailRequest(
   return {
     eTagPrefix: 'thumbnail',
     request,
+    videoRead: authorizedVideoRead,
+    viewer: {
+      type: 'authenticated' as const,
+      userId: 'owner-1',
+    },
     videoId: overrides.videoId ?? 'video-1',
   };
 }
@@ -83,6 +100,22 @@ describe('thumbnail composition ownership', () => {
 
     expect(response.status).toBe(404);
     await expect(response.text()).resolves.toBe('Thumbnail not found');
+  });
+
+  test('loadDecryptedThumbnailResponse denies inaccessible videos before decrypting thumbnails', async () => {
+    mockDecryptThumbnail.mockResolvedValue(createSuccessfulDecryptResult());
+
+    const { loadDecryptedThumbnailResponse } = await importThumbnailComposition();
+    const response = await loadDecryptedThumbnailResponse({
+      ...createDecryptedThumbnailRequest(new Request('http://localhost/api/thumbnail/video-1')),
+      videoRead: {
+        findLibraryVideoById: vi.fn(async () => null),
+      },
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.text()).resolves.toBe('Thumbnail not found');
+    expect(mockDecryptThumbnail).not.toHaveBeenCalled();
   });
 
   test('loadDecryptedThumbnailResponse returns 500 when the thumbnail service reports an unexpected error', async () => {

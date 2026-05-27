@@ -7,7 +7,7 @@ describe('sqlite canonical video metadata adapter', () => {
   });
 
   test('adapts the sqlite metadata repository to both library reads and ingest metadata writes', async () => {
-    const findAll = vi.fn(async () => [
+    const findAllByReadAccessScope = vi.fn(async () => [
       {
         contentTypeSlug: 'movie',
         createdAt: new Date('2026-03-10T00:00:00.000Z'),
@@ -38,6 +38,7 @@ describe('sqlite canonical video metadata adapter', () => {
       visibility: 'private' as const,
     }));
     const deleteVideo = vi.fn(async () => true);
+    const findByIdByReadAccessScope = vi.fn(async () => null);
 
     const listActiveContentTypes = vi.fn(async () => [
       { active: true, label: 'Movie', slug: 'movie', sortOrder: 10 },
@@ -50,13 +51,17 @@ describe('sqlite canonical video metadata adapter', () => {
       repository: {
         create,
         delete: deleteVideo,
-        findAll,
+        findByIdByReadAccessScope,
+        findAllByReadAccessScope,
         listActiveContentTypes,
         listActiveGenres,
       },
     });
 
-    await expect(adapter.listLibraryVideos()).resolves.toEqual([
+    await expect(adapter.listLibraryVideos({
+      ownerId: 'owner-1',
+      type: 'public_or_owned',
+    })).resolves.toEqual([
       expect.objectContaining({
         id: 'video-1',
         title: 'Fixture Video',
@@ -75,9 +80,20 @@ describe('sqlite canonical video metadata adapter', () => {
       videoUrl: '/videos/video-123/manifest.mpd',
       visibility: 'private' as const,
     })).resolves.toBeUndefined();
+    await expect(adapter.findLibraryVideoById('video-1', {
+      ownerId: 'owner-1',
+      type: 'public_or_owned',
+    })).resolves.toBeNull();
     await expect(adapter.deleteVideoRecord('video-123')).resolves.toBeUndefined();
 
-    expect(findAll).toHaveBeenCalledOnce();
+    expect(findAllByReadAccessScope).toHaveBeenCalledWith({
+      ownerId: 'owner-1',
+      type: 'public_or_owned',
+    });
+    expect(findByIdByReadAccessScope).toHaveBeenCalledWith('video-1', {
+      ownerId: 'owner-1',
+      type: 'public_or_owned',
+    });
     await expect(adapter.listActiveContentTypes()).resolves.toEqual([
       { active: true, label: 'Movie', slug: 'movie', sortOrder: 10 },
     ]);
@@ -110,7 +126,8 @@ describe('sqlite canonical video metadata adapter', () => {
       repository: {
         create,
         delete: deleteVideo,
-        findAll: vi.fn(async () => []),
+        findByIdByReadAccessScope: vi.fn(async () => null),
+        findAllByReadAccessScope: vi.fn(async () => []),
         listActiveContentTypes: vi.fn(async () => []),
         listActiveGenres: vi.fn(async () => []),
       },

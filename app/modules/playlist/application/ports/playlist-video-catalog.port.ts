@@ -1,3 +1,4 @@
+import type { VideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { PlaylistItem } from '../../domain/playlist';
 
 export interface PlaylistCatalogVideoSummary {
@@ -17,6 +18,6 @@ export interface PlaylistCatalogVideo {
 }
 
 export interface PlaylistVideoCatalogPort {
-  findById?(videoId: string): Promise<PlaylistCatalogVideoSummary | null>;
-  getPlaylistVideos(items: PlaylistItem[]): Promise<PlaylistCatalogVideo[]>;
+  findById(videoId: string, scope: VideoReadAccessScope): Promise<PlaylistCatalogVideoSummary | null>;
+  getPlaylistVideos(items: PlaylistItem[], scope: VideoReadAccessScope): Promise<PlaylistCatalogVideo[]>;
 }

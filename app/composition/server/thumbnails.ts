@@ -1,8 +1,14 @@
+import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
+import type { VideoViewer } from '~/modules/library/domain/policies/video-access.policy';
+import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
+import { SqliteCanonicalVideoMetadataAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter';
 import { ThumbnailDecryptionService } from '~/modules/thumbnail/infrastructure/decryption/thumbnail-decryption.service';
 
 interface LoadDecryptedThumbnailResponseInput {
   eTagPrefix: string;
   request: Request;
+  videoRead?: LibraryVideoReadPort;
+  viewer: VideoViewer;
   videoId: string;
 }
 
@@ -16,6 +22,16 @@ export async function loadDecryptedThumbnailResponse(
   input: LoadDecryptedThumbnailResponseInput,
 ): Promise<Response> {
   try {
+    const videoRead = input.videoRead ?? new SqliteCanonicalVideoMetadataAdapter();
+    const accessibleVideo = await videoRead.findLibraryVideoById(
+      input.videoId,
+      createVideoReadAccessScope(input.viewer),
+    );
+
+    if (!accessibleVideo) {
+      return new Response('Thumbnail not found', { status: 404 });
+    }
+
     const thumbnailDecryptionService = createThumbnailDecryptionService();
     const result = await thumbnailDecryptionService.decryptThumbnail({
       validateAccess: true,

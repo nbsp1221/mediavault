@@ -78,12 +78,10 @@ export async function resolveServerPlaylistOwnerId() {
   return 'site-owner';
 }
 
-type ServerPlaylistVideoCatalog = PlaylistVideoCatalogPort & Required<Pick<PlaylistVideoCatalogPort, 'findById'>>;
-
 interface ServerPlaylistServiceDependencies {
   playlistRepository: PlaylistRepositoryPort;
   resolveOwnerId: () => Promise<string>;
-  videoCatalog: ServerPlaylistVideoCatalog;
+  videoCatalog: PlaylistVideoCatalogPort;
 }
 
 export interface ServerPlaylistServices {
@@ -230,12 +228,14 @@ export function createServerPlaylistServices(
   });
   const createPlaylist = new CreatePlaylistUseCase({
     playlistRepository: deps.playlistRepository,
+    videoCatalog: deps.videoCatalog,
   });
   const deletePlaylist = new DeletePlaylistUseCase({
     playlistRepository: deps.playlistRepository,
   });
   const findPlaylists = new FindPlaylistsUseCase({
     playlistRepository: deps.playlistRepository,
+    videoCatalog: deps.videoCatalog,
   });
   const getPlaylistDetails = new GetPlaylistDetailsUseCase({
     playlistRepository: deps.playlistRepository,

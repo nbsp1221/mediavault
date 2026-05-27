@@ -1,4 +1,5 @@
-import type { PlaylistStats, PlaylistWithVideos } from '../../domain/playlist';
+import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
+import type { Playlist, PlaylistStats, PlaylistWithVideos } from '../../domain/playlist';
 import type { PlaylistPermissions } from '../../domain/policies/playlist-access.policy';
 import type { PlaylistRepositoryPort } from '../ports/playlist-repository.port';
 import type { PlaylistVideoCatalogPort } from '../ports/playlist-video-catalog.port';
@@ -69,6 +70,13 @@ function isNonNegativeInteger(value: number) {
     value >= 0;
 }
 
+function createScopedPlaylistStats(playlist: Playlist, visibleVideoIds: string[]): PlaylistStats {
+  return PlaylistStatsPolicy.build({
+    ...playlist,
+    videoIds: visibleVideoIds,
+  });
+}
+
 export class GetPlaylistDetailsUseCase {
   constructor(
     private readonly deps: GetPlaylistDetailsUseCaseDependencies,
@@ -121,35 +129,52 @@ export class GetPlaylistDetailsUseCase {
         };
       }
 
-      const playlistItems = input.includeVideos
-        ? await this.deps.playlistRepository.getPlaylistItems(playlist.id)
-        : [];
-      const resolvedVideos = input.includeVideos
-        ? await this.deps.videoCatalog.getPlaylistVideos(playlistItems)
-        : [];
+      const readScope = createVideoReadAccessScope(
+        input.ownerId
+          ? { type: 'authenticated', userId: input.ownerId }
+          : { type: 'anonymous' },
+      );
+      const playlistItems = await this.deps.playlistRepository.getPlaylistItems(playlist.id);
+      const resolvedVideos = await this.deps.videoCatalog.getPlaylistVideos(playlistItems, readScope);
+      const visibleVideoIds = resolvedVideos.map(video => video.id);
       const videos = input.includeVideos
         ? resolvedVideos.slice(input.videoOffset, input.videoOffset + input.videoLimit)
         : [];
       const stats = input.includeStats
-        ? PlaylistStatsPolicy.build(playlist)
+        ? createScopedPlaylistStats(playlist, visibleVideoIds)
         : undefined;
-      const relatedPlaylists = input.includeRelated && playlist.metadata?.seriesName
-        ? (await this.deps.playlistRepository.findBySeries(playlist.metadata.seriesName))
-            .filter(candidate => candidate.id !== playlist.id)
-            .filter(candidate => PlaylistAccessPolicy.canAccess({
+      const relatedPlaylists: PlaylistRelationship[] | undefined = input.includeRelated && playlist.metadata?.seriesName
+        ? []
+        : undefined;
+
+      if (relatedPlaylists && playlist.metadata?.seriesName) {
+        const candidates = await this.deps.playlistRepository.findBySeries(playlist.metadata.seriesName);
+
+        for (const candidate of candidates) {
+          if (
+            candidate.id === playlist.id ||
+            !PlaylistAccessPolicy.canAccess({
               ownerId: input.ownerId,
               playlist: candidate,
-            }))
-            .map(candidate => ({
-              id: candidate.id,
-              name: candidate.name,
-              relationship: candidate.type === 'series'
-                ? 'parent' as const
-                : 'sibling' as const,
-              type: candidate.type,
-              videoCount: candidate.videoIds.length,
-            }))
-        : undefined;
+            })
+          ) {
+            continue;
+          }
+
+          const candidateItems = await this.deps.playlistRepository.getPlaylistItems(candidate.id);
+          const candidateVideos = await this.deps.videoCatalog.getPlaylistVideos(candidateItems, readScope);
+
+          relatedPlaylists.push({
+            id: candidate.id,
+            name: candidate.name,
+            relationship: candidate.type === 'series'
+              ? 'parent' as const
+              : 'sibling' as const,
+            type: candidate.type,
+            videoCount: candidateVideos.length,
+          });
+        }
+      }
 
       return {
         ok: true,
@@ -161,16 +186,17 @@ export class GetPlaylistDetailsUseCase {
           playlist: {
             ...playlist,
             stats,
+            videoIds: visibleVideoIds,
             videos,
           },
           relatedPlaylists,
           stats,
           videoPagination: input.includeVideos
             ? {
-                hasMore: input.videoOffset + input.videoLimit < playlist.videoIds.length,
+                hasMore: input.videoOffset + input.videoLimit < visibleVideoIds.length,
                 limit: input.videoLimit,
                 offset: input.videoOffset,
-                total: playlist.videoIds.length,
+                total: visibleVideoIds.length,
               }
             : null,
         },

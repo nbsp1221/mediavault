@@ -1,8 +1,10 @@
+import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import type { PlaybackClearKeyService as PlaybackClearKeyServicePort } from '~/modules/playback/application/ports/playback-clearkey-service.port';
 import type { PlaybackManifestService as PlaybackManifestServicePort } from '~/modules/playback/application/ports/playback-manifest-service.port';
 import type { PlaybackMediaSegmentService as PlaybackMediaSegmentServicePort } from '~/modules/playback/application/ports/playback-media-segment-service.port';
 import type { PlaybackTokenService as PlaybackTokenServicePort } from '~/modules/playback/application/ports/playback-token-service.port';
 import type { VideoCatalogPort } from '~/modules/playback/application/ports/video-catalog.port';
+import { SqliteCanonicalVideoMetadataAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter';
 import { IssuePlaybackTokenUseCase } from '~/modules/playback/application/use-cases/issue-playback-token.usecase';
 import { ResolvePlayerVideoUseCase } from '~/modules/playback/application/use-cases/resolve-player-video.usecase';
 import { ServePlaybackClearKeyLicenseUseCase } from '~/modules/playback/application/use-cases/serve-playback-clearkey-license.usecase';
@@ -27,6 +29,7 @@ interface ServerPlaybackServiceDependencies {
   manifestService: PlaybackManifestServicePort;
   mediaSegmentService: PlaybackMediaSegmentServicePort;
   tokenService: PlaybackTokenServicePort;
+  videoRead: LibraryVideoReadPort;
   videoCatalog: VideoCatalogPort;
 }
 
@@ -54,8 +57,10 @@ export function createServerPlaybackServices(
   const getMediaSegmentService = createLazyValue(() => overrides.mediaSegmentService ?? new PlaybackMediaSegmentService());
   const getTokenService = createLazyValue(() => overrides.tokenService ?? new JsonWebTokenPlaybackTokenService());
   const getVideoCatalog = createLazyValue(() => overrides.videoCatalog ?? new PlaybackVideoCatalogAdapter());
+  const getVideoRead = createLazyValue(() => overrides.videoRead ?? new SqliteCanonicalVideoMetadataAdapter());
   const getIssuePlaybackToken = createLazyValue(() => new IssuePlaybackTokenUseCase({
     tokenService: getTokenService(),
+    videoRead: getVideoRead(),
   }));
   const getResolvePlayerVideo = createLazyValue(() => new ResolvePlayerVideoUseCase({
     videoCatalog: getVideoCatalog(),
@@ -63,14 +68,17 @@ export function createServerPlaybackServices(
   const getServePlaybackClearKeyLicense = createLazyValue(() => new ServePlaybackClearKeyLicenseUseCase({
     clearKeyService: getClearKeyService(),
     tokenService: getTokenService(),
+    videoRead: getVideoRead(),
   }));
   const getServePlaybackManifest = createLazyValue(() => new ServePlaybackManifestUseCase({
     manifestService: getManifestService(),
     tokenService: getTokenService(),
+    videoRead: getVideoRead(),
   }));
   const getServePlaybackMediaSegment = createLazyValue(() => new ServePlaybackMediaSegmentUseCase({
     mediaSegmentService: getMediaSegmentService(),
     tokenService: getTokenService(),
+    videoRead: getVideoRead(),
   }));
 
   return {

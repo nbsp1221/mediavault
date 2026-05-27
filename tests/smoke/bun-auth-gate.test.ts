@@ -6,6 +6,7 @@ import { createNoEnvFileBunCommand } from '../../scripts/no-env-file-bun';
 import { toRequestCookieHeader } from '../helpers/cookies';
 import { E2E_AUTH_PASSWORD, E2E_AUTH_USERNAME, seedRuntimeAuthUser } from '../support/auth-account';
 import { createRuntimeTestEnv } from '../support/create-runtime-test-env';
+import { seedLibraryVideoMetadata } from '../support/seed-library-video-metadata';
 
 const repoRoot = process.cwd();
 const tempDir = mkdtempSync(join(tmpdir(), 'local-streamer-bun-smoke-'));
@@ -131,6 +132,16 @@ async function loginAndGetCookie() {
 beforeAll(async () => {
   seedSmokeStorage(storageDir);
   await seedRuntimeAuthUser(databasePath);
+  await seedLibraryVideoMetadata(databasePath, [
+    {
+      duration: 60,
+      id: syntheticVideoId,
+      mediaStatus: 'none',
+      title: 'Bun Smoke Video',
+      videoUrl: `/videos/${syntheticVideoId}/manifest.mpd`,
+      visibility: 'private',
+    },
+  ]);
 
   server = Bun.spawn(createNoEnvFileBunCommand(['./build/server/index.js']), {
     cwd: repoRoot,

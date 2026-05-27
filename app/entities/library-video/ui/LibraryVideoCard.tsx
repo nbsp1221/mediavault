@@ -1,4 +1,4 @@
-import { Clock, Eye, MoreVertical, Play } from 'lucide-react';
+import { Clock, Eye, Lock, MoreVertical, Play } from 'lucide-react';
 import { Link } from 'react-router';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import { formatVideoTagLabel } from '~/modules/library/domain/video-tag';
@@ -62,6 +62,16 @@ export function LibraryVideoCard({ video, onQuickView, onTagClick }: LibraryVide
                 <Clock className="h-3 w-3" />
                 {formatDuration(video.duration)}
               </div>
+
+              {video.isPrivate && (
+                <Badge
+                  className="absolute top-2 left-2 gap-1 bg-black/80 text-white hover:bg-black/80"
+                  aria-label="Private video"
+                >
+                  <Lock className="h-3 w-3" />
+                  Private
+                </Badge>
+              )}
             </AspectRatio>
           </div>
 

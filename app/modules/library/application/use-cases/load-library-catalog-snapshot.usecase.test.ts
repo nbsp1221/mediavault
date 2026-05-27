@@ -41,6 +41,10 @@ describe('LoadLibraryCatalogSnapshotUseCase', () => {
     const result = await useCase.execute({
       rawQuery: '  Action  ',
       rawIncludeTags: ['Action', '', 'Drama'],
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
     });
 
     expect(result).toEqual({
@@ -74,7 +78,10 @@ describe('LoadLibraryCatalogSnapshotUseCase', () => {
         },
       },
     });
-    expect(listLibraryVideos).toHaveBeenCalledOnce();
+    expect(listLibraryVideos).toHaveBeenCalledWith({
+      ownerId: 'owner-1',
+      type: 'public_or_owned',
+    });
 
     if (!result.ok) {
       throw new Error('Expected successful catalog result');
@@ -98,9 +105,31 @@ describe('LoadLibraryCatalogSnapshotUseCase', () => {
     await expect(useCase.execute({
       rawQuery: 'Anything',
       rawIncludeTags: [],
+      viewer: {
+        type: 'anonymous',
+      },
     })).resolves.toEqual({
       ok: false,
       reason: 'CATALOG_SOURCE_UNAVAILABLE',
+    });
+  });
+
+  test('passes public-only scope for anonymous catalog reads', async () => {
+    const listLibraryVideos = vi.fn(async () => []);
+    const useCase = new LoadLibraryCatalogSnapshotUseCase({
+      videoSource: {
+        listActiveContentTypes: vi.fn(async () => []),
+        listActiveGenres: vi.fn(async () => []),
+        listLibraryVideos,
+      },
+    });
+
+    await useCase.execute({
+      viewer: { type: 'anonymous' },
+    });
+
+    expect(listLibraryVideos).toHaveBeenCalledWith({
+      type: 'public_only',
     });
   });
 });

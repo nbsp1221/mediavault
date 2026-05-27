@@ -33,13 +33,22 @@ function createPlaylistItem(overrides: Partial<PlaylistItem> = {}): PlaylistItem
 describe('GetPlaylistDetailsUseCase', () => {
   test('returns playlist details with permissions, paginated videos, stats, and only accessible related playlists', async () => {
     const findById = vi.fn(async () => createPlaylist());
-    const getPlaylistItems = vi.fn(async () => [
-      createPlaylistItem(),
-      createPlaylistItem({
-        position: 2,
-        videoId: 'video-2',
-      }),
-    ]);
+    const getPlaylistItems = vi.fn(async (playlistId: string) => {
+      return playlistId === 'series-public'
+        ? [
+            createPlaylistItem({
+              playlistId,
+              videoId: 'video-9',
+            }),
+          ]
+        : [
+            createPlaylistItem(),
+            createPlaylistItem({
+              position: 2,
+              videoId: 'video-2',
+            }),
+          ];
+    });
     const findBySeries = vi.fn(async () => [
       createPlaylist({
         id: 'playlist-1',
@@ -59,20 +68,12 @@ describe('GetPlaylistDetailsUseCase', () => {
         videoIds: ['video-3'],
       }),
     ]);
-    const getPlaylistVideos = vi.fn(async () => [
-      {
-        duration: 100,
-        id: 'video-1',
-        position: 1,
-        title: 'Episode 1',
-      },
-      {
-        duration: 120,
-        id: 'video-2',
-        position: 2,
-        title: 'Episode 2',
-      },
-    ]);
+    const getPlaylistVideos = vi.fn(async (items: PlaylistItem[]) => items.map(item => ({
+      duration: item.videoId === 'video-2' ? 120 : 100,
+      id: item.videoId,
+      position: item.position,
+      title: item.videoId === 'video-2' ? 'Episode 2' : 'Episode 1',
+    })));
     const useCase = new GetPlaylistDetailsUseCase({
       playlistRepository: {
         findById,
@@ -80,6 +81,7 @@ describe('GetPlaylistDetailsUseCase', () => {
         getPlaylistItems,
       },
       videoCatalog: {
+        findById: vi.fn(),
         getPlaylistVideos,
       },
     });
@@ -96,10 +98,16 @@ describe('GetPlaylistDetailsUseCase', () => {
 
     expect(findById).toHaveBeenCalledWith('playlist-1');
     expect(getPlaylistItems).toHaveBeenCalledWith('playlist-1');
-    expect(getPlaylistVideos).toHaveBeenCalledWith([
-      expect.objectContaining({ videoId: 'video-1' }),
-      expect.objectContaining({ videoId: 'video-2' }),
-    ]);
+    expect(getPlaylistVideos).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({ videoId: 'video-1' }),
+        expect.objectContaining({ videoId: 'video-2' }),
+      ],
+      {
+        ownerId: 'owner-1',
+        type: 'public_or_owned',
+      },
+    );
     expect(findBySeries).toHaveBeenCalledWith('Vault Saga');
     expect(result).toEqual({
       ok: true,
@@ -154,6 +162,7 @@ describe('GetPlaylistDetailsUseCase', () => {
         getPlaylistItems: vi.fn(),
       },
       videoCatalog: {
+        findById: vi.fn(),
         getPlaylistVideos: vi.fn(),
       },
     });
@@ -184,6 +193,7 @@ describe('GetPlaylistDetailsUseCase', () => {
         getPlaylistItems,
       },
       videoCatalog: {
+        findById: vi.fn(),
         getPlaylistVideos,
       },
     });

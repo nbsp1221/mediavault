@@ -1,17 +1,20 @@
+import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import type { PlaybackManifestService } from '../ports/playback-manifest-service.port';
 import type { PlaybackTokenService } from '../ports/playback-token-service.port';
 import {
-  type PlaybackResourceDecision,
-  PlaybackResourcePolicy,
-} from '../../domain/policies/PlaybackResourcePolicy';
+  type PlaybackResourceReadAuthorizationResult,
+  authorizePlaybackResourceRead,
+} from './authorize-playback-resource-read';
 
 interface ServePlaybackManifestUseCaseDependencies {
   manifestService: PlaybackManifestService;
   tokenService: PlaybackTokenService;
+  videoRead: LibraryVideoReadPort;
 }
 
 interface ServePlaybackManifestUseCaseInput {
   token: string | null;
+  userId: string;
   videoId: string;
 }
 
@@ -21,29 +24,23 @@ type ServePlaybackManifestUseCaseResult =
     headers: Record<string, string>;
     ok: true;
   }
-  | ({
-    ok: false;
-  } & Omit<Extract<PlaybackResourceDecision, { allowed: false }>, 'allowed'>);
+  | Exclude<PlaybackResourceReadAuthorizationResult<'manifest'>, { ok: true }>;
 
 export class ServePlaybackManifestUseCase {
   constructor(private readonly deps: ServePlaybackManifestUseCaseDependencies) {}
 
   async execute(input: ServePlaybackManifestUseCaseInput): Promise<ServePlaybackManifestUseCaseResult> {
-    const payload = input.token
-      ? await this.deps.tokenService.validate(input.token)
-      : null;
-    const decision = PlaybackResourcePolicy.evaluate({
-      requestedVideoId: input.videoId,
+    const authorization = await authorizePlaybackResourceRead({
       resource: 'manifest',
-      token: payload,
+      token: input.token,
+      tokenService: this.deps.tokenService,
+      userId: input.userId,
+      videoId: input.videoId,
+      videoRead: this.deps.videoRead,
     });
 
-    if (!decision.allowed) {
-      return {
-        metadata: decision.metadata,
-        ok: false,
-        reason: decision.reason,
-      };
+    if (!authorization.ok) {
+      return authorization;
     }
 
     const manifest = await this.deps.manifestService.getManifest({

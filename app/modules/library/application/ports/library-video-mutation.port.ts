@@ -16,6 +16,6 @@ export interface DeleteLibraryVideoResult {
 
 export interface LibraryVideoMutationPort {
   deleteLibraryVideo(input: { videoId: string }): Promise<DeleteLibraryVideoResult>;
-  findLibraryVideoById(videoId: string): Promise<LibraryVideo | null>;
+  findOwnedLibraryVideoById(input: { ownerId: string; videoId: string }): Promise<LibraryVideo | null>;
   updateLibraryVideo(input: UpdateLibraryVideoInput): Promise<LibraryVideo | null>;
 }

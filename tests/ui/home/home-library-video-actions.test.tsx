@@ -1,7 +1,27 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
+import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
 import { useHomeLibraryVideoActions } from '../../../app/features/home-library-video-actions/model/useHomeLibraryVideoActions';
+
+function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVideo {
+  return {
+    createdAt: new Date('2026-03-11T00:00:00.000Z'),
+    duration: 180,
+    id: 'video-1',
+    isPrivate: false,
+    permissions: {
+      canDelete: true,
+      canEdit: true,
+      canManageVisibility: true,
+    },
+    tags: ['Action'],
+    thumbnailUrl: '/thumb.jpg',
+    title: 'Catalog Fixture',
+    videoUrl: '/videos/video-1/manifest.mpd',
+    ...overrides,
+  };
+}
 
 describe('useHomeLibraryVideoActions', () => {
   afterEach(() => {
@@ -16,7 +36,7 @@ describe('useHomeLibraryVideoActions', () => {
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() => useHomeLibraryVideoActions());
 
-    await expect(result.current.deleteVideo('video-1')).resolves.toBeUndefined();
+    await expect(result.current.deleteVideo(createVideo())).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledWith('/api/delete/video-1', {
       method: 'DELETE',
     });
@@ -31,6 +51,12 @@ describe('useHomeLibraryVideoActions', () => {
           description: 'Trimmed description',
           duration: 180,
           id: 'video-1',
+          isPrivate: false,
+          permissions: {
+            canDelete: true,
+            canEdit: true,
+            canManageVisibility: true,
+          },
           tags: ['Action', 'Neo'],
           thumbnailUrl: '/thumb.jpg',
           title: 'Updated title',
@@ -42,7 +68,7 @@ describe('useHomeLibraryVideoActions', () => {
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() => useHomeLibraryVideoActions());
 
-    await expect(result.current.updateVideo('video-1', {
+    await expect(result.current.updateVideo(createVideo(), {
       description: 'Updated description',
       genreSlugs: [],
       tags: ['Action', 'Neo'],
@@ -52,6 +78,12 @@ describe('useHomeLibraryVideoActions', () => {
       description: 'Trimmed description',
       duration: 180,
       id: 'video-1',
+      isPrivate: false,
+      permissions: {
+        canDelete: true,
+        canEdit: true,
+        canManageVisibility: true,
+      },
       tags: ['Action', 'Neo'],
       thumbnailUrl: '/thumb.jpg',
       title: 'Updated title',
@@ -78,17 +110,38 @@ describe('useHomeLibraryVideoActions', () => {
     }));
     const { result } = renderHook(() => useHomeLibraryVideoActions());
 
-    await expect(result.current.deleteVideo('video-1')).rejects.toThrow('Failed to delete video');
+    await expect(result.current.deleteVideo(createVideo())).rejects.toThrow('Failed to delete video');
   });
 
   test('propagates network failures without swallowing them', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
     const { result } = renderHook(() => useHomeLibraryVideoActions());
 
-    await expect(result.current.updateVideo('video-1', {
+    await expect(result.current.updateVideo(createVideo(), {
       genreSlugs: [],
       tags: ['Action'],
       title: 'Updated title',
     })).rejects.toThrow('network down');
+  });
+
+  test('rejects update and delete before fetch when permissions are absent', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useHomeLibraryVideoActions());
+    const readOnlyVideo = createVideo({
+      permissions: {
+        canDelete: false,
+        canEdit: false,
+        canManageVisibility: false,
+      },
+    });
+
+    await expect(result.current.deleteVideo(readOnlyVideo)).rejects.toThrow('Video cannot be deleted by this viewer');
+    await expect(result.current.updateVideo(readOnlyVideo, {
+      genreSlugs: [],
+      tags: ['Action'],
+      title: 'Updated title',
+    })).rejects.toThrow('Video cannot be edited by this viewer');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

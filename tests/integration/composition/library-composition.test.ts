@@ -62,10 +62,17 @@ describe('server library composition root', () => {
     const result = await services.loadLibraryCatalogSnapshot.execute({
       rawQuery: 'Action',
       rawIncludeTags: ['Action'],
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
     });
     const vocabularyResult = await services.loadVideoMetadataVocabulary.execute();
 
-    expect(listLibraryVideos).toHaveBeenCalledOnce();
+    expect(listLibraryVideos).toHaveBeenCalledWith({
+      ownerId: 'owner-1',
+      type: 'public_or_owned',
+    });
     expect(result).toEqual({
       ok: true,
       data: {
@@ -140,6 +147,9 @@ describe('server library composition root', () => {
     await expect(first.loadLibraryCatalogSnapshot.execute({
       rawQuery: '',
       rawIncludeTags: [],
+      viewer: {
+        type: 'anonymous',
+      },
     })).resolves.toEqual({
       ok: true,
       data: {
@@ -162,7 +172,9 @@ describe('server library composition root', () => {
         },
       },
     });
-    expect(listLibraryVideos).toHaveBeenCalledOnce();
+    expect(listLibraryVideos).toHaveBeenCalledWith({
+      type: 'public_only',
+    });
   });
 
   test('library composition root does not import retiring compatibility seam files', async () => {

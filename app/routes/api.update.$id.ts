@@ -4,6 +4,7 @@ import type {
   UpdateLibraryVideoUseCaseResult,
 } from '~/modules/library/application/use-cases/update-library-video.usecase';
 import { requireProtectedApiSessionValue } from '~/composition/server/auth';
+import { toHomeLibraryVideoDto } from '~/composition/server/home-library-video-dto';
 import { getServerLibraryServices } from '~/composition/server/library';
 import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer';
 
@@ -51,6 +52,7 @@ export function createUpdateVideoAction(
   return async function action({ request, params }: ActionFunctionArgs) {
     const authSession = await deps.requireProtectedApiSessionValue(request);
     if (authSession instanceof Response) return authSession;
+    const viewer = toAuthenticatedVideoPolicyViewer(authSession);
 
     if (request.method !== 'PUT' && request.method !== 'PATCH') {
       return Response.json({ success: false, error: 'Method not allowed' }, { status: 405 });
@@ -70,7 +72,7 @@ export function createUpdateVideoAction(
         description: input.description,
         tags: input.tags,
         title: input.title,
-        viewer: toAuthenticatedVideoPolicyViewer(authSession),
+        viewer,
         videoId,
       };
 
@@ -88,7 +90,7 @@ export function createUpdateVideoAction(
       return Response.json({
         message: result.data.message,
         success: true,
-        video: result.data.video,
+        video: toHomeLibraryVideoDto(result.data.video, viewer),
       });
     }
     catch (error) {

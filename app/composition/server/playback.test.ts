@@ -8,6 +8,11 @@ const RETIRED_PLAYBACK_FILENAMES = [
   'legacy-playback-clearkey.service.adapter',
 ] as const;
 
+const ownerReadScope = {
+  ownerId: 'owner-1',
+  type: 'public_or_owned' as const,
+};
+
 function expectSourceToExcludeRetiredPlaybackFilenames(source: string) {
   for (const fileName of RETIRED_PLAYBACK_FILENAMES) {
     expect(source).not.toContain(fileName);
@@ -25,7 +30,7 @@ describe('server playback composition root', () => {
     const { createServerPlaybackServices } = await import('./playback');
     const issue = vi.fn(async () => 'signed-token');
     const validate = vi.fn(async (token: string) => (token === 'signed-token'
-      ? { videoId: 'video-1' }
+      ? { userId: 'owner-1', videoId: 'video-1' }
       : null));
     const services = createServerPlaybackServices({
       clearKeyService: {
@@ -51,6 +56,18 @@ describe('server playback composition root', () => {
         issue,
         validate,
       },
+      videoRead: {
+        findLibraryVideoById: async () => ({
+          createdAt: new Date('2026-03-09T00:00:00.000Z'),
+          duration: 60,
+          id: 'video-1',
+          ownerId: 'owner-1',
+          tags: ['vault'],
+          title: 'Player video',
+          videoUrl: '/videos/video-1/manifest.mpd',
+          visibility: 'private',
+        }),
+      },
       videoCatalog: {
         getPlayerVideo: async () => ({
           relatedVideos: [],
@@ -67,7 +84,7 @@ describe('server playback composition root', () => {
     });
 
     await expect(services.issuePlaybackToken.execute({
-      hasSiteSession: true,
+      authenticatedUserId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       success: true,
@@ -78,6 +95,7 @@ describe('server playback composition root', () => {
       },
     });
     await expect(services.resolvePlayerVideo.execute({
+      readScope: ownerReadScope,
       videoId: 'video-1',
     })).resolves.toEqual({
       ok: true,
@@ -89,6 +107,7 @@ describe('server playback composition root', () => {
     });
     await expect(services.servePlaybackManifest.execute({
       token: 'signed-token',
+      userId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       body: '<MPD />',
@@ -100,6 +119,7 @@ describe('server playback composition root', () => {
       mediaType: 'video',
       rangeHeader: null,
       token: 'signed-token',
+      userId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       headers: { 'Content-Length': '64' },
@@ -110,6 +130,7 @@ describe('server playback composition root', () => {
     });
     await expect(services.servePlaybackClearKeyLicense.execute({
       token: 'signed-token',
+      userId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       body: '{"keys":[]}',
@@ -152,10 +173,22 @@ describe('server playback composition root', () => {
         issue,
         validate: async () => null,
       },
+      videoRead: {
+        findLibraryVideoById: async () => ({
+          createdAt: new Date('2026-03-09T00:00:00.000Z'),
+          duration: 60,
+          id: 'video-1',
+          ownerId: 'owner-1',
+          tags: [],
+          title: 'Player video',
+          videoUrl: '/videos/video-1/manifest.mpd',
+          visibility: 'private',
+        }),
+      },
     });
 
     await expect(services.issuePlaybackToken.execute({
-      hasSiteSession: true,
+      authenticatedUserId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       success: true,
@@ -177,6 +210,7 @@ describe('server playback composition root', () => {
     });
 
     await expect(services.resolvePlayerVideo.execute({
+      readScope: ownerReadScope,
       videoId: 'missing-video',
     })).resolves.toEqual({
       ok: false,

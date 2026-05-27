@@ -10,6 +10,9 @@ describe('CreatePlaylistUseCase', () => {
         create,
         nameExistsForOwner,
       },
+      videoCatalog: {
+        findById: vi.fn(),
+      },
     });
 
     await expect(useCase.execute({
@@ -43,6 +46,13 @@ describe('CreatePlaylistUseCase', () => {
       playlistRepository: {
         create,
         nameExistsForOwner: vi.fn(async () => false),
+      },
+      videoCatalog: {
+        findById: vi.fn(async videoId => ({
+          duration: 60,
+          id: videoId,
+          title: videoId,
+        })),
       },
     });
 
@@ -79,5 +89,35 @@ describe('CreatePlaylistUseCase', () => {
       type: 'series',
       videoIds: ['video-1'],
     });
+  });
+
+  test('rejects initial videos that are not accessible to the playlist owner', async () => {
+    const create = vi.fn();
+    const findById = vi.fn(async () => null);
+    const useCase = new CreatePlaylistUseCase({
+      playlistRepository: {
+        create,
+        nameExistsForOwner: vi.fn(async () => false),
+      },
+      videoCatalog: {
+        findById,
+      },
+    });
+
+    await expect(useCase.execute({
+      initialVideoIds: ['other-private-video'],
+      name: 'Vault',
+      ownerId: 'owner-1',
+      type: 'user_created',
+    })).resolves.toEqual({
+      message: 'Video with ID "other-private-video" not found',
+      ok: false,
+      reason: 'VIDEO_NOT_FOUND',
+    });
+    expect(findById).toHaveBeenCalledWith('other-private-video', {
+      ownerId: 'owner-1',
+      type: 'public_or_owned',
+    });
+    expect(create).not.toHaveBeenCalled();
   });
 });

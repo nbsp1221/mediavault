@@ -1,16 +1,18 @@
+import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import type {
   PlaybackMediaSegmentService,
   PlaybackMediaType,
 } from '../ports/playback-media-segment-service.port';
 import type { PlaybackTokenService } from '../ports/playback-token-service.port';
 import {
-  type PlaybackResourceDecision,
-  PlaybackResourcePolicy,
-} from '../../domain/policies/PlaybackResourcePolicy';
+  type PlaybackResourceReadAuthorizationResult,
+  authorizePlaybackResourceRead,
+} from './authorize-playback-resource-read';
 
 interface ServePlaybackMediaSegmentUseCaseDependencies {
   mediaSegmentService: PlaybackMediaSegmentService;
   tokenService: PlaybackTokenService;
+  videoRead: LibraryVideoReadPort;
 }
 
 interface ServePlaybackMediaSegmentUseCaseInput {
@@ -18,6 +20,7 @@ interface ServePlaybackMediaSegmentUseCaseInput {
   mediaType: PlaybackMediaType;
   rangeHeader: string | null;
   token: string | null;
+  userId: string;
   videoId: string;
 }
 
@@ -29,29 +32,24 @@ type ServePlaybackMediaSegmentUseCaseResult =
     statusCode?: number;
     stream: ReadableStream;
   }
-  | ({
-    ok: false;
-  } & Omit<Extract<PlaybackResourceDecision, { allowed: false }>, 'allowed'>);
+  | Exclude<PlaybackResourceReadAuthorizationResult<'audio-segment' | 'segment'>, { ok: true }>;
 
 export class ServePlaybackMediaSegmentUseCase {
   constructor(private readonly deps: ServePlaybackMediaSegmentUseCaseDependencies) {}
 
   async execute(input: ServePlaybackMediaSegmentUseCaseInput): Promise<ServePlaybackMediaSegmentUseCaseResult> {
-    const payload = input.token
-      ? await this.deps.tokenService.validate(input.token)
-      : null;
-    const decision = PlaybackResourcePolicy.evaluate({
-      requestedVideoId: input.videoId,
-      resource: input.mediaType === 'audio' ? 'audio-segment' : 'segment',
-      token: payload,
+    const resource = input.mediaType === 'audio' ? 'audio-segment' : 'segment';
+    const authorization = await authorizePlaybackResourceRead({
+      resource,
+      token: input.token,
+      tokenService: this.deps.tokenService,
+      userId: input.userId,
+      videoId: input.videoId,
+      videoRead: this.deps.videoRead,
     });
 
-    if (!decision.allowed) {
-      return {
-        metadata: decision.metadata,
-        ok: false,
-        reason: decision.reason,
-      };
+    if (!authorization.ok) {
+      return authorization;
     }
 
     const segment = await this.deps.mediaSegmentService.serveSegment({

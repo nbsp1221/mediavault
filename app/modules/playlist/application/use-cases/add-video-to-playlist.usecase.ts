@@ -1,6 +1,7 @@
+import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { PlaylistItem } from '../../domain/playlist';
 import type { PlaylistRepositoryPort } from '../ports/playlist-repository.port';
-import type { PlaylistCatalogVideoSummary } from '../ports/playlist-video-catalog.port';
+import type { PlaylistVideoCatalogPort } from '../ports/playlist-video-catalog.port';
 
 export interface AddVideoToPlaylistInput {
   episodeMetadata?: PlaylistItem['episodeMetadata'];
@@ -37,9 +38,7 @@ export type AddVideoToPlaylistUseCaseResult =
 
 interface AddVideoToPlaylistUseCaseDependencies {
   playlistRepository: Pick<PlaylistRepositoryPort, 'addVideoToPlaylist' | 'findById'>;
-  videoCatalog: {
-    findById(videoId: string): Promise<PlaylistCatalogVideoSummary | null>;
-  };
+  videoCatalog: Pick<PlaylistVideoCatalogPort, 'findById'>;
 }
 
 export class AddVideoToPlaylistUseCase {
@@ -75,7 +74,10 @@ export class AddVideoToPlaylistUseCase {
         };
       }
 
-      const video = await this.deps.videoCatalog.findById(input.videoId);
+      const video = await this.deps.videoCatalog.findById(input.videoId, createVideoReadAccessScope({
+        type: 'authenticated',
+        userId: input.ownerId,
+      }));
       if (!video) {
         return {
           message: `Video with ID "${input.videoId}" not found`,
