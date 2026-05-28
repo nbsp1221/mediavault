@@ -94,6 +94,7 @@ describe('CI parity contract', () => {
   });
 
   test('keeps changed-file mutation as a required local base verification gate', async () => {
+    const workflow = await readFile('.github/workflows/ci.yml', 'utf8');
     const packageJson = JSON.parse(await readFile('package.json', 'utf8')) as {
       scripts: Record<string, string>;
     };
@@ -122,6 +123,9 @@ describe('CI parity contract', () => {
     expect(packageJson.scripts.check).toContain('bun run test:coverage && bun run test:mutation:changed && bun run build');
     expect(packageJson.scripts.check).toContain('bun run build && bun run test:smoke:bun-auth:run');
     expect(packageJson.scripts.check).not.toContain('bun run test:mutation &&');
+    expect(workflow).not.toContain('mutation-changed:');
+    expect(workflow).not.toContain('run: bun run test:mutation:changed');
+    expect(workflow).toContain('needs: [typecheck, lint, test, coverage, e2e-smoke, build]');
     expect(changedFileMutationEntrypoint).toContain('runChangedFileMutation');
     expect(changedFileMutationEntrypoint).toContain('./lib/mutation/changed-file-mutation');
     expect(changedFileMutationEntrypoint).toContain('process.exit(await runChangedFileMutation())');
@@ -132,6 +136,7 @@ describe('CI parity contract', () => {
     expect(changedFileMutationModule).toContain('options.files.join(\',\')');
     expect(sharedChangedFilesModule).toContain('--diff-filter=ACMRT');
     expect(verificationContract).toContain('bun run test:mutation:changed');
+    expect(verificationContract).toContain('Changed-file mutation is intentionally local-only in GitHub Actions');
     expect(verificationContract).toContain('Test-facing Vitest, Stryker, and runtime smoke helpers set `MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1`');
     expect(verificationContract).toContain('inherits the shared `thresholds.break: 70` mutation-score floor');
   });

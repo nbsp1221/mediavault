@@ -1,18 +1,14 @@
 import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
+import {
+  CRITICAL_PRODUCTION_SECRET_KEYS,
+  getWeakPlaybackJwtSecretMessage,
+  isWeakPlaybackJwtSecret,
+} from '~/shared/config/runtime-config-contract.server';
 
 interface AdminApiConfig {
   mode: 'always' | 'bootstrap' | 'disabled';
   token: string | null;
 }
-
-export const CRITICAL_PRODUCTION_SECRET_KEYS = [
-  PUBLIC_ENV_KEYS.databaseEncryptionKey,
-  PUBLIC_ENV_KEYS.playbackJwtSecret,
-  PUBLIC_ENV_KEYS.mediaKeyDerivationSecret,
-  PUBLIC_ENV_KEYS.authClientCookieSecret,
-] as const;
-
-export type CriticalProductionSecretKey = typeof CRITICAL_PRODUCTION_SECRET_KEYS[number];
 
 export type RuntimeEnvironment = Record<string, string | undefined>;
 
@@ -68,10 +64,10 @@ export function collectCriticalProductionSecretIssues(
   return CRITICAL_PRODUCTION_SECRET_KEYS.flatMap<ProductionReadinessIssue>((key) => {
     const value = env[key]?.trim();
     if (value) {
-      if (key === PUBLIC_ENV_KEYS.playbackJwtSecret && value.length < 32) {
+      if (key === PUBLIC_ENV_KEYS.playbackJwtSecret && isWeakPlaybackJwtSecret(value)) {
         return [{
           code: 'weak-critical-secret',
-          message: `Production startup preflight failed: ${key} must be at least 32 characters`,
+          message: `Production startup preflight failed: ${getWeakPlaybackJwtSecretMessage()}`,
           severity: 'startup-blocking',
           subject: key,
         } satisfies ProductionReadinessIssue];

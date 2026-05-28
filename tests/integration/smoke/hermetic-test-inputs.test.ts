@@ -90,4 +90,41 @@ describe('verify-hermetic-test-inputs', () => {
       }),
     ]));
   });
+
+  test('rejects independent production-like runtime fixture env blocks outside the fixture authority', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'runtime-fixture-drift-'));
+    cleanupPaths.push(rootDir);
+
+    await mkdir(join(rootDir, 'scripts'), { recursive: true });
+    await mkdir(join(rootDir, 'tests', 'support'), { recursive: true });
+    await writeFile(
+      join(rootDir, 'scripts', 'bad-runtime-smoke.ts'),
+      `export const env = {
+        MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'local-db-secret',
+        MEDIAVAULT_PLAYBACK_JWT_SECRET: 'local-playback-secret-0123456789',
+        MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: 'local-media-secret',
+        MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: 'local-cookie-secret',
+      };`,
+    );
+    await writeFile(
+      join(rootDir, 'tests', 'support', 'runtime-test-env.ts'),
+      `export const env = {
+        MEDIAVAULT_PLAYBACK_JWT_SECRET: 'central-fixture-secret-0123456789',
+      };`,
+    );
+
+    const violations = await collectHermeticTestInputViolations(rootDir);
+
+    expect(violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        filePath: 'scripts/bad-runtime-smoke.ts',
+        message: expect.stringContaining('tests/support/runtime-test-env.ts'),
+      }),
+    ]));
+    expect(violations).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        filePath: 'tests/support/runtime-test-env.ts',
+      }),
+    ]));
+  });
 });

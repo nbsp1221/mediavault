@@ -5,13 +5,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { PUBLIC_ENV_KEYS } from '../../../app/shared/config/public-env.server';
 import { seedDemoStorage } from '../../../scripts/seed-demo-storage';
 import { verifyPrimaryStorageIntegrity } from '../../../scripts/verify-data-integrity';
-import { TEST_DATABASE_ENCRYPTION_KEY } from '../../support/database-encryption-key';
+import { createRuntimeTestEnv, RUNTIME_TEST_SECRETS } from '../../support/runtime-test-env';
 
 const REPO_ROOT = process.cwd();
 const DEMO_SEED_SCRIPT = './scripts/seed-demo-storage.ts';
-const TEST_MASTER_SEED = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const ORIGINAL_DATABASE_ENCRYPTION_KEY = process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 const ORIGINAL_MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
@@ -70,9 +70,9 @@ describe('demo storage seed script', () => {
     const databasePath = path.join(storageDir, 'db.sqlite');
 
     const result = runSeedScript(['--dry-run'], {
-      MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
-      MEDIAVAULT_STORAGE_DIR: storageDir,
-      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: TEST_MASTER_SEED,
+      ...createRuntimeTestEnv({
+        [PUBLIC_ENV_KEYS.storageDir]: storageDir,
+      }),
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -120,9 +120,10 @@ describe('demo storage seed script', () => {
     const storageDir = path.join(rootDir, 'storage');
 
     const result = runSeedScript([], {
-      MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
-      MEDIAVAULT_STORAGE_DIR: storageDir,
-      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: undefined,
+      ...createRuntimeTestEnv({
+        [PUBLIC_ENV_KEYS.storageDir]: storageDir,
+      }),
+      [PUBLIC_ENV_KEYS.mediaKeyDerivationSecret]: undefined,
     });
 
     expect(result.status).toBe(1);
@@ -141,9 +142,9 @@ describe('demo storage seed script', () => {
     let generatedSources = 0;
     let startCalls = 0;
 
-    process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = TEST_DATABASE_ENCRYPTION_KEY;
-    process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
-    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = TEST_MASTER_SEED;
+    process.env[PUBLIC_ENV_KEYS.databaseEncryptionKey] = RUNTIME_TEST_SECRETS.databaseEncryptionKey;
+    process.env[PUBLIC_ENV_KEYS.storageDir] = storageDir;
+    process.env[PUBLIC_ENV_KEYS.mediaKeyDerivationSecret] = RUNTIME_TEST_SECRETS.mediaKeyDerivationSecret;
     const ownerDatabase = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
     await ownerDatabase.prepare(`
       INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)

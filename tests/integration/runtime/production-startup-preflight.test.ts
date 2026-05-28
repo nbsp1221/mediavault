@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createRuntimeReadinessServices } from '../../../app/composition/server/runtime-readiness';
-import { TEST_DATABASE_ENCRYPTION_KEY } from '../../support/database-encryption-key';
+import { createProductionRuntimeTestEnv } from '../../support/runtime-test-env';
 
 const tempRoots: string[] = [];
 
@@ -14,14 +14,7 @@ async function createTempRoot(): Promise<string> {
 }
 
 function createProductionEnv(overrides: Record<string, string | undefined> = {}) {
-  return {
-    MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
-    NODE_ENV: 'production',
-    MEDIAVAULT_PLAYBACK_JWT_SECRET: 'test-video-jwt-secret-0123456789abcdef',
-    MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: 'test-master-encryption-seed',
-    MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: 'test-auth-client-cookie-secret',
-    ...overrides,
-  };
+  return createProductionRuntimeTestEnv(overrides);
 }
 
 afterEach(async () => {
@@ -90,7 +83,7 @@ describe('production startup preflight', () => {
   test('does not leak raw encrypted database open failures through startup errors', async () => {
     const root = await createTempRoot();
     const logger = { error: vi.fn(), warn: vi.fn() };
-    const secretValue = TEST_DATABASE_ENCRYPTION_KEY;
+    const secretValue = createProductionEnv().MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
     const services = createRuntimeReadinessServices({
       env: createProductionEnv(),
       getStorageConfig: () => ({
@@ -175,7 +168,7 @@ describe('production startup preflight', () => {
   test('readiness reports a generic database issue when auth user counting fails', async () => {
     const root = await createTempRoot();
     const logger = { error: vi.fn(), warn: vi.fn() };
-    const secretValue = TEST_DATABASE_ENCRYPTION_KEY;
+    const secretValue = createProductionEnv().MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
     const services = createRuntimeReadinessServices({
       env: createProductionEnv(),
       getStorageConfig: () => ({

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createRuntimeTestEnv } from '../../support/create-runtime-test-env';
+import { createRuntimeTestEnv, RUNTIME_TEST_SECRETS } from '../../support/create-runtime-test-env';
 
 describe('createRuntimeTestEnv', () => {
   test('builds a deterministic runtime test env without ambient auth or playback secrets', () => {
@@ -24,14 +24,12 @@ describe('createRuntimeTestEnv', () => {
       expect(env.MEDIAVAULT_STORAGE_DIR).toBe('/tmp/storage');
       expect(env.LOCAL_STREAMER_DISABLE_VITE_ENV_FILES).toBe('true');
       expect(env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS).toBe('1');
-      expect(env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET).toBe('smoke-auth-client-cookie-secret');
+      expect(env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET).toBe(RUNTIME_TEST_SECRETS.authClientCookieSecret);
       expect(env.TZ).toBe('Etc/UTC');
       expect(env.LANG).toBe('C.UTF-8');
       expect(env.LC_ALL).toBe('C.UTF-8');
-      expect(env.MEDIAVAULT_PLAYBACK_JWT_SECRET).toBe('smoke-video-jwt-secret-0123456789abcdef');
-      expect(env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET).toBe(
-        '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-      );
+      expect(env.MEDIAVAULT_PLAYBACK_JWT_SECRET).toBe(RUNTIME_TEST_SECRETS.playbackJwtSecret);
+      expect(env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET).toBe(RUNTIME_TEST_SECRETS.mediaKeyDerivationSecret);
       expect(env.LOCAL_STREAMER_SMOKE_NOISE).toBeUndefined();
     }
     finally {

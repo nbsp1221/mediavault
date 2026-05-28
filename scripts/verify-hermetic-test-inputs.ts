@@ -22,7 +22,20 @@ const APP_ENV_ACCESS_ALLOWLIST = new Set([
 const SCAN_SKIP_PATHS = new Set([
   'tests/integration/smoke/browser-smoke-fixture-contract.test.ts',
   'tests/integration/smoke/hermetic-test-inputs.test.ts',
+  'tests/integration/shared/playback-storage-paths.server.test.ts',
+  'tests/integration/shared/runtime-env.server.test.ts',
+  'tests/integration/shared/storage-paths.server.test.ts',
+  'tests/integration/thumbnail/pbkdf2-thumbnail-key-manager.test.ts',
 ]);
+
+const RUNTIME_FIXTURE_AUTHORITY_PATHS = new Set([
+  'tests/support/runtime-test-env.ts',
+  'tests/support/create-runtime-test-env.ts',
+  'tests/support/database-encryption-key.ts',
+]);
+
+const RUNTIME_FIXTURE_ENV_LITERAL_PATTERN =
+  /\b(?:MEDIAVAULT_DATABASE_ENCRYPTION_KEY|MEDIAVAULT_PLAYBACK_JWT_SECRET|MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET|MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET)\s*:/;
 
 const FORBIDDEN_PATTERNS = [
   {
@@ -71,7 +84,7 @@ async function fileExists(filePath: string): Promise<boolean> {
 
 async function collectTargetFiles(rootDir: string): Promise<string[]> {
   const results: string[] = [];
-  const queue = ['tests/support', 'tests/e2e', 'tests/integration/smoke', 'scripts'];
+  const queue = ['tests', 'scripts'];
 
   while (queue.length > 0) {
     const current = queue.shift();
@@ -236,6 +249,16 @@ export async function collectHermeticTestInputViolations(rootDir = process.cwd()
           message: forbidden.message,
         });
       }
+    }
+
+    if (
+      !RUNTIME_FIXTURE_AUTHORITY_PATHS.has(relativePath) &&
+      RUNTIME_FIXTURE_ENV_LITERAL_PATTERN.test(source)
+    ) {
+      violations.push({
+        filePath: relativePath,
+        message: 'Production-like runtime fixture env values must come from tests/support/runtime-test-env.ts.',
+      });
     }
   }
 

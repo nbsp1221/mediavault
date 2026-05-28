@@ -8,44 +8,8 @@ env:
 on:
   push:
     branches: [main]
-    paths:
-      - "app/server.ts"
-      - "app/routes/health.ready.ts"
-      - "app/composition/server/runtime-readiness.ts"
-      - "app/modules/runtime/**"
-      - "app/shared/config/auth.server.ts"
-      - "app/shared/config/playback.server.ts"
-      - "app/shared/config/video-tools.server.ts"
-      - "app/modules/storage/**"
-      - "Dockerfile"
-      - "docker-compose.yaml"
-      - ".dockerignore"
-      - "scripts/download-ffmpeg.sh"
-      - "scripts/download-shaka-packager.sh"
-      - "scripts/verify-docker-compose-smoke.ts"
-      - "package.json"
-      - "bun.lock"
-      - ".github/workflows/docker-compose-smoke.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "app/server.ts"
-      - "app/routes/health.ready.ts"
-      - "app/composition/server/runtime-readiness.ts"
-      - "app/modules/runtime/**"
-      - "app/shared/config/auth.server.ts"
-      - "app/shared/config/playback.server.ts"
-      - "app/shared/config/video-tools.server.ts"
-      - "app/modules/storage/**"
-      - "Dockerfile"
-      - "docker-compose.yaml"
-      - ".dockerignore"
-      - "scripts/download-ffmpeg.sh"
-      - "scripts/download-shaka-packager.sh"
-      - "scripts/verify-docker-compose-smoke.ts"
-      - "package.json"
-      - "bun.lock"
-      - ".github/workflows/docker-compose-smoke.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}

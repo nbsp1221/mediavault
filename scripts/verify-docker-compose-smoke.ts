@@ -1,6 +1,13 @@
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PUBLIC_ENV_KEYS } from '../app/shared/config/public-env.server';
+import {
+  assertRuntimeTestEnvConfigurable,
+  createDockerComposeRuntimeTestEnv,
+  runtimeSecretLogValues,
+  withoutRuntimeEnvKey,
+} from '../tests/support/runtime-test-env';
 
 const POLL_TIMEOUT_MS = 90_000;
 const POLL_INTERVAL_MS = 1_000;
@@ -388,24 +395,15 @@ async function main(): Promise<void> {
       throw new Error(`docker build failed:\n${build.stderr}`);
     }
 
-    const baseEnv = {
-      MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'compose-test-database-encryption-key',
-      MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
-      MEDIAVAULT_ADMIN_API_TOKEN: 'compose-test-admin-token',
-      NODE_ENV: 'production',
-      PORT: '3000',
-      MEDIAVAULT_STORAGE_DIR: '/app/storage',
-      MEDIAVAULT_PLAYBACK_JWT_SECRET: 'compose-test-video-jwt-secret',
-      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: 'compose-test-master-encryption-seed',
-      MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: 'compose-test-auth-client-cookie-secret',
-    };
-    const forbiddenSecretLogValues = [
-      baseEnv.MEDIAVAULT_DATABASE_ENCRYPTION_KEY,
-      baseEnv.MEDIAVAULT_ADMIN_API_TOKEN,
-      baseEnv.MEDIAVAULT_PLAYBACK_JWT_SECRET,
-      baseEnv.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET,
-      baseEnv.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET,
-    ];
+    const baseEnv = createDockerComposeRuntimeTestEnv();
+    try {
+      assertRuntimeTestEnvConfigurable(baseEnv);
+    }
+    catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`Docker smoke configured fixture is invalid before Docker execution:\n${reason}`);
+    }
+    const forbiddenSecretLogValues = runtimeSecretLogValues(baseEnv);
 
     const scenarios: ComposeScenario[] = [
       {
@@ -418,10 +416,9 @@ async function main(): Promise<void> {
       },
       {
         env: {
-          ...baseEnv,
-          MEDIAVAULT_PLAYBACK_JWT_SECRET: undefined,
+          ...withoutRuntimeEnvKey(baseEnv, PUBLIC_ENV_KEYS.playbackJwtSecret),
         },
-        expectLogIncludes: ['MEDIAVAULT_PLAYBACK_JWT_SECRET'],
+        expectLogIncludes: [PUBLIC_ENV_KEYS.playbackJwtSecret],
         expectedFinalState: 'exited',
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'missing-secret',
@@ -429,10 +426,9 @@ async function main(): Promise<void> {
       },
       {
         env: {
-          ...baseEnv,
-          MEDIAVAULT_DATABASE_ENCRYPTION_KEY: undefined,
+          ...withoutRuntimeEnvKey(baseEnv, PUBLIC_ENV_KEYS.databaseEncryptionKey),
         },
-        expectLogIncludes: ['MEDIAVAULT_DATABASE_ENCRYPTION_KEY'],
+        expectLogIncludes: [PUBLIC_ENV_KEYS.databaseEncryptionKey],
         expectedFinalState: 'exited',
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'missing-database-encryption-key',
@@ -440,10 +436,9 @@ async function main(): Promise<void> {
       },
       {
         env: {
-          ...baseEnv,
-          MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: undefined,
+          ...withoutRuntimeEnvKey(baseEnv, PUBLIC_ENV_KEYS.authClientCookieSecret),
         },
-        expectLogIncludes: ['MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET'],
+        expectLogIncludes: [PUBLIC_ENV_KEYS.authClientCookieSecret],
         expectedFinalState: 'exited',
         forbiddenLogIncludes: forbiddenSecretLogValues,
         name: 'missing-auth-client-cookie-secret',
