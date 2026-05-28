@@ -47,6 +47,16 @@ const REQUIRED_FIXTURE_PATHS = [
   'tests/fixtures/playback/754c6828-621c-4df6-9cf8-a3d77297b85a/audio/init.mp4',
   'tests/fixtures/playback/754c6828-621c-4df6-9cf8-a3d77297b85a/key.bin',
   'tests/fixtures/playback/754c6828-621c-4df6-9cf8-a3d77297b85a/thumbnail.jpg',
+  'tests/fixtures/playback/2f4f9f2d-8c56-4c51-93f8-6d3a5dfb8e10/manifest.mpd',
+  'tests/fixtures/playback/2f4f9f2d-8c56-4c51-93f8-6d3a5dfb8e10/video/init.mp4',
+  'tests/fixtures/playback/2f4f9f2d-8c56-4c51-93f8-6d3a5dfb8e10/audio/init.mp4',
+  'tests/fixtures/playback/2f4f9f2d-8c56-4c51-93f8-6d3a5dfb8e10/key.bin',
+  'tests/fixtures/playback/2f4f9f2d-8c56-4c51-93f8-6d3a5dfb8e10/thumbnail.jpg',
+  'tests/fixtures/playback/a64a979f-1e64-4f38-8d9b-035ff7f4730a/manifest.mpd',
+  'tests/fixtures/playback/a64a979f-1e64-4f38-8d9b-035ff7f4730a/video/init.mp4',
+  'tests/fixtures/playback/a64a979f-1e64-4f38-8d9b-035ff7f4730a/audio/init.mp4',
+  'tests/fixtures/playback/a64a979f-1e64-4f38-8d9b-035ff7f4730a/key.bin',
+  'tests/fixtures/playback/a64a979f-1e64-4f38-8d9b-035ff7f4730a/thumbnail.jpg',
 ] as const;
 
 async function fileExists(filePath: string): Promise<boolean> {

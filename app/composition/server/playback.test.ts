@@ -12,6 +12,13 @@ const ownerReadScope = {
   ownerId: 'owner-1',
   type: 'public_or_owned' as const,
 };
+const authenticatedTokenPayload = {
+  jti: 'token-1',
+  readScope: 'public_or_owned' as const,
+  subjectUserId: 'owner-1',
+  videoId: 'video-1',
+  viewerType: 'authenticated' as const,
+};
 
 function expectSourceToExcludeRetiredPlaybackFilenames(source: string) {
   for (const fileName of RETIRED_PLAYBACK_FILENAMES) {
@@ -30,7 +37,7 @@ describe('server playback composition root', () => {
     const { createServerPlaybackServices } = await import('./playback');
     const issue = vi.fn(async () => 'signed-token');
     const validate = vi.fn(async (token: string) => (token === 'signed-token'
-      ? { userId: 'owner-1', videoId: 'video-1' }
+      ? authenticatedTokenPayload
       : null));
     const services = createServerPlaybackServices({
       clearKeyService: {
@@ -84,14 +91,14 @@ describe('server playback composition root', () => {
     });
 
     await expect(services.issuePlaybackToken.execute({
-      authenticatedUserId: 'owner-1',
       videoId: 'video-1',
+      viewer: { type: 'authenticated', userId: 'owner-1' },
     })).resolves.toEqual({
       success: true,
       token: 'signed-token',
       urls: {
-        clearkey: '/videos/video-1/clearkey?token=signed-token',
-        manifest: '/videos/video-1/manifest.mpd?token=signed-token',
+        clearkey: '/videos/video-1/clearkey',
+        manifest: '/videos/video-1/manifest.mpd',
       },
     });
     await expect(services.resolvePlayerVideo.execute({
@@ -107,7 +114,6 @@ describe('server playback composition root', () => {
     });
     await expect(services.servePlaybackManifest.execute({
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       body: '<MPD />',
@@ -119,7 +125,6 @@ describe('server playback composition root', () => {
       mediaType: 'video',
       rangeHeader: null,
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       headers: { 'Content-Length': '64' },
@@ -130,7 +135,6 @@ describe('server playback composition root', () => {
     });
     await expect(services.servePlaybackClearKeyLicense.execute({
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       body: '{"keys":[]}',
@@ -188,14 +192,14 @@ describe('server playback composition root', () => {
     });
 
     await expect(services.issuePlaybackToken.execute({
-      authenticatedUserId: 'owner-1',
       videoId: 'video-1',
+      viewer: { type: 'authenticated', userId: 'owner-1' },
     })).resolves.toEqual({
       success: true,
       token: 'signed-token',
       urls: {
-        clearkey: '/videos/video-1/clearkey?token=signed-token',
-        manifest: '/videos/video-1/manifest.mpd?token=signed-token',
+        clearkey: '/videos/video-1/clearkey',
+        manifest: '/videos/video-1/manifest.mpd',
       },
     });
     expect(issue).toHaveBeenCalledOnce();

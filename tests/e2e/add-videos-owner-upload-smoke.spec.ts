@@ -5,11 +5,14 @@ const uploadFixturePath = path.resolve('tests/fixtures/upload/smoke-upload.mp4')
 
 test.describe('add-videos owner upload smoke', () => {
   test('uploads a browser-selected video and commits it to the library', async ({ page }) => {
-    const requests: string[] = [];
+    const requests: Array<{ headers: Record<string, string>; url: string }> = [];
     const responses: Array<{ status: number; url: string }> = [];
 
     page.on('request', (request) => {
-      requests.push(request.url());
+      requests.push({
+        headers: request.headers(),
+        url: request.url(),
+      });
     });
     page.on('response', (response) => {
       responses.push({
@@ -73,18 +76,26 @@ test.describe('add-videos owner upload smoke', () => {
       timeout: 10_000,
     }).toBeGreaterThan(0);
 
-    const protectedRequests = requests.filter(url => url.includes(`/videos/${videoId}/`));
+    const protectedRequests = requests.filter(request => request.url.includes(`/videos/${videoId}/`));
     const unauthorizedProtectedResponses = responses.filter(response => (
       (response.status === 401 || response.status === 403) &&
-      response.url.includes(`/videos/${videoId}/`)
+      response.url.includes(`/videos/${videoId}/`) &&
+      !response.url.includes(`/videos/${videoId}/manifest.mpd`)
+    ));
+    const successfulManifestResponses = responses.filter(response => (
+      response.status === 200 &&
+      response.url.includes(`/videos/${videoId}/manifest.mpd`)
     ));
 
     await expect(page.getByText('Playback error')).toHaveCount(0);
-    expect(protectedRequests.some(url => url.includes(`/videos/${videoId}/token`))).toBe(true);
-    expect(protectedRequests.some(url => url.includes(`/videos/${videoId}/clearkey`) && url.includes('token='))).toBe(true);
-    expect(protectedRequests.some(url => url.includes(`/videos/${videoId}/manifest.mpd`) && url.includes('token='))).toBe(true);
-    expect(protectedRequests.some(url => url.includes(`/videos/${videoId}/audio/`) && url.includes('token='))).toBe(true);
-    expect(protectedRequests.some(url => url.includes(`/videos/${videoId}/video/`) && url.includes('token='))).toBe(true);
+    expect(protectedRequests.some(request => request.url.includes(`/videos/${videoId}/token`))).toBe(true);
+    expect(protectedRequests.some(request => request.url.includes(`/videos/${videoId}/clearkey`))).toBe(true);
+    expect(protectedRequests.some(request => request.url.includes(`/videos/${videoId}/manifest.mpd`))).toBe(true);
+    expect(protectedRequests.some(request => request.url.includes(`/videos/${videoId}/audio/`))).toBe(true);
+    expect(protectedRequests.some(request => request.url.includes(`/videos/${videoId}/video/`))).toBe(true);
+    expect(protectedRequests.every(request => !request.url.includes('token='))).toBe(true);
+    expect(protectedRequests.some(request => request.headers.authorization?.startsWith('Bearer '))).toBe(true);
+    expect(successfulManifestResponses.length).toBeGreaterThan(0);
     expect(unauthorizedProtectedResponses).toEqual([]);
   });
 });

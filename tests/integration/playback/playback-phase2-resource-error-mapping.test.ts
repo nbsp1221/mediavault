@@ -66,6 +66,7 @@ describe('playback resource route error mapping', () => {
     } as never);
 
     expect(response.status).toBe(400);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.text()).resolves.toBe('Invalid video ID format');
   });
 
@@ -91,6 +92,7 @@ describe('playback resource route error mapping', () => {
     } as never);
 
     expect(response.status).toBe(416);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(response.headers.get('Content-Range')).toBe('bytes */512');
     await expect(response.text()).resolves.toBe('Range not satisfiable');
   });
@@ -110,6 +112,7 @@ describe('playback resource route error mapping', () => {
     } as never);
 
     expect(response.status).toBe(404);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.text()).resolves.toBe('video segment');
   });
 
@@ -132,8 +135,10 @@ describe('playback resource route error mapping', () => {
     } as never);
 
     expect(loaderResponse.status).toBe(500);
+    expect(loaderResponse.headers.get('Cache-Control')).toBe('no-store');
     await expect(loaderResponse.text()).resolves.toBe('Clear Key license access denied');
     expect(actionResponse.status).toBe(500);
+    expect(actionResponse.headers.get('Cache-Control')).toBe('no-store');
     await expect(actionResponse.text()).resolves.toBe('Clear Key license access denied');
   });
 });

@@ -3,19 +3,23 @@ import { loginToPlayer } from './support/player-auth';
 
 const playbackFixtureVideoId = '68e5f819-15e8-41ef-90ee-8a96769311b7';
 test.describe('player playback compatibility', () => {
-  test('boots protected playback without dash.js DRM bootstrap errors and fetches encrypted video', async ({ page }) => {
+  test('boots anonymous public playback without dash.js DRM bootstrap errors and fetches encrypted video', async ({ page }) => {
     const consoleMessages: string[] = [];
-    const requests: string[] = [];
+    const requests: Array<{ headers: Record<string, string>; url: string }> = [];
 
     page.on('console', (message) => {
       consoleMessages.push(message.text());
     });
 
     page.on('request', (request) => {
-      requests.push(request.url());
+      requests.push({
+        headers: request.headers(),
+        url: request.url(),
+      });
     });
 
-    await loginToPlayer(page, { videoId: playbackFixtureVideoId });
+    await page.goto(`/player/${playbackFixtureVideoId}`);
+    await expect(page).toHaveURL(new RegExp(`/player/${playbackFixtureVideoId}$`));
     await page.waitForSelector('[data-media-player][data-can-play]');
     await page.locator('[data-media-player] video').evaluate(async (player: HTMLVideoElement) => {
       await player.play();
@@ -34,20 +38,23 @@ test.describe('player playback compatibility', () => {
 
     const dashBootstrapErrors = consoleMessages.filter(message => message.includes('getSupportedKeySystemMetadataFromContentProtection'));
     const clearKeyWarnings = consoleMessages.filter(message => message.includes('ClearKey schemeIdURI'));
-    const manifestRequests = requests.filter(url => url.includes(`/videos/${playbackFixtureVideoId}/manifest.mpd`) && url.includes('token='));
-    const protectedAudioRequests = requests.filter(url => url.includes(`/videos/${playbackFixtureVideoId}/audio/`) && url.includes('token='));
-    const protectedVideoRequests = requests.filter(url => url.includes(`/videos/${playbackFixtureVideoId}/video/`) && url.includes('token='));
+    const protectedRequests = requests.filter(request => request.url.includes(`/videos/${playbackFixtureVideoId}/`));
+    const manifestRequests = protectedRequests.filter(request => request.url.includes(`/videos/${playbackFixtureVideoId}/manifest.mpd`));
+    const protectedAudioRequests = protectedRequests.filter(request => request.url.includes(`/videos/${playbackFixtureVideoId}/audio/`));
+    const protectedVideoRequests = protectedRequests.filter(request => request.url.includes(`/videos/${playbackFixtureVideoId}/video/`));
 
     expect(dashBootstrapErrors).toEqual([]);
     expect(clearKeyWarnings).toEqual([]);
     expect(manifestRequests.length).toBeGreaterThan(0);
     expect(protectedAudioRequests.length).toBeGreaterThan(0);
     expect(protectedVideoRequests.length).toBeGreaterThan(0);
+    expect(protectedRequests.every(request => !request.url.includes('token='))).toBe(true);
+    expect(protectedRequests.some(request => request.headers.authorization?.startsWith('Bearer '))).toBe(true);
   });
 
-  test('seeks forward in protected playback and resumes tokenized segment fetching', async ({ page }) => {
+  test('seeks forward in protected playback and resumes authorized segment fetching', async ({ page }) => {
     const consoleMessages: string[] = [];
-    const requests: string[] = [];
+    const requests: Array<{ headers: Record<string, string>; url: string }> = [];
     const responses: Array<{ status: number; url: string }> = [];
 
     page.on('console', (message) => {
@@ -55,7 +62,10 @@ test.describe('player playback compatibility', () => {
     });
 
     page.on('request', (request) => {
-      requests.push(request.url());
+      requests.push({
+        headers: request.headers(),
+        url: request.url(),
+      });
     });
 
     page.on('response', (response) => {
@@ -118,8 +128,8 @@ test.describe('player playback compatibility', () => {
 
     const seekRequests = requests.slice(requestCountBeforeSeek);
     const seekResponses = responses.slice(responseCountBeforeSeek);
-    const postSeekAudioRequests = seekRequests.filter(url => url.includes(`/videos/${playbackFixtureVideoId}/audio/`));
-    const postSeekVideoRequests = seekRequests.filter(url => url.includes(`/videos/${playbackFixtureVideoId}/video/`));
+    const postSeekAudioRequests = seekRequests.filter(request => request.url.includes(`/videos/${playbackFixtureVideoId}/audio/`));
+    const postSeekVideoRequests = seekRequests.filter(request => request.url.includes(`/videos/${playbackFixtureVideoId}/video/`));
     const unauthorizedSeekResponses = seekResponses.filter(response => (
       (response.status === 401 || response.status === 403) &&
       (response.url.includes(`/videos/${playbackFixtureVideoId}/audio/`) || response.url.includes(`/videos/${playbackFixtureVideoId}/video/`))
@@ -130,8 +140,10 @@ test.describe('player playback compatibility', () => {
     expect(dashBootstrapErrors).toEqual([]);
     expect(postSeekAudioRequests.length).toBeGreaterThan(0);
     expect(postSeekVideoRequests.length).toBeGreaterThan(0);
-    expect(postSeekAudioRequests.every(url => url.includes('token='))).toBe(true);
-    expect(postSeekVideoRequests.every(url => url.includes('token='))).toBe(true);
+    expect(postSeekAudioRequests.every(request => !request.url.includes('token='))).toBe(true);
+    expect(postSeekVideoRequests.every(request => !request.url.includes('token='))).toBe(true);
+    expect(postSeekAudioRequests.every(request => request.headers.authorization?.startsWith('Bearer '))).toBe(true);
+    expect(postSeekVideoRequests.every(request => request.headers.authorization?.startsWith('Bearer '))).toBe(true);
     expect(unauthorizedSeekResponses).toEqual([]);
   });
 });

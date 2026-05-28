@@ -1,5 +1,4 @@
 import { type LoaderFunctionArgs } from 'react-router';
-import { requireProtectedMediaSessionValue } from '~/composition/server/auth';
 import { getServerPlaybackServices } from '~/composition/server/playback';
 import {
   createPlaybackDeniedResponse,
@@ -13,11 +12,9 @@ import {
  */
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { videoId, filename } = params;
-  const mediaSession = await requireProtectedMediaSessionValue(request);
-  if ('response' in mediaSession) return mediaSession.response;
 
   if (!videoId || !filename) {
-    throw new Response('Video ID and filename required', { status: 400 });
+    throw new Response('Video not found', { headers: { 'Cache-Control': 'no-store' }, status: 404 });
   }
 
   try {
@@ -27,7 +24,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       mediaType: 'video',
       rangeHeader: request.headers.get('range'),
       token: extractPlaybackToken(request),
-      userId: mediaSession.session.userId,
       videoId,
     });
 

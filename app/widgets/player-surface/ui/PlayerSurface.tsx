@@ -108,6 +108,7 @@ function PlaybackViewport({ video }: { video: PlaybackCatalogVideo }) {
     videoId: video.id,
     videoUrl: video.videoUrl,
   });
+  const providerConfigKey = `${video.id}:${token ?? 'public'}:${drmConfig?.keyId ?? 'clear'}`;
 
   const handleProviderChange = (detail: MediaProviderAdapter | null) => {
     if (!isDASHProvider(detail)) {
@@ -152,6 +153,7 @@ function PlaybackViewport({ video }: { video: PlaybackCatalogVideo }) {
   return (
     <div className="relative aspect-video bg-black">
       <MediaPlayer
+        key={providerConfigKey}
         ref={playerRef}
         className="h-full w-full !align-top bg-black text-white"
         load="eager"

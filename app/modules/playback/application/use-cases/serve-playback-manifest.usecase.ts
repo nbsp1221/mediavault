@@ -14,7 +14,6 @@ interface ServePlaybackManifestUseCaseDependencies {
 
 interface ServePlaybackManifestUseCaseInput {
   token: string | null;
-  userId: string;
   videoId: string;
 }
 
@@ -34,7 +33,6 @@ export class ServePlaybackManifestUseCase {
       resource: 'manifest',
       token: input.token,
       tokenService: this.deps.tokenService,
-      userId: input.userId,
       videoId: input.videoId,
       videoRead: this.deps.videoRead,
     });

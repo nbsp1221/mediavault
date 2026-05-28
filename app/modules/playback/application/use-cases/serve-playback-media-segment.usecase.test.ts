@@ -3,6 +3,13 @@ import { describe, expect, test, vi } from 'vitest';
 const accessibleVideoRead = {
   findLibraryVideoById: vi.fn(async () => ({} as never)),
 };
+const authenticatedTokenPayload = {
+  jti: 'token-1',
+  readScope: 'public_or_owned' as const,
+  subjectUserId: 'owner-1',
+  videoId: 'video-1',
+  viewerType: 'authenticated' as const,
+};
 
 describe('ServePlaybackMediaSegmentUseCase', () => {
   test('validates the playback token and preserves range-response metadata from the media adapter', async () => {
@@ -23,7 +30,7 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       },
       tokenService: {
         issue: async () => '',
-        validate: async () => ({ userId: 'owner-1', videoId: 'video-1' }),
+        validate: async () => authenticatedTokenPayload,
       },
       videoRead: accessibleVideoRead,
     });
@@ -33,7 +40,6 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       mediaType: 'video',
       rangeHeader: 'bytes=0-127',
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     });
 
@@ -67,7 +73,7 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       },
       tokenService: {
         issue: async () => '',
-        validate: async () => ({ userId: 'owner-1', videoId: 'video-2' }),
+        validate: async () => ({ ...authenticatedTokenPayload, videoId: 'video-2' }),
       },
       videoRead: accessibleVideoRead,
     });
@@ -77,17 +83,14 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       mediaType: 'audio',
       rangeHeader: null,
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     });
 
     expect(result).toEqual({
       metadata: {
         requestedVideoId: 'video-1',
-        requestedUserId: 'owner-1',
         resource: 'audio-segment',
         tokenVideoId: 'video-2',
-        tokenUserId: 'owner-1',
       },
       ok: false,
       reason: 'VIDEO_SCOPE_MISMATCH',
@@ -103,7 +106,7 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       },
       tokenService: {
         issue: async () => '',
-        validate: async () => ({ userId: 'owner-1', videoId: 'video-1' }),
+        validate: async () => authenticatedTokenPayload,
       },
       videoRead: {
         findLibraryVideoById: vi.fn(async () => null),
@@ -115,12 +118,10 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       mediaType: 'video',
       rangeHeader: null,
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
-        requestedUserId: 'owner-1',
         resource: 'segment',
       },
       ok: false,

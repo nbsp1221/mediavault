@@ -4,8 +4,10 @@ import { LoadLibraryCatalogSnapshotUseCase } from './load-library-catalog-snapsh
 
 function createFixtureVideo(overrides: Partial<LibraryVideo> = {}): LibraryVideo {
   return {
+    contentTypeSlug: 'movie',
     createdAt: new Date('2026-03-10T00:00:00.000Z'),
     duration: 120,
+    genreSlugs: ['drama'],
     id: 'video-1',
     ownerId: 'owner-1',
     tags: ['Action'],

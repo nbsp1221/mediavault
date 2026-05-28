@@ -1,6 +1,6 @@
 import { TEST_DATABASE_ENCRYPTION_KEY } from './database-encryption-key';
 
-const SMOKE_MEDIAVAULT_PLAYBACK_JWT_SECRET = 'smoke-video-jwt-secret';
+const SMOKE_MEDIAVAULT_PLAYBACK_JWT_SECRET = 'smoke-video-jwt-secret-0123456789abcdef';
 const SMOKE_MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET =
   '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 

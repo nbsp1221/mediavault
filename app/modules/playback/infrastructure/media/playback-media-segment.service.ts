@@ -44,9 +44,11 @@ export class PlaybackMediaSegmentService implements PlaybackMediaSegmentServiceP
     if (!input.rangeHeader) {
       const headers: Record<string, string> = {
         'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=31536000',
+        'Cache-Control': 'no-store',
         'Content-Length': String(fileStats.size),
         'Content-Type': contentType,
+        'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff',
       };
 
       return {
@@ -60,10 +62,12 @@ export class PlaybackMediaSegmentService implements PlaybackMediaSegmentServiceP
     const contentLength = (end - start) + 1;
     const headers: Record<string, string> = {
       'Accept-Ranges': 'bytes',
-      'Cache-Control': 'public, max-age=31536000',
+      'Cache-Control': 'no-store',
       'Content-Length': String(contentLength),
       'Content-Range': `bytes ${start}-${end}/${fileStats.size}`,
       'Content-Type': contentType,
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff',
     };
 
     return {

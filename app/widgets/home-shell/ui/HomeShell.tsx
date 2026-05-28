@@ -9,6 +9,7 @@ import {
 } from '~/entities/home-shell/model/home-navigation';
 import { HomeAccountMenu } from '~/features/home-account-menu/ui/HomeAccountMenu';
 import { HomeSearchField } from '~/features/home-search/ui/HomeSearchField';
+import { useRootUser } from '~/shared/hooks/use-root-user';
 import { Button } from '~/shared/ui/button';
 import {
   Dialog,
@@ -111,10 +112,12 @@ function HomeNavigation({
   onNavigate,
   pathname,
   search,
+  showOwnerNavigation,
 }: {
   onNavigate?: () => void;
   pathname: string;
   search: string;
+  showOwnerNavigation: boolean;
 }) {
   const homeHref = mergeHomeSearchState('/', search);
 
@@ -135,12 +138,16 @@ function HomeNavigation({
 
       <SidebarContent className="flex-1 p-4 space-y-6">
         <NavigationSection title="Library" items={HOME_LIBRARY_ITEMS} onNavigate={onNavigate} pathname={pathname} search={search} />
-        <NavigationSection title="Manage" items={HOME_MANAGEMENT_ITEMS} onNavigate={onNavigate} pathname={pathname} search={search} />
+        {showOwnerNavigation ? (
+          <NavigationSection title="Manage" items={HOME_MANAGEMENT_ITEMS} onNavigate={onNavigate} pathname={pathname} search={search} />
+        ) : null}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-4">
-        <NavigationSection title="Settings" items={HOME_SETTINGS_ITEMS} onNavigate={onNavigate} pathname={pathname} search={search} />
-      </SidebarFooter>
+      {showOwnerNavigation ? (
+        <SidebarFooter className="border-t border-sidebar-border p-4">
+          <NavigationSection title="Settings" items={HOME_SETTINGS_ITEMS} onNavigate={onNavigate} pathname={pathname} search={search} />
+        </SidebarFooter>
+      ) : null}
     </>
   );
 }
@@ -153,6 +160,8 @@ function HomeShellContent({
   onSearchChange,
 }: HomeShellProps) {
   const location = useLocation();
+  const user = useRootUser();
+  const showOwnerNavigation = Boolean(user);
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const navigationDialogId = useId();
 
@@ -170,7 +179,11 @@ function HomeShellContent({
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar className="hidden border-r md:flex" collapsible="none">
-        <HomeNavigation pathname={location.pathname} search={location.search} />
+        <HomeNavigation
+          pathname={location.pathname}
+          search={location.search}
+          showOwnerNavigation={showOwnerNavigation}
+        />
       </Sidebar>
 
       <div className="flex flex-1 flex-col">
@@ -216,15 +229,17 @@ function HomeShellContent({
             </div>
 
             <div className="flex items-center gap-4">
-              <Button
-                asChild
-                className="flex items-center gap-2 rounded-full bg-card px-4 py-2 text-sm font-semibold text-card-foreground transition-colors hover:bg-muted"
-              >
-                <Link to="/add-videos">
-                  <Upload className="h-4 w-4" />
-                  <span className="hidden sm:inline">Upload</span>
-                </Link>
-              </Button>
+              {showOwnerNavigation ? (
+                <Button
+                  asChild
+                  className="flex items-center gap-2 rounded-full bg-card px-4 py-2 text-sm font-semibold text-card-foreground transition-colors hover:bg-muted"
+                >
+                  <Link to="/add-videos">
+                    <Upload className="h-4 w-4" />
+                    <span className="hidden sm:inline">Upload</span>
+                  </Link>
+                </Button>
+              ) : null}
               <HomeAccountMenu />
             </div>
           </div>
@@ -270,6 +285,7 @@ function HomeShellContent({
               onNavigate={() => setIsNavigationOpen(false)}
               pathname={location.pathname}
               search={location.search}
+              showOwnerNavigation={showOwnerNavigation}
             />
           </nav>
         </DialogContent>

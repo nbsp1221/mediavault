@@ -60,8 +60,8 @@ export class LoadLibraryCatalogSnapshotUseCase {
           videos,
           filters: createLibraryHomeFilters(input),
           vocabulary: {
-            contentTypes,
-            genres,
+            contentTypes: filterContentTypesByVideos(contentTypes, videos),
+            genres: filterGenresByVideos(genres, videos),
           },
         },
       };
@@ -73,4 +73,24 @@ export class LoadLibraryCatalogSnapshotUseCase {
       };
     }
   }
+}
+
+function filterContentTypesByVideos(
+  contentTypes: VideoTaxonomyItem[],
+  videos: LibraryVideo[],
+): VideoTaxonomyItem[] {
+  const visibleSlugs = new Set(videos
+    .map(video => video.contentTypeSlug)
+    .filter((slug): slug is string => Boolean(slug)));
+
+  return contentTypes.filter(contentType => visibleSlugs.has(contentType.slug));
+}
+
+function filterGenresByVideos(
+  genres: VideoTaxonomyItem[],
+  videos: LibraryVideo[],
+): VideoTaxonomyItem[] {
+  const visibleSlugs = new Set(videos.flatMap(video => video.genreSlugs ?? []));
+
+  return genres.filter(genre => visibleSlugs.has(genre.slug));
 }

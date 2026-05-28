@@ -15,14 +15,14 @@ afterEach(() => {
 
 describe('getPlaybackConfig', () => {
   test('returns the active playback JWT runtime contract from env', async () => {
-    process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = 'playback-secret';
+    process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = 'playback-secret-0123456789abcdef';
     const { getPlaybackConfig } = await import('../../../app/shared/config/playback.server');
 
     expect(getPlaybackConfig()).toEqual({
       jwtAudience: 'video-streaming',
       jwtExpiry: '15m',
       jwtIssuer: 'mediavault',
-      jwtSecret: 'playback-secret',
+      jwtSecret: 'playback-secret-0123456789abcdef',
     });
   });
 

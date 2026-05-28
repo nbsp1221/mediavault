@@ -1,6 +1,7 @@
 import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { PlaybackTokenService } from '../ports/playback-token-service.port';
+import type { PlaybackTokenPayload } from '../ports/playback-token-service.port';
 import {
   type PlaybackResource,
   PlaybackResourcePolicy,
@@ -10,7 +11,6 @@ interface AuthorizePlaybackResourceReadInput<Resource extends PlaybackResource> 
   resource: Resource;
   token: string | null;
   tokenService: PlaybackTokenService;
-  userId: string;
   videoId: string;
   videoRead: LibraryVideoReadPort;
 }
@@ -21,16 +21,13 @@ export type PlaybackResourceReadAuthorizationResult<Resource extends PlaybackRes
     metadata: {
       requestedVideoId: string;
       resource: Resource;
-      requestedUserId?: string;
       tokenVideoId?: string;
-      tokenUserId?: string;
     };
     ok: false;
-    reason: 'PLAYBACK_TOKEN_REQUIRED' | 'USER_SCOPE_MISMATCH' | 'VIDEO_SCOPE_MISMATCH';
+    reason: 'PLAYBACK_TOKEN_REQUIRED' | 'VIDEO_SCOPE_MISMATCH';
   }
   | {
     metadata: {
-      requestedUserId: string;
       requestedVideoId: string;
       resource: Resource;
     };
@@ -42,7 +39,6 @@ export async function authorizePlaybackResourceRead<Resource extends PlaybackRes
   resource,
   token,
   tokenService,
-  userId,
   videoId,
   videoRead,
 }: AuthorizePlaybackResourceReadInput<Resource>): Promise<PlaybackResourceReadAuthorizationResult<Resource>> {
@@ -51,7 +47,6 @@ export async function authorizePlaybackResourceRead<Resource extends PlaybackRes
     : null;
   const decision = PlaybackResourcePolicy.evaluate({
     requestedVideoId: videoId,
-    requestedUserId: userId,
     resource,
     token: payload,
   });
@@ -67,15 +62,22 @@ export async function authorizePlaybackResourceRead<Resource extends PlaybackRes
     };
   }
 
-  const accessibleVideo = await videoRead.findLibraryVideoById(videoId, createVideoReadAccessScope({
-    type: 'authenticated',
-    userId,
-  }));
+  if (!payload) {
+    return {
+      metadata: {
+        requestedVideoId: videoId,
+        resource,
+      },
+      ok: false,
+      reason: 'PLAYBACK_TOKEN_REQUIRED',
+    };
+  }
+
+  const accessibleVideo = await videoRead.findLibraryVideoById(videoId, createVideoReadAccessScope(createTokenViewer(payload)));
 
   if (!accessibleVideo) {
     return {
       metadata: {
-        requestedUserId: userId,
         requestedVideoId: videoId,
         resource,
       },
@@ -85,4 +87,15 @@ export async function authorizePlaybackResourceRead<Resource extends PlaybackRes
   }
 
   return { ok: true };
+}
+
+function createTokenViewer(payload: PlaybackTokenPayload) {
+  if (payload.viewerType === 'anonymous') {
+    return { type: 'anonymous' as const };
+  }
+
+  return {
+    type: 'authenticated' as const,
+    userId: payload.subjectUserId,
+  };
 }

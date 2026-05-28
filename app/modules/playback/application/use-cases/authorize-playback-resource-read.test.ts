@@ -2,6 +2,14 @@ import { describe, expect, test, vi } from 'vitest';
 
 import { authorizePlaybackResourceRead } from './authorize-playback-resource-read';
 
+const authenticatedTokenPayload = {
+  jti: 'token-1',
+  readScope: 'public_or_owned' as const,
+  subjectUserId: 'owner-1',
+  videoId: 'video-1',
+  viewerType: 'authenticated' as const,
+};
+
 describe('authorizePlaybackResourceRead', () => {
   test('denies missing tokens before scoped video reads', async () => {
     const videoRead = {
@@ -15,13 +23,11 @@ describe('authorizePlaybackResourceRead', () => {
         issue: async () => '',
         validate: async () => null,
       },
-      userId: 'owner-1',
       videoId: 'video-1',
       videoRead,
     })).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
-        requestedUserId: 'owner-1',
         resource: 'manifest',
       },
       ok: false,
@@ -30,7 +36,7 @@ describe('authorizePlaybackResourceRead', () => {
     expect(videoRead.findLibraryVideoById).not.toHaveBeenCalled();
   });
 
-  test('denies token user mismatches with the requested resource metadata', async () => {
+  test('denies token video mismatches with the requested resource metadata', async () => {
     const videoRead = {
       findLibraryVideoById: vi.fn(),
     };
@@ -40,23 +46,18 @@ describe('authorizePlaybackResourceRead', () => {
       token: 'signed-token',
       tokenService: {
         issue: async () => '',
-        validate: async () => ({
-          userId: 'other-user',
-          videoId: 'video-1',
-        }),
+        validate: async () => ({ ...authenticatedTokenPayload, videoId: 'video-2' }),
       },
-      userId: 'owner-1',
       videoId: 'video-1',
       videoRead,
     })).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
-        requestedUserId: 'owner-1',
         resource: 'audio-segment',
-        tokenUserId: 'other-user',
+        tokenVideoId: 'video-2',
       },
       ok: false,
-      reason: 'USER_SCOPE_MISMATCH',
+      reason: 'VIDEO_SCOPE_MISMATCH',
     });
     expect(videoRead.findLibraryVideoById).not.toHaveBeenCalled();
   });
@@ -71,18 +72,13 @@ describe('authorizePlaybackResourceRead', () => {
       token: 'signed-token',
       tokenService: {
         issue: async () => '',
-        validate: async () => ({
-          userId: 'owner-1',
-          videoId: 'video-1',
-        }),
+        validate: async () => authenticatedTokenPayload,
       },
-      userId: 'owner-1',
       videoId: 'video-1',
       videoRead,
     })).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
-        requestedUserId: 'owner-1',
         resource: 'clearkey-license',
       },
       ok: false,
@@ -104,12 +100,8 @@ describe('authorizePlaybackResourceRead', () => {
       token: 'signed-token',
       tokenService: {
         issue: async () => '',
-        validate: async () => ({
-          userId: 'owner-1',
-          videoId: 'video-1',
-        }),
+        validate: async () => authenticatedTokenPayload,
       },
-      userId: 'owner-1',
       videoId: 'video-1',
       videoRead,
     })).resolves.toEqual({

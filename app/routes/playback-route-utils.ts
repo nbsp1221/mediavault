@@ -1,7 +1,6 @@
 type PlaybackDeniedReason =
   | 'PLAYBACK_TOKEN_REQUIRED'
   | 'SITE_SESSION_REQUIRED'
-  | 'USER_SCOPE_MISMATCH'
   | 'VIDEO_NOT_FOUND'
   | 'VIDEO_SCOPE_MISMATCH';
 
@@ -9,16 +8,20 @@ export function extractPlaybackToken(request: Request): string | null {
   const url = new URL(request.url);
   const authorizationHeader = request.headers.get('Authorization');
   const queryToken = url.searchParams.get('token');
+  const headerToken = extractBearerToken(authorizationHeader);
 
-  if (queryToken) {
-    return queryToken;
+  if (queryToken && headerToken) {
+    throw new Response('Invalid playback token request', {
+      headers: { 'Cache-Control': 'no-store' },
+      status: 400,
+    });
   }
 
-  if (authorizationHeader?.startsWith('Bearer ')) {
-    return authorizationHeader.slice(7);
+  if (headerToken) {
+    return headerToken;
   }
 
-  return null;
+  return queryToken;
 }
 
 export function getPlaybackRequestIp(request: Request): string {
@@ -36,19 +39,29 @@ export function getPlaybackRequestIp(request: Request): string {
   return 'unknown';
 }
 
+function extractBearerToken(authorizationHeader: string | null): string | null {
+  if (!authorizationHeader) {
+    return null;
+  }
+
+  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+
+  return match?.[1] ?? null;
+}
+
 export function createPlaybackDeniedResponse(reason: PlaybackDeniedReason): Response {
+  const headers = {
+    'Cache-Control': 'no-store',
+  };
+
   switch (reason) {
-    case 'VIDEO_SCOPE_MISMATCH':
-      return new Response('Playback token video scope mismatch', { status: 401 });
-    case 'USER_SCOPE_MISMATCH':
-      return new Response('Playback token user scope mismatch', { status: 401 });
-    case 'VIDEO_NOT_FOUND':
-      return new Response('Video not found', { status: 404 });
-    case 'SITE_SESSION_REQUIRED':
-      return new Response('Authentication required', { status: 401 });
     case 'PLAYBACK_TOKEN_REQUIRED':
+      return new Response('Playback token required', { headers, status: 401 });
+    case 'SITE_SESSION_REQUIRED':
+    case 'VIDEO_SCOPE_MISMATCH':
+    case 'VIDEO_NOT_FOUND':
     default:
-      return new Response('Playback token required', { status: 401 });
+      return new Response('Video not found', { headers, status: 404 });
   }
 }
 
@@ -61,16 +74,22 @@ export function createPlaybackUnexpectedRouteResponse(
   error: unknown,
   options: PlaybackUnexpectedRouteResponseOptions,
 ): Response {
+  if (error instanceof Response) {
+    return error;
+  }
+
   const mappedStatus = getPlaybackErrorStatus(error);
+  const headers = getPlaybackErrorHeaders(error);
 
   if (mappedStatus) {
     return new Response(getPlaybackErrorMessage(error, options.fallbackMessage), {
-      headers: getPlaybackErrorHeaders(error),
+      headers,
       status: mappedStatus,
     });
   }
 
   return new Response(options.fallbackMessage, {
+    headers,
     status: options.fallbackStatus,
   });
 }
@@ -84,11 +103,14 @@ function getPlaybackErrorMessage(error: unknown, fallbackMessage: string): strin
 }
 
 function getPlaybackErrorHeaders(error: unknown): Record<string, string> | undefined {
+  const safeHeaders: Record<string, string> = {
+    'Cache-Control': 'no-store',
+  };
+
   if (!error || typeof error !== 'object' || !('headers' in error) || typeof error.headers !== 'object' || !error.headers) {
-    return undefined;
+    return safeHeaders;
   }
 
-  const safeHeaders: Record<string, string> = {};
   const playbackErrorHeaders = error.headers as Record<string, unknown>;
 
   for (const [key, value] of Object.entries(playbackErrorHeaders)) {
@@ -99,7 +121,7 @@ function getPlaybackErrorHeaders(error: unknown): Record<string, string> | undef
     safeHeaders['Content-Range'] = value;
   }
 
-  return Object.keys(safeHeaders).length > 0 ? safeHeaders : undefined;
+  return safeHeaders;
 }
 
 function getPlaybackErrorStatus(error: unknown): number | null {

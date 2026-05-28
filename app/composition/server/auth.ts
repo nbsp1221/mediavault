@@ -3,6 +3,7 @@ import { redirect } from 'react-router';
 import type { AuthDecision, AuthSession } from '~/modules/auth/domain/auth-session';
 import type { RequestViewer } from '~/modules/auth/domain/request-viewer';
 import type { SiteViewer } from '~/modules/auth/domain/site-viewer';
+import type { VideoViewer } from '~/modules/library/domain/policies/video-access.policy';
 import { type AdminApiOperation, evaluateAdminApiAccess } from '~/modules/auth/application/policies/admin-api-access.policy';
 import { CreateAuthSessionUseCase } from '~/modules/auth/application/use-cases/create-auth-session.usecase';
 import { DestroyAuthSessionUseCase } from '~/modules/auth/application/use-cases/destroy-auth-session.usecase';
@@ -24,6 +25,7 @@ import {
   getAuthCookieConfig,
 } from '~/shared/config/auth.server';
 import { getCookieValue, serializeCookie } from '~/shared/lib/http/cookies.server';
+import { toVideoPolicyViewer } from './video-access-viewer';
 
 interface ServerSessionServices {
   destroyAuthSession: DestroyAuthSessionUseCase;
@@ -292,6 +294,56 @@ export async function resolveRequestViewer(request: Request): Promise<RequestVie
     type: 'authenticated',
     userId: siteViewer.id,
     username: siteViewer.username,
+  };
+}
+
+export async function resolvePublicVideoAccess(request: Request): Promise<{
+  headers: Headers;
+  viewer: VideoViewer;
+}> {
+  const headers = new Headers({
+    'Cache-Control': 'private, no-store',
+    'Vary': 'Cookie',
+  });
+  const sessionServices = getServerSessionServices();
+  const sessionId = getSiteSessionId(request);
+  const session = await sessionServices.resolveAuthSession.execute({
+    now: new Date(),
+    sessionId,
+  });
+
+  if (!session) {
+    if (sessionId) {
+      headers.append('Set-Cookie', createClearedSessionCookieHeader());
+    }
+
+    return {
+      headers,
+      viewer: { type: 'anonymous' },
+    };
+  }
+
+  const siteViewer = await sessionServices.resolveSiteViewerByUserId(session.userId);
+
+  if (!siteViewer) {
+    await sessionServices.destroyAuthSession.execute({
+      sessionId: session.id,
+    });
+    headers.append('Set-Cookie', createClearedSessionCookieHeader());
+
+    return {
+      headers,
+      viewer: { type: 'anonymous' },
+    };
+  }
+
+  return {
+    headers,
+    viewer: toVideoPolicyViewer({
+      type: 'authenticated',
+      userId: siteViewer.id,
+      username: siteViewer.username,
+    }),
   };
 }
 

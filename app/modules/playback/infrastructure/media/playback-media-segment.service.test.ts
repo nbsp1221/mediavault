@@ -38,9 +38,11 @@ describe('PlaybackMediaSegmentService', () => {
       expect(result.statusCode).toBeUndefined();
       expect(result.headers).toEqual({
         'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=31536000',
+        'Cache-Control': 'no-store',
         'Content-Length': '12',
         'Content-Type': 'video/iso.segment',
+        'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff',
       });
       expect(result.stream).toBeTruthy();
     }
@@ -69,10 +71,12 @@ describe('PlaybackMediaSegmentService', () => {
       expect(result).toEqual({
         headers: {
           'Accept-Ranges': 'bytes',
-          'Cache-Control': 'public, max-age=31536000',
+          'Cache-Control': 'no-store',
           'Content-Length': '7',
           'Content-Range': 'bytes 0-6/12',
           'Content-Type': 'video/iso.segment',
+          'Referrer-Policy': 'no-referrer',
+          'X-Content-Type-Options': 'nosniff',
         },
         isRangeResponse: true,
         statusCode: 206,

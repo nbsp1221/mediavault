@@ -141,6 +141,9 @@ export function useProtectedPlaybackSession(
 
         const clearKeyResponse = await fetch(tokenPayload.urls.clearkey, {
           credentials: 'include',
+          headers: {
+            Authorization: `Bearer ${tokenPayload.token}`,
+          },
         });
         const clearKeyPayload = await clearKeyResponse.json() as ClearKeyResponse;
         const clearKey = clearKeyPayload.keys[0];

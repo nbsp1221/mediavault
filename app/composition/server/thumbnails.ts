@@ -18,6 +18,11 @@ function createThumbnailDecryptionService() {
   });
 }
 
+const THUMBNAIL_AUTH_DEPENDENT_HEADERS = {
+  'Cache-Control': 'private, no-store',
+  'Vary': 'Cookie',
+};
+
 export async function loadDecryptedThumbnailResponse(
   input: LoadDecryptedThumbnailResponseInput,
 ): Promise<Response> {
@@ -29,7 +34,10 @@ export async function loadDecryptedThumbnailResponse(
     );
 
     if (!accessibleVideo) {
-      return new Response('Thumbnail not found', { status: 404 });
+      return new Response('Thumbnail not found', {
+        headers: THUMBNAIL_AUTH_DEPENDENT_HEADERS,
+        status: 404,
+      });
     }
 
     const thumbnailDecryptionService = createThumbnailDecryptionService();
@@ -40,11 +48,17 @@ export async function loadDecryptedThumbnailResponse(
 
     if (!result.success) {
       if (result.error.message.includes('not found')) {
-        return new Response('Thumbnail not found', { status: 404 });
+        return new Response('Thumbnail not found', {
+          headers: THUMBNAIL_AUTH_DEPENDENT_HEADERS,
+          status: 404,
+        });
       }
 
       console.error('Failed to decrypt thumbnail:', result.error);
-      return new Response('Failed to load thumbnail', { status: 500 });
+      return new Response('Failed to load thumbnail', {
+        headers: THUMBNAIL_AUTH_DEPENDENT_HEADERS,
+        status: 500,
+      });
     }
 
     const { imageBuffer, mimeType, size } = result.data;
@@ -52,12 +66,17 @@ export async function loadDecryptedThumbnailResponse(
     const ifNoneMatch = input.request.headers.get('If-None-Match');
 
     if (ifNoneMatch === eTag) {
-      return new Response(null, { status: 304 });
+      return new Response(null, {
+        headers: {
+          ...THUMBNAIL_AUTH_DEPENDENT_HEADERS,
+        },
+        status: 304,
+      });
     }
 
     return new Response(imageBuffer, {
       headers: {
-        'Cache-Control': 'private, max-age=3600',
+        ...THUMBNAIL_AUTH_DEPENDENT_HEADERS,
         'Content-Length': size.toString(),
         'Content-Type': mimeType,
         'ETag': eTag,
@@ -66,6 +85,9 @@ export async function loadDecryptedThumbnailResponse(
   }
   catch (error) {
     console.error('Unexpected error in thumbnail decryption:', error);
-    return new Response('Failed to load thumbnail', { status: 500 });
+    return new Response('Failed to load thumbnail', {
+      headers: THUMBNAIL_AUTH_DEPENDENT_HEADERS,
+      status: 500,
+    });
   }
 }

@@ -1,12 +1,18 @@
 import { describe, expect, test, vi } from 'vitest';
 
 describe('configureDashPlaybackProvider', () => {
-  test('injects the playback token into DASH requests that do not already have one', async () => {
+  test('injects the playback token into DASH request headers', async () => {
     const { configureDashPlaybackProvider } = await import('../../../app/widgets/player-surface/lib/configure-dash-playback-provider');
 
-    const interceptorCallbacks: Array<(request: { url: string }) => Promise<{ url: string }>> = [];
+    const interceptorCallbacks: Array<(request: {
+      headers?: Record<string, string>;
+      url: string;
+    }) => Promise<{ headers?: Record<string, string>; url: string }>> = [];
     const provider = {
-      addRequestInterceptor: (callback: (request: { url: string }) => Promise<{ url: string }>) => {
+      addRequestInterceptor: (callback: (request: {
+        headers?: Record<string, string>;
+        url: string;
+      }) => Promise<{ headers?: Record<string, string>; url: string }>) => {
         interceptorCallbacks.push(callback);
       },
       getProtectionController: () => undefined,
@@ -25,13 +31,20 @@ describe('configureDashPlaybackProvider', () => {
 
     expect(interceptor).toBeDefined();
     await expect(interceptor({ url: 'https://example.com/video/init.mp4' })).resolves.toMatchObject({
-      url: 'https://example.com/video/init.mp4?token=playback-token',
+      headers: {
+        Authorization: 'Bearer playback-token',
+      },
+      url: 'https://example.com/video/init.mp4',
     });
-    await expect(interceptor({ url: 'https://example.com/video/init.mp4?token=existing' })).resolves.toMatchObject({
-      url: 'https://example.com/video/init.mp4?token=existing',
-    });
-    await expect(interceptor({ url: '/videos/video-1/init.mp4' })).resolves.toMatchObject({
-      url: '/videos/video-1/init.mp4?token=playback-token',
+    await expect(interceptor({
+      headers: { Range: 'bytes=0-31' },
+      url: '/videos/video-1/init.mp4',
+    })).resolves.toMatchObject({
+      headers: {
+        Authorization: 'Bearer playback-token',
+        Range: 'bytes=0-31',
+      },
+      url: '/videos/video-1/init.mp4',
     });
   });
 
@@ -50,7 +63,11 @@ describe('configureDashPlaybackProvider', () => {
     expect(extend).toHaveBeenCalledWith('RequestModifier', expect.any(Function), true);
 
     const requestModifierFactory = extend.mock.calls[0]?.[1] as (() => {
-      modifyRequest: (request: { url: string }) => { url: string };
+      modifyRequest: (request: {
+        headers?: Record<string, string>;
+        url: string;
+      }) => { headers?: Record<string, string>; url: string };
+      modifyRequestHeader: (request: { setRequestHeader: (header: string, value: string) => void }) => unknown;
       modifyRequestURL: (url: string) => string;
     }) | undefined;
 
@@ -63,20 +80,16 @@ describe('configureDashPlaybackProvider', () => {
     const requestModifier = requestModifierFactory();
 
     expect(requestModifier.modifyRequest({ url: 'https://example.com/video/init.mp4' })).toMatchObject({
-      url: 'https://example.com/video/init.mp4?token=playback-token',
+      headers: {
+        Authorization: 'Bearer playback-token',
+      },
+      url: 'https://example.com/video/init.mp4',
     });
-    expect(requestModifier.modifyRequest({ url: 'https://example.com/video/init.mp4?token=existing' })).toMatchObject({
-      url: 'https://example.com/video/init.mp4?token=existing',
-    });
-    expect(requestModifier.modifyRequestURL('https://example.com/video/init.mp4')).toBe(
-      'https://example.com/video/init.mp4?token=playback-token',
-    );
-    expect(requestModifier.modifyRequestURL('https://example.com/video/init.mp4?token=existing')).toBe(
-      'https://example.com/video/init.mp4?token=existing',
-    );
-    expect(requestModifier.modifyRequestURL('/videos/video-1/init.mp4')).toBe(
-      '/videos/video-1/init.mp4?token=playback-token',
-    );
+    expect(requestModifier.modifyRequestURL('/videos/video-1/init.mp4')).toBe('/videos/video-1/init.mp4');
+
+    const setRequestHeader = vi.fn();
+    requestModifier.modifyRequestHeader({ setRequestHeader });
+    expect(setRequestHeader).toHaveBeenCalledWith('Authorization', 'Bearer playback-token');
   });
 
   test('materializes the protection controller before attaching ClearKey protection', async () => {

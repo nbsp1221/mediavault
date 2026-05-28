@@ -14,7 +14,6 @@ interface ServePlaybackClearKeyLicenseUseCaseDependencies {
 
 interface ServePlaybackClearKeyLicenseUseCaseInput {
   token: string | null;
-  userId: string;
   videoId: string;
 }
 
@@ -34,7 +33,6 @@ export class ServePlaybackClearKeyLicenseUseCase {
       resource: 'clearkey-license',
       token: input.token,
       tokenService: this.deps.tokenService,
-      userId: input.userId,
       videoId: input.videoId,
       videoRead: this.deps.videoRead,
     });

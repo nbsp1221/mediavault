@@ -37,13 +37,10 @@ describe('PlaybackManifestService', () => {
       expect(result).toEqual({
         body: '<MPD />',
         headers: {
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-          'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=60',
+          'Cache-Control': 'no-store',
           'Content-Length': '7',
           'Content-Type': 'application/dash+xml',
-          'Referrer-Policy': 'strict-origin-when-cross-origin',
+          'Referrer-Policy': 'no-referrer',
           'X-Content-Type-Options': 'nosniff',
         },
       });

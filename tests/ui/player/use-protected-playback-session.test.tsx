@@ -32,8 +32,8 @@ describe('useProtectedPlaybackSession', () => {
           success: true,
           token: 'token-a',
           urls: {
-            clearkey: '/videos/video-a/clearkey?token=token-a',
-            manifest: '/videos/video-a/manifest.mpd?token=token-a',
+            clearkey: '/videos/video-a/clearkey',
+            manifest: '/videos/video-a/manifest.mpd',
           },
         }));
       }
@@ -84,8 +84,14 @@ describe('useProtectedPlaybackSession', () => {
       },
       error: null,
       isLoading: false,
-      manifestUrl: '/videos/video-a/manifest.mpd?token=token-a',
+      manifestUrl: '/videos/video-a/manifest.mpd',
       token: 'token-a',
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/videos/video-a/clearkey', {
+      credentials: 'include',
+      headers: {
+        Authorization: 'Bearer token-a',
+      },
     });
 
     renderSnapshots.length = 0;
@@ -98,7 +104,7 @@ describe('useProtectedPlaybackSession', () => {
     });
 
     expect(renderSnapshots).not.toContainEqual({
-      manifestUrl: '/videos/video-a/manifest.mpd?token=token-a',
+      manifestUrl: '/videos/video-a/manifest.mpd',
       token: 'token-a',
       videoId: 'video-b',
     });
@@ -119,8 +125,8 @@ describe('useProtectedPlaybackSession', () => {
         success: true,
         token: 'token-1',
         urls: {
-          clearkey: '/videos/video-1/clearkey?token=token-1',
-          manifest: '/videos/video-1/manifest.mpd?token=token-1',
+          clearkey: '/videos/video-1/clearkey',
+          manifest: '/videos/video-1/manifest.mpd',
         },
       })))
       .mockResolvedValueOnce(new Response(JSON.stringify({
@@ -130,8 +136,8 @@ describe('useProtectedPlaybackSession', () => {
         success: true,
         token: 'token-2',
         urls: {
-          clearkey: '/videos/video-1/clearkey?token=token-2',
-          manifest: '/videos/video-1/manifest.mpd?token=token-2',
+          clearkey: '/videos/video-1/clearkey',
+          manifest: '/videos/video-1/manifest.mpd',
         },
       })))
       .mockResolvedValueOnce(new Response(JSON.stringify({
@@ -151,7 +157,7 @@ describe('useProtectedPlaybackSession', () => {
     });
 
     expect(result.current.token).toBe('token-1');
-    expect(result.current.manifestUrl).toBe('/videos/video-1/manifest.mpd?token=token-1');
+    expect(result.current.manifestUrl).toBe('/videos/video-1/manifest.mpd');
     expect(result.current.drmConfig).toEqual({
       key: 'key-1',
       keyId: 'kid-1',
@@ -162,7 +168,7 @@ describe('useProtectedPlaybackSession', () => {
     });
 
     expect(result.current.token).toBe('token-2');
-    expect(result.current.manifestUrl).toBe('/videos/video-1/manifest.mpd?token=token-2');
+    expect(result.current.manifestUrl).toBe('/videos/video-1/manifest.mpd');
     expect(result.current.drmConfig).toEqual({
       key: 'key-2',
       keyId: 'kid-2',
@@ -178,8 +184,8 @@ describe('useProtectedPlaybackSession', () => {
         success: true,
         token: 'token-1',
         urls: {
-          clearkey: '/videos/video-1/clearkey?token=token-1',
-          manifest: '/videos/video-1/manifest.mpd?token=token-1',
+          clearkey: '/videos/video-1/clearkey',
+          manifest: '/videos/video-1/manifest.mpd',
         },
       })))
       .mockResolvedValueOnce(new Response(JSON.stringify({
@@ -190,8 +196,8 @@ describe('useProtectedPlaybackSession', () => {
         success: true,
         token: 'token-2',
         urls: {
-          clearkey: '/videos/video-1/clearkey?token=token-2',
-          manifest: '/videos/video-1/manifest.mpd?token=token-2',
+          clearkey: '/videos/video-1/clearkey',
+          manifest: '/videos/video-1/manifest.mpd',
         },
       })))
       .mockResolvedValueOnce(new Response(JSON.stringify({
@@ -223,7 +229,7 @@ describe('useProtectedPlaybackSession', () => {
       },
       error: null,
       isLoading: false,
-      manifestUrl: '/videos/video-1/manifest.mpd?token=token-1',
+      manifestUrl: '/videos/video-1/manifest.mpd',
       token: 'token-1',
     });
 
@@ -238,7 +244,7 @@ describe('useProtectedPlaybackSession', () => {
       },
       error: null,
       isLoading: false,
-      manifestUrl: '/videos/video-1/manifest.mpd?token=token-2',
+      manifestUrl: '/videos/video-1/manifest.mpd',
       token: 'token-2',
     });
     expect(fetchMock).toHaveBeenCalledTimes(5);

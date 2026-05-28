@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-const requireProtectedPageSessionMock = vi.fn();
+const resolvePublicVideoAccessMock = vi.fn();
 const fakePlaybackServices = {
   resolvePlayerVideo: {
     execute: vi.fn(),
@@ -8,7 +8,7 @@ const fakePlaybackServices = {
 };
 
 vi.mock('~/composition/server/auth', () => ({
-  requireProtectedPageSession: requireProtectedPageSessionMock,
+  resolvePublicVideoAccess: resolvePublicVideoAccessMock,
 }));
 
 vi.mock('~/composition/server/playback', () => ({
@@ -24,9 +24,15 @@ describe('player route', () => {
     vi.resetModules();
     vi.clearAllMocks();
     fakePlaybackServices.resolvePlayerVideo.execute.mockReset();
-    requireProtectedPageSessionMock.mockResolvedValue({
-      id: 'session-1',
-      userId: 'owner-1',
+    resolvePublicVideoAccessMock.mockResolvedValue({
+      headers: new Headers({
+        'Cache-Control': 'private, no-store',
+        'Vary': 'Cookie',
+      }),
+      viewer: {
+        type: 'authenticated',
+        userId: 'owner-1',
+      },
     });
   });
 
@@ -45,11 +51,14 @@ describe('player route', () => {
     });
     const { loader } = await importPlayerRoute();
 
-    const data = await loader({
+    const response = await loader({
       params: { id: 'video-1' },
       request: new Request('http://localhost/player/video-1'),
     } as never);
 
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(response.headers.get('Referrer-Policy')).toBe('no-referrer');
+    expect(response.headers.get('Vary')).toBe('Cookie');
     expect(fakePlaybackServices.resolvePlayerVideo.execute).toHaveBeenCalledWith({
       readScope: {
         ownerId: 'owner-1',
@@ -57,7 +66,7 @@ describe('player route', () => {
       },
       videoId: 'video-1',
     });
-    expect(data).toEqual({
+    await expect(response.json()).resolves.toEqual({
       relatedVideos: [],
       video: {
         createdAt: '2026-03-09T00:00:00.000Z',
@@ -85,21 +94,39 @@ describe('player route', () => {
     });
   });
 
-  test('does not resolve player data when the protected page guard rejects the request', async () => {
-    const redirectResponse = new Response(null, {
-      headers: {
-        Location: '/login?redirectTo=%2Fplayer%2Fvideo-1',
-      },
-      status: 302,
+  test('uses public-only scope for anonymous player reads without redirecting to login', async () => {
+    resolvePublicVideoAccessMock.mockResolvedValue({
+      headers: new Headers({
+        'Cache-Control': 'private, no-store',
+        'Vary': 'Cookie',
+      }),
+      viewer: { type: 'anonymous' },
     });
-    requireProtectedPageSessionMock.mockRejectedValue(redirectResponse);
+    fakePlaybackServices.resolvePlayerVideo.execute.mockResolvedValue({
+      ok: true,
+      relatedVideos: [],
+      video: {
+        createdAt: new Date('2026-03-09T00:00:00.000Z'),
+        duration: 120,
+        id: 'video-1',
+        tags: ['vault'],
+        title: 'Player Fixture',
+        videoUrl: '/videos/video-1/manifest.mpd',
+      },
+    });
     const { loader } = await importPlayerRoute();
 
-    await expect(loader({
+    const response = await loader({
       params: { id: 'video-1' },
       request: new Request('http://localhost/player/video-1'),
-    } as never)).rejects.toBe(redirectResponse);
+    } as never);
 
-    expect(fakePlaybackServices.resolvePlayerVideo.execute).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(fakePlaybackServices.resolvePlayerVideo.execute).toHaveBeenCalledWith({
+      readScope: {
+        type: 'public_only',
+      },
+      videoId: 'video-1',
+    });
   });
 });

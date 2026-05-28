@@ -2,7 +2,6 @@ import type { LibraryVideoReadPort } from '~/modules/library/application/ports/l
 import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { PlaybackTokenService } from '../ports/playback-token-service.port';
 import { assertValidPlaybackVideoId } from '../../domain/playback-video-id';
-import { PlaybackGrantPolicy } from '../../domain/policies/PlaybackGrantPolicy';
 
 interface IssuePlaybackTokenUseCaseDependencies {
   tokenService: PlaybackTokenService;
@@ -10,10 +9,12 @@ interface IssuePlaybackTokenUseCaseDependencies {
 }
 
 interface IssuePlaybackTokenUseCaseInput {
-  authenticatedUserId?: string;
   ipAddress?: string;
   userAgent?: string;
   videoId: string;
+  viewer:
+    | { type: 'anonymous' }
+    | { type: 'authenticated'; userId: string };
 }
 
 type IssuePlaybackTokenUseCaseResult =
@@ -26,10 +27,6 @@ type IssuePlaybackTokenUseCaseResult =
     };
   }
   | {
-    reason: 'SITE_SESSION_REQUIRED';
-    success: false;
-  }
-  | {
     reason: 'VIDEO_NOT_FOUND';
     success: false;
   };
@@ -40,24 +37,9 @@ export class IssuePlaybackTokenUseCase {
   async execute(input: IssuePlaybackTokenUseCaseInput): Promise<IssuePlaybackTokenUseCaseResult> {
     assertValidPlaybackVideoId(input.videoId);
 
-    const authenticatedUserId = input.authenticatedUserId;
-    const decision = PlaybackGrantPolicy.evaluate({
-      hasSiteSession: Boolean(authenticatedUserId),
-    });
-
-    if (!decision.allowed || !authenticatedUserId) {
-      return {
-        reason: 'SITE_SESSION_REQUIRED',
-        success: false,
-      };
-    }
-
     const video = await this.deps.videoRead.findLibraryVideoById(
       input.videoId,
-      createVideoReadAccessScope({
-        type: 'authenticated',
-        userId: authenticatedUserId,
-      }),
+      createVideoReadAccessScope(input.viewer),
     );
 
     if (!video) {
@@ -67,19 +49,29 @@ export class IssuePlaybackTokenUseCase {
       };
     }
 
-    const token = await this.deps.tokenService.issue({
-      ipAddress: input.ipAddress,
-      userAgent: input.userAgent,
-      userId: authenticatedUserId,
-      videoId: input.videoId,
-    });
+    const token = input.viewer.type === 'anonymous'
+      ? await this.deps.tokenService.issue({
+          ipAddress: input.ipAddress,
+          readScope: 'public_only',
+          userAgent: input.userAgent,
+          videoId: input.videoId,
+          viewerType: 'anonymous',
+        })
+      : await this.deps.tokenService.issue({
+          ipAddress: input.ipAddress,
+          readScope: 'public_or_owned',
+          subjectUserId: input.viewer.userId,
+          userAgent: input.userAgent,
+          videoId: input.videoId,
+          viewerType: 'authenticated',
+        });
 
     return {
       success: true,
       token,
       urls: {
-        clearkey: `/videos/${input.videoId}/clearkey?token=${token}`,
-        manifest: `/videos/${input.videoId}/manifest.mpd?token=${token}`,
+        clearkey: `/videos/${input.videoId}/clearkey`,
+        manifest: `/videos/${input.videoId}/manifest.mpd`,
       },
     };
   }

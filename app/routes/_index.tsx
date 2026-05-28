@@ -1,11 +1,10 @@
-import type { LoaderFunctionArgs } from 'react-router';
+import type { HeadersFunction, LoaderFunctionArgs } from 'react-router';
 import { useMemo } from 'react';
 import { useLoaderData, useSearchParams } from 'react-router';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
-import { requireProtectedPageSession } from '~/composition/server/auth';
+import { resolvePublicVideoAccess } from '~/composition/server/auth';
 import { getHomeLibraryPageServices } from '~/composition/server/home-library-page';
-import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer';
 import { HomePage } from '~/pages/home/ui/HomePage';
 import { createHomeLibraryFilters } from '~/widgets/home-library/model/home-library-filters';
 
@@ -57,21 +56,25 @@ function deserializeHomeLibraryVideo(video: SerializedHomeLibraryVideo): HomeLib
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const authSession = await requireProtectedPageSession(request);
+  const publicRouteViewer = await resolvePublicVideoAccess(request);
   const result = await getHomeLibraryPageServices().loadHomeLibraryPageData.execute({
-    viewer: toAuthenticatedVideoPolicyViewer(authSession),
+    viewer: publicRouteViewer.viewer,
   });
 
   if (!result.ok) {
     throw new Response('Unable to load home library', { status: 500 });
   }
 
-  return {
+  return Response.json({
     contentTypes: result.data.contentTypes,
     genres: result.data.genres,
     videos: result.data.videos.map(serializeHomeLibraryVideo),
-  } satisfies LoaderData;
+  } satisfies LoaderData, {
+    headers: publicRouteViewer.headers,
+  });
 }
+
+export const headers: HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
 
 export function shouldRevalidate({
   currentUrl,
@@ -101,7 +104,7 @@ export function meta() {
 }
 
 export default function HomeRoute() {
-  const data = useLoaderData<typeof loader>();
+  const data = useLoaderData() as LoaderData;
   const [searchParams] = useSearchParams();
   const videos = useMemo(() => data.videos.map(deserializeHomeLibraryVideo), [data.videos]);
   const initialFilters = useMemo(() => createHomeLibraryFilters({

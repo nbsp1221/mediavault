@@ -172,7 +172,7 @@ describe('thumbnail composition ownership', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toBe('image/jpeg');
     expect(response.headers.get('Content-Length')).toBe('4');
-    expect(response.headers.get('Cache-Control')).toBe('private, max-age=3600');
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(response.headers.get('ETag')).toBe('"thumbnail-video-1-4"');
     expect(response.headers.has('X-Content-Source')).toBe(false);
     expect((await response.arrayBuffer()).byteLength).toBe(4);

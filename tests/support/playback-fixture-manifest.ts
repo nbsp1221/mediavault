@@ -9,6 +9,8 @@ const PLAYBACK_FIXTURES_ROOT = resolve(SUPPORT_DIR, '..', 'fixtures', 'playback'
 export const REQUIRED_BROWSER_PLAYBACK_FIXTURE_IDS = [
   '68e5f819-15e8-41ef-90ee-8a96769311b7',
   '754c6828-621c-4df6-9cf8-a3d77297b85a',
+  '2f4f9f2d-8c56-4c51-93f8-6d3a5dfb8e10',
+  'a64a979f-1e64-4f38-8d9b-035ff7f4730a',
 ] as const;
 
 export function getPlaybackFixturesRoot(): string {

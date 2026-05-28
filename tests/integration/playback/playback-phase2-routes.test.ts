@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 const requireProtectedMediaSessionMock = vi.fn();
 const requireProtectedMediaSessionValueMock = vi.fn();
 const requireProtectedPageSessionMock = vi.fn();
+const resolvePublicVideoAccessMock = vi.fn();
 const fakePlaybackServices = {
   issuePlaybackToken: {
     execute: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock('~/composition/server/auth', () => ({
   requireProtectedMediaSession: requireProtectedMediaSessionMock,
   requireProtectedMediaSessionValue: requireProtectedMediaSessionValueMock,
   requireProtectedPageSession: requireProtectedPageSessionMock,
+  resolvePublicVideoAccess: resolvePublicVideoAccessMock,
 }));
 
 vi.mock('~/composition/server/playback', () => ({
@@ -69,6 +71,13 @@ describe('playback route adapters', () => {
       },
     });
     requireProtectedPageSessionMock.mockResolvedValue({ id: 'session-1' });
+    resolvePublicVideoAccessMock.mockResolvedValue({
+      headers: new Headers({
+        'Cache-Control': 'private, no-store',
+        'Vary': 'Cookie',
+      }),
+      viewer: { type: 'authenticated', userId: 'owner-1' },
+    });
   });
 
   test('token route delegates issuance to the playback composition root and preserves the current success contract', async () => {
@@ -76,8 +85,8 @@ describe('playback route adapters', () => {
       success: true,
       token: 'signed-token',
       urls: {
-        clearkey: '/videos/video-1/clearkey?token=signed-token',
-        manifest: '/videos/video-1/manifest.mpd?token=signed-token',
+        clearkey: '/videos/video-1/clearkey',
+        manifest: '/videos/video-1/manifest.mpd',
       },
     });
     const { loader } = await importVideoTokenRoute();
@@ -93,18 +102,18 @@ describe('playback route adapters', () => {
     } as never);
 
     expect(fakePlaybackServices.issuePlaybackToken.execute).toHaveBeenCalledWith({
-      authenticatedUserId: 'owner-1',
       ipAddress: '203.0.113.10',
       userAgent: 'vitest',
       videoId: 'video-1',
+      viewer: { type: 'authenticated', userId: 'owner-1' },
     });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       success: true,
       token: 'signed-token',
       urls: {
-        clearkey: '/videos/video-1/clearkey?token=signed-token',
-        manifest: '/videos/video-1/manifest.mpd?token=signed-token',
+        clearkey: '/videos/video-1/clearkey',
+        manifest: '/videos/video-1/manifest.mpd',
       },
     });
   });
@@ -121,9 +130,9 @@ describe('playback route adapters', () => {
       }),
     } as never);
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: 'Invalid video ID format',
+      error: 'Video not found',
       success: false,
     });
     expect(fakePlaybackServices.issuePlaybackToken.execute).not.toHaveBeenCalled();
@@ -145,7 +154,11 @@ describe('playback route adapters', () => {
         const { loader } = await importManifestRoute();
         return loader({
           params: { videoId: 'video-1' },
-          request: new Request('http://localhost/videos/video-1/manifest.mpd?token=signed-token'),
+          request: new Request('http://localhost/videos/video-1/manifest.mpd', {
+            headers: {
+              Authorization: 'Bearer signed-token',
+            },
+          }),
         } as never);
       },
       label: 'manifest',
@@ -175,7 +188,11 @@ describe('playback route adapters', () => {
         const { loader } = await importClearKeyRoute();
         return loader({
           params: { videoId: 'video-1' },
-          request: new Request('http://localhost/videos/video-1/clearkey?token=signed-token'),
+          request: new Request('http://localhost/videos/video-1/clearkey', {
+            headers: {
+              Authorization: 'Bearer signed-token',
+            },
+          }),
         } as never);
       },
       label: 'clearkey loader',
@@ -185,14 +202,17 @@ describe('playback route adapters', () => {
         const { action } = await importClearKeyRoute();
         return action({
           params: { videoId: 'video-1' },
-          request: new Request('http://localhost/videos/video-1/clearkey?token=signed-token', {
+          request: new Request('http://localhost/videos/video-1/clearkey', {
+            headers: {
+              Authorization: 'Bearer signed-token',
+            },
             method: 'POST',
           }),
         } as never);
       },
       label: 'clearkey action',
     },
-  ])('does not call playback services when the protected media guard rejects the $label route', async ({ invoke }) => {
+  ])('public playback routes do not depend on the protected media guard for the $label route', async ({ invoke }) => {
     requireProtectedMediaSessionMock.mockResolvedValue(Response.json({
       error: 'Authentication required',
       success: false,
@@ -203,14 +223,38 @@ describe('playback route adapters', () => {
         success: false,
       }, { status: 401 }),
     });
+    fakePlaybackServices.issuePlaybackToken.execute.mockResolvedValue({
+      success: true,
+      token: 'signed-token',
+      urls: {
+        clearkey: '/videos/video-1/clearkey',
+        manifest: '/videos/video-1/manifest.mpd',
+      },
+    });
+    fakePlaybackServices.servePlaybackManifest.execute.mockResolvedValue({
+      body: '<MPD />',
+      headers: { 'Content-Type': 'application/dash+xml' },
+      ok: true,
+    });
+    fakePlaybackServices.servePlaybackMediaSegment.execute.mockResolvedValue({
+      headers: {
+        'Accept-Ranges': 'bytes',
+        'Content-Length': '0',
+        'Content-Type': 'video/iso.segment',
+      },
+      isRangeResponse: false,
+      ok: true,
+      stream: new ReadableStream<Uint8Array>(),
+    });
+    fakePlaybackServices.servePlaybackClearKeyLicense.execute.mockResolvedValue({
+      body: '{"keys":[],"type":"temporary"}',
+      headers: { 'Content-Type': 'application/json' },
+      ok: true,
+    });
 
     const response = await invoke();
 
-    expect(response.status).toBe(401);
-    expect(fakePlaybackServices.issuePlaybackToken.execute).not.toHaveBeenCalled();
-    expect(fakePlaybackServices.servePlaybackManifest.execute).not.toHaveBeenCalled();
-    expect(fakePlaybackServices.servePlaybackMediaSegment.execute).not.toHaveBeenCalled();
-    expect(fakePlaybackServices.servePlaybackClearKeyLicense.execute).not.toHaveBeenCalled();
+    expect(response.status).not.toBe(401);
   });
 
   test('manifest, segment, audio segment, and clearkey routes delegate to playback services for valid tokens', async () => {
@@ -263,28 +307,40 @@ describe('playback route adapters', () => {
 
     const manifestResponse = await manifestLoader({
       params: { videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/manifest.mpd?token=signed-token'),
+      request: new Request('http://localhost/videos/video-1/manifest.mpd', {
+        headers: {
+          Authorization: 'Bearer signed-token',
+        },
+      }),
     } as never);
     const videoResponse = await videoLoader({
       params: { filename: 'init.mp4', videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/video/init.mp4?token=signed-token'),
+      request: new Request('http://localhost/videos/video-1/video/init.mp4', {
+        headers: {
+          Authorization: 'Bearer signed-token',
+        },
+      }),
     } as never);
     const audioResponse = await audioLoader({
       params: { filename: 'segment-0001.m4s', videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/audio/segment-0001.m4s?token=signed-token', {
+      request: new Request('http://localhost/videos/video-1/audio/segment-0001.m4s', {
         headers: {
+          Authorization: 'Bearer signed-token',
           range: 'bytes=0-31',
         },
       }),
     } as never);
     const clearKeyResponse = await clearKeyLoader({
       params: { videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/clearkey?token=signed-token'),
+      request: new Request('http://localhost/videos/video-1/clearkey', {
+        headers: {
+          Authorization: 'Bearer signed-token',
+        },
+      }),
     } as never);
 
     expect(fakePlaybackServices.servePlaybackManifest.execute).toHaveBeenCalledWith({
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     });
     expect(fakePlaybackServices.servePlaybackMediaSegment.execute).toHaveBeenNthCalledWith(1, {
@@ -292,7 +348,6 @@ describe('playback route adapters', () => {
       mediaType: 'video',
       rangeHeader: null,
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     });
     expect(fakePlaybackServices.servePlaybackMediaSegment.execute).toHaveBeenNthCalledWith(2, {
@@ -300,12 +355,10 @@ describe('playback route adapters', () => {
       mediaType: 'audio',
       rangeHeader: 'bytes=0-31',
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     });
     expect(fakePlaybackServices.servePlaybackClearKeyLicense.execute).toHaveBeenCalledWith({
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     });
     expect(manifestResponse.status).toBe(200);
@@ -338,14 +391,16 @@ describe('playback route adapters', () => {
 
     const response = await action({
       params: { videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/clearkey?token=signed-token', {
+      request: new Request('http://localhost/videos/video-1/clearkey', {
+        headers: {
+          Authorization: 'Bearer signed-token',
+        },
         method: 'POST',
       }),
     } as never);
 
     expect(fakePlaybackServices.servePlaybackClearKeyLicense.execute).toHaveBeenCalledWith({
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     });
     expect(response.status).toBe(200);
@@ -366,17 +421,34 @@ describe('playback route adapters', () => {
       params: { videoId: 'video-1' },
       request: new Request('http://localhost/videos/video-1/manifest.mpd', {
         headers: {
-          Authorization: 'Bearer header-token',
+          Authorization: 'bearer header-token',
         },
       }),
     } as never);
 
     expect(fakePlaybackServices.servePlaybackManifest.execute).toHaveBeenCalledWith({
       token: 'header-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     });
     expect(response.status).toBe(200);
+  });
+
+  test('manifest route rejects ambiguous query and header bearer tokens', async () => {
+    const { loader } = await importManifestRoute();
+
+    const response = await loader({
+      params: { videoId: 'video-1' },
+      request: new Request('http://localhost/videos/video-1/manifest.mpd?token=query-token', {
+        headers: {
+          Authorization: 'Bearer header-token',
+        },
+      }),
+    } as never);
+
+    expect(fakePlaybackServices.servePlaybackManifest.execute).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.text()).resolves.toBe('Invalid playback token request');
   });
 
   test.each([
@@ -394,97 +466,19 @@ describe('playback route adapters', () => {
         ok: false,
         reason: 'PLAYBACK_TOKEN_REQUIRED',
       },
+      status: 401,
       target: 'manifest',
-    },
-    {
-      expectedBody: 'Playback token user scope mismatch',
-      invoke: () => importManifestRoute().then(({ loader }) => loader({
-        params: { videoId: 'video-1' },
-        request: new Request('http://localhost/videos/video-1/manifest.mpd?token=signed-token'),
-      } as never)),
-      result: {
-        metadata: {
-          requestedUserId: 'owner-1',
-          requestedVideoId: 'video-1',
-          resource: 'manifest',
-          tokenUserId: 'other-user',
-          tokenVideoId: 'video-1',
-        },
-        ok: false,
-        reason: 'USER_SCOPE_MISMATCH',
-      },
-      target: 'manifest',
-    },
-    {
-      expectedBody: 'Playback token user scope mismatch',
-      invoke: () => importVideoSegmentRoute().then(({ loader }) => loader({
-        params: { filename: 'init.mp4', videoId: 'video-1' },
-        request: new Request('http://localhost/videos/video-1/video/init.mp4?token=signed-token'),
-      } as never)),
-      result: {
-        metadata: {
-          requestedUserId: 'owner-1',
-          requestedVideoId: 'video-1',
-          resource: 'segment',
-          tokenUserId: 'other-user',
-          tokenVideoId: 'video-1',
-        },
-        ok: false,
-        reason: 'USER_SCOPE_MISMATCH',
-      },
-      target: 'segment',
-    },
-    {
-      expectedBody: 'Playback token user scope mismatch',
-      invoke: () => importAudioSegmentRoute().then(({ loader }) => loader({
-        params: { filename: 'init.mp4', videoId: 'video-1' },
-        request: new Request('http://localhost/videos/video-1/audio/init.mp4?token=signed-token'),
-      } as never)),
-      result: {
-        metadata: {
-          requestedUserId: 'owner-1',
-          requestedVideoId: 'video-1',
-          resource: 'audio-segment',
-          tokenUserId: 'other-user',
-          tokenVideoId: 'video-1',
-        },
-        ok: false,
-        reason: 'USER_SCOPE_MISMATCH',
-      },
-      target: 'audio-segment',
-    },
-    {
-      expectedBody: 'Playback token user scope mismatch',
-      invoke: () => importClearKeyRoute().then(({ action }) => action({
-        params: { videoId: 'video-1' },
-        request: new Request('http://localhost/videos/video-1/clearkey?token=signed-token', {
-          method: 'POST',
-        }),
-      } as never)),
-      result: {
-        metadata: {
-          requestedUserId: 'owner-1',
-          requestedVideoId: 'video-1',
-          resource: 'clearkey-license',
-          tokenUserId: 'other-user',
-          tokenVideoId: 'video-1',
-        },
-        ok: false,
-        reason: 'USER_SCOPE_MISMATCH',
-      },
-      target: 'clearkey-license',
     },
     {
       expectedBody: 'Video not found',
       invoke: () => importClearKeyRoute().then(({ action }) => action({
         params: { videoId: 'video-1' },
-        request: new Request('http://localhost/videos/video-1/clearkey?token=signed-token', {
+        request: new Request('http://localhost/videos/video-1/clearkey', {
           method: 'POST',
         }),
       } as never)),
       result: {
         metadata: {
-          requestedUserId: 'owner-1',
           requestedVideoId: 'video-1',
           resource: 'clearkey-license',
         },
@@ -495,7 +489,7 @@ describe('playback route adapters', () => {
       target: 'clearkey-license',
     },
     {
-      expectedBody: 'Playback token video scope mismatch',
+      expectedBody: 'Video not found',
       invoke: () => importVideoSegmentRoute().then(({ loader }) => loader({
         params: { filename: 'init.mp4', videoId: 'video-1' },
         request: new Request('http://localhost/videos/video-1/video/init.mp4?token=signed-token'),
@@ -509,6 +503,7 @@ describe('playback route adapters', () => {
         ok: false,
         reason: 'VIDEO_SCOPE_MISMATCH',
       },
+      status: 404,
       target: 'segment',
     },
     {
@@ -525,6 +520,7 @@ describe('playback route adapters', () => {
         ok: false,
         reason: 'PLAYBACK_TOKEN_REQUIRED',
       },
+      status: 401,
       target: 'clearkey-license',
     },
   ])('returns the mapped status when the playback service denies the $target request', async ({ expectedBody, invoke, result, status, target }) => {
@@ -540,7 +536,7 @@ describe('playback route adapters', () => {
 
     const response = await invoke();
 
-    expect(response.status).toBe(status ?? 401);
+    expect(response.status).toBe(status);
     await expect(response.text()).resolves.toBe(expectedBody);
   });
 });

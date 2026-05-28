@@ -3,9 +3,8 @@ import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
 import { AlertTriangle, ShieldAlert, VideoOff } from 'lucide-react';
 import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
 import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
-import { requireProtectedPageSession } from '~/composition/server/auth';
+import { resolvePublicVideoAccess } from '~/composition/server/auth';
 import { getServerPlaybackServices } from '~/composition/server/playback';
-import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer';
 import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import { PlayerPage } from '~/pages/player/ui/PlayerPage';
 import { Button } from '~/shared/ui/button';
@@ -30,31 +29,41 @@ function deserializeVideo(serialized: SerializedVideo): PlaybackCatalogVideo {
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const authSession = await requireProtectedPageSession(request);
+  const publicRouteViewer = await resolvePublicVideoAccess(request);
+  publicRouteViewer.headers.set('Referrer-Policy', 'no-referrer');
 
   const videoId = params.id;
   if (!videoId) {
-    throw new Response('Video ID is required', { status: 400 });
+    throw new Response('Video ID is required', {
+      headers: publicRouteViewer.headers,
+      status: 400,
+    });
   }
 
   const playbackServices = getServerPlaybackServices();
   const result = await playbackServices.resolvePlayerVideo.execute({
-    readScope: createVideoReadAccessScope(toAuthenticatedVideoPolicyViewer(authSession)),
+    readScope: createVideoReadAccessScope(publicRouteViewer.viewer),
     videoId,
   });
 
   if (!result.ok) {
-    throw new Response('Video not found', { status: 404 });
+    throw new Response('Video not found', {
+      headers: publicRouteViewer.headers,
+      status: 404,
+    });
   }
 
-  return {
+  return Response.json({
     relatedVideos: result.relatedVideos.map(serializeVideo),
     video: serializeVideo(result.video),
-  };
+  }, {
+    headers: publicRouteViewer.headers,
+  });
 }
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
-  if (!data) {
+export const meta: MetaFunction = ({ data }) => {
+  const routeData = data as { video?: SerializedVideo } | undefined;
+  if (!routeData?.video) {
     return [
       { title: 'Video Player - Mediavault' },
       { name: 'description', content: 'Local video streaming' },
@@ -62,13 +71,16 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
   }
 
   return [
-    { title: `${data.video.title} - Mediavault` },
-    { name: 'description', content: `Watch ${data.video.title} on Mediavault` },
+    { title: `${routeData.video.title} - Mediavault` },
+    { name: 'description', content: `Watch ${routeData.video.title} on Mediavault` },
   ];
 };
 
 export default function PlayerRoute() {
-  const data = useLoaderData<typeof loader>();
+  const data = useLoaderData() as {
+    relatedVideos: SerializedVideo[];
+    video: SerializedVideo;
+  };
   const video = deserializeVideo(data.video);
   const relatedVideos = data.relatedVideos.map(deserializeVideo);
 

@@ -57,6 +57,7 @@ tar -C "$tmp_dir" -cf - baseline current \
       git commit -qm baseline &&
       find /tmp/workspace -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} + &&
       cp -a /tmp/input/current/. /tmp/workspace/ &&
+      git add -A &&
       bun install --frozen-lockfile &&
       bun run verify:ci-faithful
     '

@@ -45,7 +45,7 @@ describe('production readiness policy', () => {
     expect(issues.map(issue => issue.message).join('\n')).not.toContain('\n\t');
   });
 
-  test('does not enforce secret strength, length, format, or placeholder-like content at runtime', () => {
+  test('reports weak playback JWT secrets in production without leaking values', () => {
     const issues = collectCriticalProductionSecretIssues({
       MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'a',
       NODE_ENV: 'production',
@@ -54,7 +54,13 @@ describe('production readiness policy', () => {
       MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: 'cookie',
     });
 
-    expect(issues).toEqual([]);
+    expect(issues).toEqual([{
+      code: 'weak-critical-secret',
+      message: 'Production startup preflight failed: MEDIAVAULT_PLAYBACK_JWT_SECRET must be at least 32 characters',
+      severity: 'startup-blocking',
+      subject: 'MEDIAVAULT_PLAYBACK_JWT_SECRET',
+    }]);
+    expect(issues.map(issue => issue.message).join('\n')).not.toContain('short');
   });
 
   test('does not apply production startup secret failures outside production', () => {

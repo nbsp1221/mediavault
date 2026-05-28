@@ -1,14 +1,20 @@
 import { describe, expect, test } from 'vitest';
 
 describe('PlaybackResourcePolicy', () => {
+  const token = {
+    readScope: 'public_or_owned' as const,
+    subjectUserId: 'owner-1',
+    videoId: 'video-1',
+    viewerType: 'authenticated' as const,
+  };
+
   test('allows manifest access when the playback token is scoped to the requested video', async () => {
     const { PlaybackResourcePolicy } = await import('./PlaybackResourcePolicy');
 
     const decision = PlaybackResourcePolicy.evaluate({
       requestedVideoId: 'video-1',
-      requestedUserId: 'owner-1',
       resource: 'manifest',
-      token: { userId: 'owner-1', videoId: 'video-1' },
+      token,
     });
 
     expect(decision).toEqual({
@@ -27,7 +33,6 @@ describe('PlaybackResourcePolicy', () => {
 
     const decision = PlaybackResourcePolicy.evaluate({
       requestedVideoId: 'video-1',
-      requestedUserId: 'owner-1',
       resource,
       token: null,
     });
@@ -36,7 +41,6 @@ describe('PlaybackResourcePolicy', () => {
       allowed: false,
       metadata: {
         requestedVideoId: 'video-1',
-        requestedUserId: 'owner-1',
         resource,
       },
       reason: 'PLAYBACK_TOKEN_REQUIRED',
@@ -48,43 +52,37 @@ describe('PlaybackResourcePolicy', () => {
 
     const decision = PlaybackResourcePolicy.evaluate({
       requestedVideoId: 'video-2',
-      requestedUserId: 'owner-1',
       resource: 'segment',
-      token: { userId: 'owner-1', videoId: 'video-1' },
+      token,
     });
 
     expect(decision).toEqual({
       allowed: false,
       metadata: {
         requestedVideoId: 'video-2',
-        requestedUserId: 'owner-1',
         resource: 'segment',
         tokenVideoId: 'video-1',
-        tokenUserId: 'owner-1',
       },
       reason: 'VIDEO_SCOPE_MISMATCH',
     });
   });
 
-  test('denies resource access when the playback token is bound to a different user', async () => {
+  test('allows resource access based on token video binding for anonymous public tokens', async () => {
     const { PlaybackResourcePolicy } = await import('./PlaybackResourcePolicy');
 
     const decision = PlaybackResourcePolicy.evaluate({
       requestedVideoId: 'video-1',
-      requestedUserId: 'owner-2',
       resource: 'manifest',
-      token: { userId: 'owner-1', videoId: 'video-1' },
+      token: {
+        readScope: 'public_only',
+        videoId: 'video-1',
+        viewerType: 'anonymous',
+      },
     });
 
     expect(decision).toEqual({
-      allowed: false,
-      metadata: {
-        requestedVideoId: 'video-1',
-        requestedUserId: 'owner-2',
-        resource: 'manifest',
-        tokenUserId: 'owner-1',
-      },
-      reason: 'USER_SCOPE_MISMATCH',
+      allowed: true,
+      resource: 'manifest',
     });
   });
 });

@@ -20,7 +20,6 @@ interface ServePlaybackMediaSegmentUseCaseInput {
   mediaType: PlaybackMediaType;
   rangeHeader: string | null;
   token: string | null;
-  userId: string;
   videoId: string;
 }
 
@@ -43,7 +42,6 @@ export class ServePlaybackMediaSegmentUseCase {
       resource,
       token: input.token,
       tokenService: this.deps.tokenService,
-      userId: input.userId,
       videoId: input.videoId,
       videoRead: this.deps.videoRead,
     });

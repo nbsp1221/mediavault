@@ -28,7 +28,7 @@ describe('createRuntimeTestEnv', () => {
       expect(env.TZ).toBe('Etc/UTC');
       expect(env.LANG).toBe('C.UTF-8');
       expect(env.LC_ALL).toBe('C.UTF-8');
-      expect(env.MEDIAVAULT_PLAYBACK_JWT_SECRET).toBe('smoke-video-jwt-secret');
+      expect(env.MEDIAVAULT_PLAYBACK_JWT_SECRET).toBe('smoke-video-jwt-secret-0123456789abcdef');
       expect(env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET).toBe(
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
       );

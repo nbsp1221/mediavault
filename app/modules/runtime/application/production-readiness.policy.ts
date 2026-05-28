@@ -22,7 +22,8 @@ export type ProductionReadinessIssueCode =
   | 'missing-auth-user'
   | 'missing-critical-secret'
   | 'non-production-runtime'
-  | 'storage-unavailable';
+  | 'storage-unavailable'
+  | 'weak-critical-secret';
 
 export type ProductionReadinessIssueSeverity =
   | 'readiness-only'
@@ -67,6 +68,15 @@ export function collectCriticalProductionSecretIssues(
   return CRITICAL_PRODUCTION_SECRET_KEYS.flatMap<ProductionReadinessIssue>((key) => {
     const value = env[key]?.trim();
     if (value) {
+      if (key === PUBLIC_ENV_KEYS.playbackJwtSecret && value.length < 32) {
+        return [{
+          code: 'weak-critical-secret',
+          message: `Production startup preflight failed: ${key} must be at least 32 characters`,
+          severity: 'startup-blocking',
+          subject: key,
+        } satisfies ProductionReadinessIssue];
+      }
+
       return [];
     }
 

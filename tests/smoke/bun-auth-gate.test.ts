@@ -173,13 +173,15 @@ afterAll(async () => {
 });
 
 describe('Bun auth gate smoke', () => {
-  test('unauthenticated root redirects to login', async () => {
+  test('unauthenticated root serves the public home catalog', async () => {
     const response = await fetch(`${baseUrl}/`, {
       redirect: 'manual',
     });
 
-    expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe('/login?redirectTo=%2F');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('vary')).toBe('Cookie');
+    await expect(response.text()).resolves.toContain('Mediavault');
   });
 
   test('invalid password is rejected', async () => {

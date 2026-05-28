@@ -1,5 +1,5 @@
 import { type LoaderFunctionArgs } from 'react-router';
-import { requireProtectedMediaSessionValue } from '~/composition/server/auth';
+import { resolvePublicVideoAccess } from '~/composition/server/auth';
 import { getServerPlaybackServices } from '~/composition/server/playback';
 import { assertValidPlaybackVideoId } from '~/modules/playback/domain/playback-video-id';
 import { getPlaybackRequestIp } from './playback-route-utils';
@@ -10,11 +10,12 @@ import { getPlaybackRequestIp } from './playback-route-utils';
  */
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { videoId } = params;
-  const mediaSession = await requireProtectedMediaSessionValue(request);
-  if ('response' in mediaSession) return mediaSession.response;
+  const publicRouteViewer = await resolvePublicVideoAccess(request);
+  const headers = new Headers(publicRouteViewer.headers);
+  headers.set('Cache-Control', 'no-store');
 
   if (!videoId) {
-    return Response.json({ success: false, error: 'Video ID is required' }, { status: 400 });
+    return Response.json({ success: false, error: 'Video not found' }, { headers, status: 404 });
   }
 
   try {
@@ -23,9 +24,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   catch (error) {
     if (error instanceof Error) {
       return Response.json({
-        error: error.message,
+        error: 'Video not found',
         success: false,
-      }, { status: 400 });
+      }, { headers, status: 404 });
     }
 
     throw error;
@@ -34,20 +35,20 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const playbackServices = getServerPlaybackServices();
   try {
     const result = await playbackServices.issuePlaybackToken.execute({
-      authenticatedUserId: mediaSession.session.userId,
       ipAddress: getPlaybackRequestIp(request),
       userAgent: request.headers.get('user-agent') || 'unknown',
       videoId,
+      viewer: publicRouteViewer.viewer,
     });
 
     if (!result.success) {
       return Response.json({
-        error: result.reason === 'VIDEO_NOT_FOUND' ? 'Video not found' : 'Authentication required',
+        error: 'Video not found',
         success: false,
-      }, { status: result.reason === 'VIDEO_NOT_FOUND' ? 404 : 401 });
+      }, { headers, status: 404 });
     }
 
-    return Response.json(result);
+    return Response.json(result, { headers });
   }
   catch (error) {
     if (
@@ -58,9 +59,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       error instanceof Error
     ) {
       return Response.json({
-        error: error.message,
+        error: 'Video not found',
         success: false,
-      }, { status: 400 });
+      }, { headers, status: 404 });
     }
 
     throw error;

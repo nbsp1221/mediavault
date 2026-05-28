@@ -3,6 +3,13 @@ import { describe, expect, test, vi } from 'vitest';
 const accessibleVideoRead = {
   findLibraryVideoById: vi.fn(async () => ({} as never)),
 };
+const authenticatedTokenPayload = {
+  jti: 'token-1',
+  readScope: 'public_or_owned' as const,
+  subjectUserId: 'owner-1',
+  videoId: 'video-1',
+  viewerType: 'authenticated' as const,
+};
 
 describe('ServePlaybackClearKeyLicenseUseCase', () => {
   test('validates the playback token and returns the downstream license body and headers untouched', async () => {
@@ -23,14 +30,13 @@ describe('ServePlaybackClearKeyLicenseUseCase', () => {
       },
       tokenService: {
         issue: async () => '',
-        validate: async () => ({ userId: 'owner-1', videoId: 'video-1' }),
+        validate: async () => authenticatedTokenPayload,
       },
       videoRead: accessibleVideoRead,
     });
 
     const result = await useCase.execute({
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     });
 
@@ -68,14 +74,12 @@ describe('ServePlaybackClearKeyLicenseUseCase', () => {
 
     const result = await useCase.execute({
       token: null,
-      userId: 'owner-1',
       videoId: 'video-1',
     });
 
     expect(result).toEqual({
       metadata: {
         requestedVideoId: 'video-1',
-        requestedUserId: 'owner-1',
         resource: 'clearkey-license',
       },
       ok: false,
@@ -92,7 +96,7 @@ describe('ServePlaybackClearKeyLicenseUseCase', () => {
       },
       tokenService: {
         issue: async () => '',
-        validate: async () => ({ userId: 'owner-1', videoId: 'video-1' }),
+        validate: async () => authenticatedTokenPayload,
       },
       videoRead: {
         findLibraryVideoById: vi.fn(async () => null),
@@ -101,12 +105,10 @@ describe('ServePlaybackClearKeyLicenseUseCase', () => {
 
     await expect(useCase.execute({
       token: 'signed-token',
-      userId: 'owner-1',
       videoId: 'video-1',
     })).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
-        requestedUserId: 'owner-1',
         resource: 'clearkey-license',
       },
       ok: false,

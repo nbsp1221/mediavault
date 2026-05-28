@@ -21,6 +21,7 @@ const DEFAULT_MEDIA_KEY_DERIVATION_SALT = 'mediavault-media-key-v1';
 const DEFAULT_PLAYBACK_JWT_AUDIENCE = 'video-streaming';
 const DEFAULT_PLAYBACK_JWT_EXPIRY = '15m';
 const DEFAULT_PLAYBACK_JWT_ISSUER = 'mediavault';
+const MIN_PLAYBACK_JWT_SECRET_LENGTH = 32;
 const DEFAULT_SEGMENT_DURATION = 10;
 const DEFAULT_SESSION_COOKIE_NAME = '__Host-mediavault-session';
 const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -198,6 +199,10 @@ export function getPlaybackConfigFromEnv(env: RuntimeEnvInput = process.env): Pl
 
   if (!jwtSecret) {
     throw new Error(`${PUBLIC_ENV_KEYS.playbackJwtSecret} environment variable is required for playback authentication`);
+  }
+
+  if (jwtSecret.length < MIN_PLAYBACK_JWT_SECRET_LENGTH) {
+    throw new Error(`${PUBLIC_ENV_KEYS.playbackJwtSecret} must be at least ${MIN_PLAYBACK_JWT_SECRET_LENGTH} characters`);
   }
 
   return {

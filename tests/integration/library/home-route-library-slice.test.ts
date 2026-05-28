@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-const requireProtectedPageSessionMock = vi.fn();
+const resolvePublicVideoAccessMock = vi.fn();
 const loadHomeLibraryPageDataExecuteMock = vi.fn();
 const getHomeLibraryPageServicesMock = vi.fn(() => ({
   loadHomeLibraryPageData: {
@@ -9,7 +9,7 @@ const getHomeLibraryPageServicesMock = vi.fn(() => ({
 }));
 
 vi.mock('~/composition/server/auth', () => ({
-  requireProtectedPageSession: requireProtectedPageSessionMock,
+  resolvePublicVideoAccess: resolvePublicVideoAccessMock,
 }));
 
 vi.mock('~/composition/server/home-library-page', () => ({
@@ -24,7 +24,13 @@ describe('home route library slice adapter', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    requireProtectedPageSessionMock.mockResolvedValue({ id: 'session-1', userId: 'owner-1' });
+    resolvePublicVideoAccessMock.mockResolvedValue({
+      headers: new Headers({
+        'Cache-Control': 'private, no-store',
+        'Vary': 'Cookie',
+      }),
+      viewer: { type: 'authenticated', userId: 'owner-1' },
+    });
   });
 
   test('delegates home page loading to the page-level composition root and preserves the established loader contract', async () => {
@@ -57,7 +63,7 @@ describe('home route library slice adapter', () => {
       request: new Request('http://localhost/?q=%20Action%20&tag=Action&tag=&tag=Drama'),
     } as never);
 
-    expect(requireProtectedPageSessionMock).toHaveBeenCalledOnce();
+    expect(resolvePublicVideoAccessMock).toHaveBeenCalledOnce();
     expect(getHomeLibraryPageServicesMock).toHaveBeenCalledOnce();
     expect(loadHomeLibraryPageDataExecuteMock).toHaveBeenCalledWith({
       viewer: {
@@ -65,7 +71,7 @@ describe('home route library slice adapter', () => {
         userId: 'owner-1',
       },
     });
-    expect(result).toEqual({
+    await expect((result as Response).json()).resolves.toEqual({
       contentTypes: [],
       genres: [],
       videos: [
@@ -82,6 +88,8 @@ describe('home route library slice adapter', () => {
         }),
       ],
     });
+    expect((result as Response).headers.get('Cache-Control')).toBe('private, no-store');
+    expect((result as Response).headers.get('Vary')).toBe('Cookie');
   });
 
   test('returns trimmed bootstrap tags so the current HomePage tag matcher keeps working for direct-navigation URLs', async () => {
@@ -120,7 +128,7 @@ describe('home route library slice adapter', () => {
         userId: 'owner-1',
       },
     });
-    expect(result).toEqual({
+    await expect((result as Response).json()).resolves.toEqual({
       contentTypes: [],
       genres: [],
       videos: [
@@ -146,35 +154,32 @@ describe('home route library slice adapter', () => {
     });
   });
 
-  test('preserves q and tag query parameters when auth redirects unauthenticated requests to login', async () => {
-    requireProtectedPageSessionMock.mockImplementation(async (request: Request) => {
-      const url = new URL(request.url);
-      const redirectTo = encodeURIComponent(url.pathname + url.search);
-
-      throw new Response(null, {
-        headers: {
-          Location: `/login?redirectTo=${redirectTo}`,
-        },
-        status: 302,
-      });
+  test('loads anonymous home data through the public viewer instead of redirecting to login', async () => {
+    resolvePublicVideoAccessMock.mockResolvedValue({
+      headers: new Headers({
+        'Cache-Control': 'private, no-store',
+        'Vary': 'Cookie',
+      }),
+      viewer: { type: 'anonymous' },
+    });
+    loadHomeLibraryPageDataExecuteMock.mockResolvedValue({
+      ok: true,
+      data: {
+        contentTypes: [],
+        genres: [],
+        videos: [],
+      },
     });
     const { loader } = await importHomeRoute();
 
-    await expect(loader({
+    const result = await loader({
       request: new Request('http://localhost/?q=Neo&tag=Action&tag=Drama'),
-    } as never)).rejects.toMatchObject({
-      headers: expect.any(Headers),
-      status: 302,
-    });
+    } as never);
 
-    try {
-      await loader({
-        request: new Request('http://localhost/?q=Neo&tag=Action&tag=Drama'),
-      } as never);
-    }
-    catch (response) {
-      expect((response as Response).headers.get('Location')).toBe('/login?redirectTo=%2F%3Fq%3DNeo%26tag%3DAction%26tag%3DDrama');
-    }
+    expect(loadHomeLibraryPageDataExecuteMock).toHaveBeenCalledWith({
+      viewer: { type: 'anonymous' },
+    });
+    expect((result as Response).status).toBe(200);
   });
 
   test('does not revalidate the protected home loader for q/tag-only URL sync updates', async () => {

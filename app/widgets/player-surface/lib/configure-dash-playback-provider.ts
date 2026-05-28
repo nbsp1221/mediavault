@@ -3,8 +3,13 @@ interface DrmConfig {
   keyId: string;
 }
 
+interface DashPlaybackRequest {
+  headers?: Record<string, string>;
+  url: string;
+}
+
 interface DashPlaybackProviderInstance {
-  addRequestInterceptor?: (callback: (request: { url: string }) => Promise<{ url: string }>) => void;
+  addRequestInterceptor?: (callback: (request: DashPlaybackRequest) => Promise<DashPlaybackRequest>) => void;
   extend?: (parentNameString: string, childInstance: () => Record<string, unknown>, override: boolean) => void;
   getProtectionController?: () => unknown;
   off?: (event: string, callback: () => void) => void;
@@ -27,18 +32,23 @@ export async function configureDashPlaybackProvider(
     if (input.provider.addRequestInterceptor) {
       input.provider.addRequestInterceptor(async request => ({
         ...request,
-        url: appendPlaybackToken(request.url, token),
+        headers: withPlaybackAuthorizationHeader(request.headers, token),
       }));
     }
-    else if (input.provider.extend) {
-      const modifyRequest = (request: { url: string }) => ({
+
+    if (input.provider.extend) {
+      const modifyRequest = (request: DashPlaybackRequest) => ({
         ...request,
-        url: appendPlaybackToken(request.url, token),
+        headers: withPlaybackAuthorizationHeader(request.headers, token),
       });
 
       input.provider.extend('RequestModifier', () => ({
         modifyRequest,
-        modifyRequestURL: (requestUrl: string) => appendPlaybackToken(requestUrl, token),
+        modifyRequestHeader: (request: { setRequestHeader: (header: string, value: string) => void }) => {
+          request.setRequestHeader('Authorization', `Bearer ${token}`);
+          return request;
+        },
+        modifyRequestURL: (requestUrl: string) => requestUrl,
       }), true);
     }
   }
@@ -90,20 +100,12 @@ export async function configureDashPlaybackProvider(
   }
 }
 
-function appendPlaybackToken(urlValue: string, token: string) {
-  const baseOrigin = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
-  const isAbsoluteUrl = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(urlValue);
-  const url = new URL(urlValue, baseOrigin);
-
-  if (url.searchParams.has('token')) {
-    return urlValue;
-  }
-
-  url.searchParams.set('token', token);
-
-  if (isAbsoluteUrl) {
-    return url.toString();
-  }
-
-  return `${url.pathname}${url.search}${url.hash}`;
+function withPlaybackAuthorizationHeader(
+  headers: Record<string, string> | undefined,
+  token: string,
+): Record<string, string> {
+  return {
+    ...headers,
+    Authorization: `Bearer ${token}`,
+  };
 }

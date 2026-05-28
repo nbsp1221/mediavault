@@ -311,13 +311,19 @@ describe('auth gate routes', () => {
     });
   });
 
-  test('protected home route redirects unauthenticated requests to login', async () => {
+  test('home route serves an anonymous public catalog without redirecting to login', async () => {
     const { loader } = await importHomeRoute();
     const request = new Request('http://localhost/');
 
-    await expect(loader({ request } as never)).rejects.toMatchObject({
-      headers: expect.any(Headers),
-      status: 302,
+    const response = await loader({ request } as never);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(response.headers.get('Vary')).toBe('Cookie');
+    await expect(response.json()).resolves.toEqual({
+      contentTypes: [],
+      genres: [],
+      videos: [],
     });
   });
 
@@ -1189,7 +1195,7 @@ describe('auth gate routes', () => {
     expect(response.headers.get('Location')).toBe('/login');
   });
 
-  test('video token route denies unauthenticated requests before issuing playback tokens', async () => {
+  test('video token route hides inaccessible videos from anonymous requests without requiring playback secrets', async () => {
     const { loader } = await importVideoTokenRoute();
     const request = new Request('http://localhost/videos/video-1/token');
 
@@ -1198,9 +1204,10 @@ describe('auth gate routes', () => {
       request,
     } as never);
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(404);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.json()).resolves.toEqual({
-      error: 'Authentication required',
+      error: 'Video not found',
       success: false,
     });
   });
@@ -1222,10 +1229,8 @@ describe('auth gate routes', () => {
     } as never);
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Authentication required',
-      success: false,
-    });
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.text()).resolves.toBe('Playback token required');
   });
 
   test.each([
@@ -1259,18 +1264,23 @@ describe('auth gate routes', () => {
       params: { id: 'video-1' },
       url: 'http://localhost/api/thumbnail/video-1',
     },
-  ])('protected $label route denies unauthenticated access', async ({ importRoute, params, url }) => {
+  ])('public $label route returns the public-safe denial without an account session', async ({ importRoute, label, params, url }) => {
     const routeModule = await importRoute();
     const response = await routeModule.loader({
       params,
       request: new Request(url),
     } as never);
 
+    if (label === 'thumbnail') {
+      expect(response.status).toBe(404);
+      expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+      await expect(response.text()).resolves.toBe('Thumbnail not found');
+      return;
+    }
+
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Authentication required',
-      success: false,
-    });
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await expect(response.text()).resolves.toBe('Playback token required');
   });
 
   test('thumbnail delivery works with the site session without a legacy session cookie', async () => {

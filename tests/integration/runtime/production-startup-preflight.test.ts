@@ -17,7 +17,7 @@ function createProductionEnv(overrides: Record<string, string | undefined> = {})
   return {
     MEDIAVAULT_DATABASE_ENCRYPTION_KEY: TEST_DATABASE_ENCRYPTION_KEY,
     NODE_ENV: 'production',
-    MEDIAVAULT_PLAYBACK_JWT_SECRET: 'test-video-jwt-secret',
+    MEDIAVAULT_PLAYBACK_JWT_SECRET: 'test-video-jwt-secret-0123456789abcdef',
     MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: 'test-master-encryption-seed',
     MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: 'test-auth-client-cookie-secret',
     ...overrides,
