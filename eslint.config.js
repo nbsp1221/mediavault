@@ -1,8 +1,15 @@
 import { createConfigs } from '@retn0/eslint-config';
+import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig } from 'eslint/config';
 
 export default defineConfig([
   ...createConfigs(),
+  {
+    files: [
+      '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+    ],
+    ...reactHooks.configs.flat.recommended,
+  },
   {
     settings: {
       react: {

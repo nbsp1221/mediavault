@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
 import { useFetcher, useRevalidator } from 'react-router';
 import type { CreatePlaylistRequest } from '~/entities/playlist/model/playlist';
+
+interface CreatePlaylistFetcherData {
+  error?: string;
+  success?: boolean;
+}
 
 interface UseCreatePlaylistReturn {
   createPlaylist: (data: CreatePlaylistRequest) => void;
@@ -11,9 +16,9 @@ interface UseCreatePlaylistReturn {
 }
 
 export function useCreatePlaylist(): UseCreatePlaylistReturn {
-  const fetcher = useFetcher();
+  const [fetcherVersion, resetFetcherVersion] = useReducer(version => version + 1, 0);
+  const fetcher = useFetcher<CreatePlaylistFetcherData>({ key: `playlist-create-${fetcherVersion}` });
   const revalidator = useRevalidator();
-  const [didSucceed, setDidSucceed] = useState(false);
   const fetcherSucceeded = fetcher.state === 'idle' && Boolean(fetcher.data?.success);
 
   const createPlaylist = useCallback((data: CreatePlaylistRequest) => {
@@ -50,24 +55,25 @@ export function useCreatePlaylist(): UseCreatePlaylistReturn {
 
   useEffect(() => {
     if (fetcherSucceeded) {
-      setDidSucceed(true);
       revalidator.revalidate();
     }
   }, [fetcherSucceeded, revalidator]);
 
   const reset = useCallback(() => {
-    setDidSucceed(false);
+    const shouldRevalidate = fetcher.state === 'idle' && Boolean(fetcher.data?.success || fetcher.data?.error);
 
-    if (fetcher.state === 'idle' && (fetcher.data?.success || fetcher.data?.error || didSucceed)) {
+    resetFetcherVersion();
+
+    if (shouldRevalidate) {
       revalidator.revalidate();
     }
-  }, [didSucceed, fetcher.data, fetcher.state, revalidator]);
+  }, [fetcher.data, fetcher.state, revalidator]);
 
   return {
     createPlaylist,
     isSubmitting: fetcher.state !== 'idle',
-    isSuccess: didSucceed || fetcherSucceeded,
-    error: fetcher.data?.error || null,
+    isSuccess: fetcherSucceeded,
+    error: fetcher.data?.error ?? null,
     reset,
   };
 }

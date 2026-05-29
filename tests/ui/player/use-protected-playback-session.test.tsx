@@ -249,4 +249,116 @@ describe('useProtectedPlaybackSession', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
+
+  test('returns external video URLs without fetching protected playback credentials', async () => {
+    const { useProtectedPlaybackSession } = await import('../../../app/widgets/player-surface/model/useProtectedPlaybackSession');
+
+    const { result } = renderHook(() => useProtectedPlaybackSession({
+      enabled: true,
+      videoId: 'external-video',
+      videoUrl: 'https://cdn.example.com/external.mp4',
+    }));
+
+    expect(result.current).toEqual({
+      drmConfig: null,
+      error: null,
+      isLoading: false,
+      manifestUrl: 'https://cdn.example.com/external.mp4',
+      token: null,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('does not bootstrap protected playback while disabled', async () => {
+    const { useProtectedPlaybackSession } = await import('../../../app/widgets/player-surface/model/useProtectedPlaybackSession');
+
+    const { result } = renderHook(() => useProtectedPlaybackSession({
+      enabled: false,
+      videoId: 'video-1',
+      videoUrl: '/videos/video-1/manifest.mpd',
+    }));
+
+    expect(result.current).toEqual({
+      drmConfig: null,
+      error: null,
+      isLoading: true,
+      manifestUrl: null,
+      token: null,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('reports token bootstrap failures without scheduling refreshes', async () => {
+    const { useProtectedPlaybackSession } = await import('../../../app/widgets/player-surface/model/useProtectedPlaybackSession');
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      success: false,
+    }), { status: 500 }));
+
+    const { result } = renderHook(() => useProtectedPlaybackSession({
+      enabled: true,
+      refreshIntervalMs: 1000,
+      videoId: 'video-1',
+      videoUrl: '/videos/video-1/manifest.mpd',
+    }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current).toEqual({
+      drmConfig: null,
+      error: 'Could not prepare the playback token.',
+      isLoading: false,
+      manifestUrl: null,
+      token: null,
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('reports ClearKey bootstrap failures', async () => {
+    const { useProtectedPlaybackSession } = await import('../../../app/widgets/player-surface/model/useProtectedPlaybackSession');
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        token: 'token-1',
+        urls: {
+          clearkey: '/videos/video-1/clearkey?token=token-1',
+          manifest: '/videos/video-1/manifest.mpd?token=token-1',
+        },
+      })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        keys: [{ kid: 'kid-without-key' }],
+      })));
+
+    const { result } = renderHook(() => useProtectedPlaybackSession({
+      enabled: true,
+      videoId: 'video-1',
+      videoUrl: '/videos/video-1/manifest.mpd',
+    }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current).toEqual({
+      drmConfig: null,
+      error: 'Could not load the ClearKey license.',
+      isLoading: false,
+      manifestUrl: null,
+      token: null,
+    });
+    expect(fetchMock).toHaveBeenCalledWith('/videos/video-1/clearkey?token=token-1', {
+      credentials: 'include',
+      headers: {
+        Authorization: 'Bearer token-1',
+      },
+    });
+  });
 });

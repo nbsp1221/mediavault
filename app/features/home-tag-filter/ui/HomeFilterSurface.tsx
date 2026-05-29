@@ -171,12 +171,6 @@ function MobileFilterDrawer({
 }: HomeFilterSurfaceProps) {
   const [draftFilters, setDraftFilters] = useState(filters);
 
-  useEffect(() => {
-    if (open) {
-      setDraftFilters(filters);
-    }
-  }, [filters, open]);
-
   const applyDraftFilters = () => {
     onFiltersChange(draftFilters);
     onOpenChange(false);
@@ -217,6 +211,16 @@ function MobileFilterDrawer({
   );
 }
 
+function createMobileFilterDrawerKey(filters: HomeLibraryFilters, open: boolean) {
+  if (!open) {
+    return 'closed';
+  }
+
+  const normalizedFilters = createHomeLibraryFilters(filters);
+
+  return JSON.stringify(normalizedFilters);
+}
+
 export function HomeFilterSurface({
   contentTypes,
   filters,
@@ -240,8 +244,11 @@ export function HomeFilterSurface({
     );
   }
 
+  const mobileDrawerKey = createMobileFilterDrawerKey(filters, open);
+
   return (
     <MobileFilterDrawer
+      key={mobileDrawerKey}
       contentTypes={contentTypes}
       filters={filters}
       genres={genres}
