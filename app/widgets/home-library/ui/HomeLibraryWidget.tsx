@@ -136,6 +136,7 @@ export function HomeLibraryWidget({
         contentTypes={contentTypes}
         genres={genres}
         modalState={view.modalState}
+        onChangeVisibility={view.handleChangeVisibility}
         onClose={view.handleCloseModal}
         onDeleteVideo={view.handleDeleteVideo}
         onTagClick={handleTagToggle}

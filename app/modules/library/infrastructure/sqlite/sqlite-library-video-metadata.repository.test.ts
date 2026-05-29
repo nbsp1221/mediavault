@@ -237,6 +237,64 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
     await expect(repository.count()).resolves.toBe(0);
   });
 
+  test('updates only visibility and immediately affects scoped reads', async () => {
+    const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
+
+    const created = await repository.create({
+      contentTypeSlug: 'movie',
+      createdAt: new Date('2026-03-23T00:00:00.000Z'),
+      description: 'Original description',
+      duration: 180,
+      genreSlugs: ['action'],
+      id: 'video-1',
+      ownerId,
+      sortIndex: 1,
+      tags: ['Action', 'Neo'],
+      title: 'Original title',
+      videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private',
+    });
+
+    await expect(repository.findByIdByReadAccessScope('video-1', {
+      type: 'public_only',
+    })).resolves.toBeNull();
+
+    const published = await repository.updateVisibility('video-1', ownerId, 'public');
+
+    expect(published).toEqual({
+      ...created,
+      tags: ['action', 'neo'],
+      visibility: 'public',
+    });
+    await expect(repository.findByIdByReadAccessScope('video-1', {
+      type: 'public_only',
+    })).resolves.toEqual(expect.objectContaining({
+      id: 'video-1',
+      title: 'Original title',
+      visibility: 'public',
+    }));
+
+    const privatized = await repository.updateVisibility('video-1', ownerId, 'private');
+
+    expect(privatized).toEqual(expect.objectContaining({
+      contentTypeSlug: 'movie',
+      description: 'Original description',
+      duration: 180,
+      genreSlugs: ['action'],
+      id: 'video-1',
+      ownerId,
+      tags: ['action', 'neo'],
+      title: 'Original title',
+      videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'private',
+    }));
+    await expect(repository.findByIdByReadAccessScope('video-1', {
+      type: 'public_only',
+    })).resolves.toBeNull();
+    await expect(repository.updateVisibility('video-1', 'other-user', 'public')).resolves.toBeNull();
+    await expect(repository.updateVisibility('missing-video', ownerId, 'public')).resolves.toBeNull();
+  });
+
   test('deletes videos that still have committed ingest upload rows', async () => {
     const database = await createMigratedPrimarySqliteDatabase({ dbPath });
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });

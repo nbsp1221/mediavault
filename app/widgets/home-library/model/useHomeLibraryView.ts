@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import type { HomeLibraryModalState } from '~/features/home-quick-view/ui/HomeQuickViewDialog';
+import type { VideoVisibility } from '~/modules/library/domain/value-objects/video-visibility';
 import { type HomeLibraryVideoActions, useHomeLibraryVideoActions } from '~/features/home-library-video-actions/model/useHomeLibraryVideoActions';
 import { doesLibraryVideoMatchHomeFilters } from '~/modules/library/domain/library-home-filters';
 import {
@@ -134,6 +135,16 @@ export function useHomeLibraryView({
     setModalState(prev => (prev.video?.id === video.id ? createClosedModalState() : prev));
   };
 
+  const handleChangeVisibility = async (video: HomeLibraryVideo, visibility: VideoVisibility) => {
+    if (!video.permissions.canManageVisibility) {
+      throw new Error('Video visibility cannot be changed by this viewer');
+    }
+
+    const updatedVideo = await actions.changeVisibility(video, visibility);
+    setVideos(prev => prev.map(candidate => (candidate.id === video.id ? updatedVideo : candidate)));
+    setModalState(prev => syncModalStateAfterCanonicalVideoUpdate(prev, updatedVideo));
+  };
+
   const handleUpdateVideo = async (video: HomeLibraryVideo, updates: UpdateVideoPayload) => {
     if (!video.permissions.canEdit) {
       throw new Error('Video cannot be edited by this viewer');
@@ -173,6 +184,7 @@ export function useHomeLibraryView({
     replaceSearchFilters,
     handleQuickView,
     handleCloseModal,
+    handleChangeVisibility,
     handleDeleteVideo,
     handleUpdateVideo,
   };

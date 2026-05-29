@@ -14,13 +14,29 @@ Milestone 1A is complete in commit:
 
 - `d69380e` - `🏗️ Establish user auth library boundaries`
 
-Milestone 1B is complete locally.
+Milestone 1B is complete in commit:
 
-Milestone 2 is complete in the working tree.
+- `a34cf33` - `🗃️ Add video ownership and visibility persistence`
 
-Milestone 3 is implemented in the working tree.
+Milestone 2 is complete in commit:
 
-Milestone 4 is implemented in the working tree.
+- `0e13046` - `🏗️ Add request viewer boundary model`
+
+Milestone 3 is complete in commit:
+
+- `72b98b9` - `🛂 Centralize video access policy`
+
+Milestone 4 is complete in commit:
+
+- `175e317` - `🛂 Centralize scoped video access`
+
+Milestone 5 is complete in commit:
+
+- `2cc9db4` - `🛂 Open anonymous public video access`
+
+The latest verification hardening commit is:
+
+- `23fc068` - `🦺 Centralize runtime fixture validation`
 
 Verified by:
 
@@ -53,17 +69,26 @@ Current implemented state:
 - Update and delete routes pass the authenticated actor through composition into library commands.
 - Missing and inaccessible update/delete targets keep the same neutral outward response.
 - Architecture tests now guard library domain/application boundaries and route/playback policy-consumption seams.
+- Home, player, thumbnail, token, manifest, segment, and ClearKey routes now resolve optional public viewers for read-only public access.
+- Anonymous visitors can browse the home catalog and play public videos.
+- Anonymous and authenticated non-owner viewers receive normalized missing/not-accessible responses for private direct-read media surfaces.
+- Playback tokens use the versioned public/authenticated viewer contract and media routes re-check current scoped access before serving resources.
+- Public media responses use non-cacheable/referrer-safe headers and do not emit permissive CORS grants.
+- Hermetic runtime fixtures now cover public/private and owner/non-owner playback cases without relying on local ignored `storage/`.
 
 Not implemented yet:
 
-- Anonymous site access.
 - Visibility management UI/API.
+- Final API contract and capability cleanup across every public/frontend-facing response.
+- Final verification/security regression closeout after visibility management is implemented.
 
 Next phase:
 
-- Milestone 5: route opening for anonymous home and then anonymous public video playback.
-- Milestone 5 should replace protected page/media guards with optional request-viewer resolution only on read-only public surfaces.
-- Milestone 5 must keep upload, edit, delete, and management affordances authenticated and owner-only.
+- Milestone 6: owner-only visibility management UI and APIs.
+- Milestone 6 should allow authenticated owners to change videos between `private` and `public`.
+- Milestone 6 must keep upload, edit, delete, and visibility management affordances authenticated and owner-only, and must preserve the anonymous/private denial behavior completed in Milestone 5.
+- Completed Milestone 5 plan: `docs/plans/2026-05-27-video-access-milestone-5-anonymous-public-access-plan.md`.
+- Milestone 5 opened anonymous home, public player, public thumbnail, token, manifest, segment, and ClearKey access while preserving private-video denial normalization and media authorization re-checks.
 - Detailed Milestone 4 plan: `docs/plans/2026-05-26-video-access-milestone-4-read-scope-plan.md`.
 - Milestone 4 wired `VideoReadAccessScope` through home/catalog reads, player catalog, playback token issuance, manifest/segment/ClearKey serving, thumbnail reads, and playlist video summaries before opening anonymous routes. It also added public non-owner read-only browser coverage.
 - Completed Milestone 3 plan: `docs/plans/2026-05-25-video-access-milestone-3-policy-plan.md`.
@@ -74,9 +99,9 @@ Next phase:
 **Current Model:**
 
 ```text
-site access = login required
-media access = login required
-video ownership/access = effectively single-owner
+site access = anonymous allowed
+media access = token-authorized public playback or owner-authorized private playback
+video ownership/access = owner/visibility policy enforced on read and media routes
 ```
 
 **Target Model:**
@@ -305,8 +330,8 @@ Review status:
 
 Implementation status:
 
-- Complete in the working tree.
-- Commit: pending maintainer request.
+- Complete.
+- Commit: `0e13046` - `🏗️ Add request viewer boundary model`
 - Scope: explicit request viewer model, composition adapter to library video policy identity, dangling-session fail-closed handling, and protected-route regression coverage.
 - Out of scope: anonymous home access, anonymous player access, public/private filtering, playback authorization, and visibility management UI/API.
 
@@ -363,8 +388,8 @@ Review status:
 
 Implementation status:
 
-- Complete in the working tree.
-- Commit: pending maintainer request.
+- Complete.
+- Commit: `72b98b9` - `🛂 Centralize video access policy`
 - Scope: canonical video access policy contract, reusable read access scope, owner-authorized update/delete commands, trusted route actor propagation, privacy-preserving mutation denial, and architecture guardrails.
 - Out of scope: anonymous home access, anonymous player access, public/private read filtering, playback authorization, thumbnail authorization, and visibility management UI/API.
 
@@ -436,6 +461,14 @@ Exit criteria:
 - UI tests cover anonymous and authenticated home behavior.
 
 ## Milestone 5: Playback and Media Route Rewiring
+
+Implementation status:
+
+- Complete.
+- Commit: `2cc9db4` - `🛂 Open anonymous public video access`
+- Detailed plan: `docs/plans/2026-05-27-video-access-milestone-5-anonymous-public-access-plan.md`
+- Scope: anonymous public home, player, thumbnail, token, manifest, segment, and ClearKey access; versioned playback token contract; private direct-read denial normalization; same-origin/non-cacheable media response hardening.
+- Out of scope: visibility management UI/API, public upload, public signup, playlist public browsing, and final API capability cleanup.
 
 Apply video access policy to every media-facing route.
 

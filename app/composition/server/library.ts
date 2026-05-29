@@ -1,6 +1,7 @@
 import type { LibraryVideoArtifactRemovalPort } from '~/modules/library/application/ports/library-video-artifact-removal.port';
-import type { LibraryVideoMutationPort } from '~/modules/library/application/ports/library-video-mutation.port';
+import type { LibraryVideoMutationPort, LibraryVideoVisibilityMutationPort } from '~/modules/library/application/ports/library-video-mutation.port';
 import type { LibraryVideoSourcePort } from '~/modules/library/application/ports/library-video-source.port';
+import { ChangeLibraryVideoVisibilityUseCase } from '~/modules/library/application/use-cases/change-library-video-visibility.usecase';
 import { DeleteLibraryVideoUseCase } from '~/modules/library/application/use-cases/delete-library-video.usecase';
 import { LoadLibraryCatalogSnapshotUseCase } from '~/modules/library/application/use-cases/load-library-catalog-snapshot.usecase';
 import { LoadVideoMetadataVocabularyUseCase } from '~/modules/library/application/use-cases/load-video-metadata-vocabulary.usecase';
@@ -14,6 +15,7 @@ export interface LoadLibraryCatalogSnapshotService {
 }
 
 export interface ServerLibraryServices {
+  changeLibraryVideoVisibility: ChangeLibraryVideoVisibilityUseCase;
   deleteLibraryVideo: DeleteLibraryVideoUseCase;
   loadLibraryCatalogSnapshot: LoadLibraryCatalogSnapshotService;
   loadVideoMetadataVocabulary: LoadVideoMetadataVocabularyUseCase;
@@ -22,7 +24,7 @@ export interface ServerLibraryServices {
 
 interface ServerLibraryServiceDependencies {
   artifactRemovalPort: LibraryVideoArtifactRemovalPort;
-  mutationPort: LibraryVideoMutationPort;
+  mutationPort: LibraryVideoMutationPort & LibraryVideoVisibilityMutationPort;
   videoSource: LibraryVideoSourcePort;
 }
 
@@ -44,6 +46,9 @@ export function createServerLibraryServices(
   const deps = resolveDependencies(overrides);
 
   return {
+    changeLibraryVideoVisibility: new ChangeLibraryVideoVisibilityUseCase({
+      videoMutation: deps.mutationPort,
+    }),
     deleteLibraryVideo: new DeleteLibraryVideoUseCase({
       videoArtifacts: deps.artifactRemovalPort,
       videoMutation: deps.mutationPort,

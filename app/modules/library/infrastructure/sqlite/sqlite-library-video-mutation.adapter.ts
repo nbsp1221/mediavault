@@ -4,7 +4,7 @@ import { SqliteLibraryVideoMetadataRepository } from './sqlite-library-video-met
 
 type SqliteLibraryVideoMutationAdapterRepository = Pick<
   SqliteLibraryVideoMetadataRepository,
-  'delete' | 'findById' | 'findOwnedById' | 'update'
+  'delete' | 'findById' | 'findOwnedById' | 'update' | 'updateVisibility'
 >;
 
 interface SqliteLibraryVideoMutationAdapterDependencies {
@@ -59,6 +59,27 @@ export class SqliteLibraryVideoMutationAdapter implements LibraryVideoMutationPo
     return this.repository.findOwnedById(input.videoId, input.ownerId);
   }
 
+  async resolveVisibilityManagementTarget(input: { requesterId: string; videoId: string }) {
+    const video = await this.repository.findById(input.videoId);
+
+    if (!video) {
+      return { type: 'not_found_or_private_inaccessible' as const };
+    }
+
+    if (video.ownerId === input.requesterId) {
+      return {
+        type: 'owned' as const,
+        video,
+      };
+    }
+
+    if (video.visibility === 'public') {
+      return { type: 'public_non_owner' as const };
+    }
+
+    return { type: 'not_found_or_private_inaccessible' as const };
+  }
+
   async updateLibraryVideo(input: UpdateLibraryVideoInput) {
     const updates: RepositoryUpdateInput = {
       description: input.description,
@@ -69,5 +90,9 @@ export class SqliteLibraryVideoMutationAdapter implements LibraryVideoMutationPo
     copyPresentStructuredMetadataFields(input, updates);
 
     return this.repository.update(input.videoId, updates);
+  }
+
+  async updateLibraryVideoVisibility(input: { ownerId: string; videoId: string; visibility: 'private' | 'public' }) {
+    return this.repository.updateVisibility(input.videoId, input.ownerId, input.visibility);
   }
 }

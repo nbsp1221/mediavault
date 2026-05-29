@@ -27,6 +27,7 @@ describe('useHomeLibraryView', () => {
   test('blocks edit and delete handlers before side effects for read-only videos', async () => {
     const deleteVideo = vi.fn();
     const updateVideo = vi.fn();
+    const changeVisibility = vi.fn();
     const readOnlyVideo = createVideo({
       permissions: {
         canDelete: false,
@@ -37,6 +38,7 @@ describe('useHomeLibraryView', () => {
     const { result } = renderHook(() => useHomeLibraryView({
       initialVideos: [readOnlyVideo],
       videoActions: {
+        changeVisibility,
         deleteVideo,
         updateVideo,
       },
@@ -50,6 +52,7 @@ describe('useHomeLibraryView', () => {
     })).rejects.toThrow('Video cannot be edited by this viewer');
     expect(deleteVideo).not.toHaveBeenCalled();
     expect(updateVideo).not.toHaveBeenCalled();
+    expect(changeVisibility).not.toHaveBeenCalled();
   });
 
   test('closes and updates only the modal for the matching canonical video', async () => {
@@ -67,6 +70,7 @@ describe('useHomeLibraryView', () => {
     const { result } = renderHook(() => useHomeLibraryView({
       initialVideos: [firstVideo, secondVideo],
       videoActions: {
+        changeVisibility: vi.fn(),
         deleteVideo: vi.fn(),
         updateVideo: vi.fn().mockResolvedValue(updatedSecondVideo),
       },
@@ -112,6 +116,7 @@ describe('useHomeLibraryView', () => {
     const { result } = renderHook(() => useHomeLibraryView({
       initialVideos: [firstVideo, secondVideo],
       videoActions: {
+        changeVisibility: vi.fn(),
         deleteVideo: vi.fn().mockResolvedValue(undefined),
         updateVideo: vi.fn(),
       },
@@ -128,6 +133,63 @@ describe('useHomeLibraryView', () => {
       isOpen: false,
       video: null,
     });
+  });
+
+  test('changes visibility through the canonical action result and keeps quick view open', async () => {
+    const privateVideo = createVideo({
+      isPrivate: true,
+      title: 'Private Fixture',
+    });
+    const publicVideo = createVideo({
+      isPrivate: false,
+      title: 'Private Fixture',
+    });
+    const changeVisibility = vi.fn().mockResolvedValue(publicVideo);
+    const { result } = renderHook(() => useHomeLibraryView({
+      initialVideos: [privateVideo],
+      videoActions: {
+        changeVisibility,
+        deleteVideo: vi.fn(),
+        updateVideo: vi.fn(),
+      },
+    }));
+
+    act(() => result.current.handleQuickView(privateVideo));
+    await act(async () => {
+      await result.current.handleChangeVisibility(privateVideo, 'public');
+    });
+
+    expect(changeVisibility).toHaveBeenCalledWith(privateVideo, 'public');
+    expect(result.current.videos).toEqual([publicVideo]);
+    expect(result.current.totalVideosCount).toBe(1);
+    expect(result.current.modalState).toEqual({
+      isOpen: true,
+      video: publicVideo,
+    });
+  });
+
+  test('blocks visibility changes before side effects when permission is absent', async () => {
+    const changeVisibility = vi.fn();
+    const readOnlyVideo = createVideo({
+      permissions: {
+        canDelete: false,
+        canEdit: false,
+        canManageVisibility: false,
+      },
+    });
+    const { result } = renderHook(() => useHomeLibraryView({
+      initialVideos: [readOnlyVideo],
+      videoActions: {
+        changeVisibility,
+        deleteVideo: vi.fn(),
+        updateVideo: vi.fn(),
+      },
+    }));
+
+    await expect(result.current.handleChangeVisibility(readOnlyVideo, 'public')).rejects.toThrow(
+      'Video visibility cannot be changed by this viewer',
+    );
+    expect(changeVisibility).not.toHaveBeenCalled();
   });
 
   test('resyncs incoming videos when canonical visible properties change', () => {

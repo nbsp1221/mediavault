@@ -47,6 +47,29 @@ describe('server library mutation composition root', () => {
       deleted: true,
       title: 'Fixture Video',
     }));
+    const resolveVisibilityManagementTarget = vi.fn(async () => ({
+      type: 'owned' as const,
+      video: {
+        createdAt: new Date('2026-03-11T00:00:00.000Z'),
+        duration: 180,
+        id: 'video-1',
+        ownerId: 'owner-1',
+        tags: ['Action'],
+        title: 'Fixture Video',
+        videoUrl: '/videos/video-1/manifest.mpd',
+        visibility: 'private' as const,
+      },
+    }));
+    const updateLibraryVideoVisibility = vi.fn(async input => ({
+      createdAt: new Date('2026-03-11T00:00:00.000Z'),
+      duration: 180,
+      id: input.videoId,
+      ownerId: 'owner-1',
+      tags: ['Action'],
+      title: 'Fixture Video',
+      videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: input.visibility,
+    }));
     const cleanupVideoArtifacts = vi.fn(async () => ({}));
 
     const services = createServerLibraryServices({
@@ -56,7 +79,9 @@ describe('server library mutation composition root', () => {
       mutationPort: {
         deleteLibraryVideo,
         findOwnedLibraryVideoById,
+        resolveVisibilityManagementTarget,
         updateLibraryVideo,
+        updateLibraryVideoVisibility,
       },
       videoSource: {
         listActiveContentTypes: vi.fn(async () => []),
@@ -119,6 +144,19 @@ describe('server library mutation composition root', () => {
         videoUrl: '/videos/video-1/manifest.mpd',
         visibility: 'private' as const,
       })),
+      resolveVisibilityManagementTarget: vi.fn(async videoId => ({
+        type: 'owned' as const,
+        video: {
+          createdAt: new Date('2026-03-11T00:00:00.000Z'),
+          duration: 180,
+          id: videoId,
+          ownerId: 'owner-1',
+          tags: ['Action'],
+          title: 'Fixture Video',
+          videoUrl: '/videos/video-1/manifest.mpd',
+          visibility: 'private' as const,
+        },
+      })),
       updateLibraryVideo: vi.fn(async input => ({
         createdAt: new Date('2026-03-11T00:00:00.000Z'),
         duration: 180,
@@ -128,6 +166,16 @@ describe('server library mutation composition root', () => {
         title: input.title,
         videoUrl: '/videos/video-1/manifest.mpd',
         visibility: 'private' as const,
+      })),
+      updateLibraryVideoVisibility: vi.fn(async input => ({
+        createdAt: new Date('2026-03-11T00:00:00.000Z'),
+        duration: 180,
+        id: input.videoId,
+        ownerId: 'owner-1',
+        tags: ['Action'],
+        title: 'Fixture Video',
+        videoUrl: '/videos/video-1/manifest.mpd',
+        visibility: input.visibility,
       })),
     }));
     FilesystemLibraryVideoArtifactRemovalAdapterMock.mockImplementation(() => ({
@@ -142,6 +190,7 @@ describe('server library mutation composition root', () => {
     expect(first).toBe(second);
     expect(first.updateLibraryVideo).toBeDefined();
     expect(first.deleteLibraryVideo).toBeDefined();
+    expect(first.changeLibraryVideoVisibility).toBeDefined();
     expect(SqliteLibraryVideoMutationAdapterMock).toHaveBeenCalledOnce();
     expect(FilesystemLibraryVideoArtifactRemovalAdapterMock).toHaveBeenCalledOnce();
   });

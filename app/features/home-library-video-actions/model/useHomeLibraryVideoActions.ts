@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
+import type { VideoVisibility } from '~/modules/library/domain/value-objects/video-visibility';
 
 interface UpdateVideoPayload {
   contentTypeSlug?: string | null;
@@ -16,6 +17,7 @@ interface VideoActionResult {
 }
 
 export interface HomeLibraryVideoActions {
+  changeVisibility(video: HomeLibraryVideo, visibility: VideoVisibility): Promise<HomeLibraryVideo>;
   deleteVideo(video: HomeLibraryVideo): Promise<void>;
   updateVideo(video: HomeLibraryVideo, updates: UpdateVideoPayload): Promise<HomeLibraryVideo>;
 }
@@ -68,6 +70,22 @@ function deserializeUpdatedVideo(result: VideoActionResult, fallbackMessage: str
 }
 
 export function useHomeLibraryVideoActions(): HomeLibraryVideoActions {
+  const changeVisibility = useCallback(async (video: HomeLibraryVideo, visibility: VideoVisibility) => {
+    if (!video.permissions.canManageVisibility) {
+      throw new Error('Video visibility cannot be changed by this viewer');
+    }
+
+    const result = await executeVideoAction(`/api/visibility/${video.id}`, {
+      body: JSON.stringify({ visibility }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'PUT',
+    }, 'Visibility could not be updated. Try again.');
+
+    return deserializeUpdatedVideo(result, 'Updated video response was incomplete');
+  }, []);
+
   const deleteVideo = useCallback(async (video: HomeLibraryVideo) => {
     if (!video.permissions.canDelete) {
       throw new Error('Video cannot be deleted by this viewer');
@@ -95,6 +113,7 @@ export function useHomeLibraryVideoActions(): HomeLibraryVideoActions {
   }, []);
 
   return {
+    changeVisibility,
     deleteVideo,
     updateVideo,
   };

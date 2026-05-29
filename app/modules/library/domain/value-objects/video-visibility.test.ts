@@ -15,11 +15,20 @@ describe('VideoVisibility', () => {
       ok: true,
       visibility: 'private',
     });
-    expect(createVideoVisibility('restricted')).toEqual({
-      ok: false,
-      reason: 'VIDEO_VISIBILITY_INVALID',
-    });
-    expect(createVideoVisibility(null)).toEqual({
+  });
+
+  test.each([
+    ['missing', undefined],
+    ['null', null],
+    ['empty string', ''],
+    ['unknown string', 'restricted'],
+    ['wrong casing', 'PUBLIC'],
+    ['boolean', true],
+    ['number', 1],
+    ['array', ['public']],
+    ['object', { visibility: 'public' }],
+  ])('rejects %s visibility input', (_label, value) => {
+    expect(createVideoVisibility(value)).toEqual({
       ok: false,
       reason: 'VIDEO_VISIBILITY_INVALID',
     });

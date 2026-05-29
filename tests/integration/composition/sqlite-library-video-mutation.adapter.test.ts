@@ -43,6 +43,7 @@ describe('sqlite library video mutation adapter', () => {
         findById,
         findOwnedById: findById,
         update,
+        updateVisibility: vi.fn(),
       },
     });
 
@@ -102,6 +103,7 @@ describe('sqlite library video mutation adapter', () => {
         findById,
         findOwnedById: vi.fn(),
         update,
+        updateVisibility: vi.fn(),
       },
     });
 
@@ -153,6 +155,82 @@ describe('sqlite library video mutation adapter', () => {
     });
   });
 
+  test('resolves visibility-management targets and updates visibility through the repository', async () => {
+    const ownerVideo = {
+      createdAt: new Date('2026-03-10T00:00:00.000Z'),
+      duration: 95,
+      id: 'owner-video',
+      ownerId: 'owner-1',
+      tags: ['Action'],
+      title: 'Owner Video',
+      videoUrl: '/videos/owner-video/manifest.mpd',
+      visibility: 'private' as const,
+    };
+    const publicOtherVideo = {
+      ...ownerVideo,
+      id: 'public-other',
+      ownerId: 'owner-2',
+      visibility: 'public' as const,
+    };
+    const privateOtherVideo = {
+      ...ownerVideo,
+      id: 'private-other',
+      ownerId: 'owner-2',
+    };
+    const findById = vi.fn(async (videoId: string) => {
+      if (videoId === 'owner-video') return ownerVideo;
+      if (videoId === 'public-other') return publicOtherVideo;
+      if (videoId === 'private-other') return privateOtherVideo;
+      return null;
+    });
+    const updateVisibility = vi.fn(async (videoId: string, ownerId: string, visibility: 'private' | 'public') => ({
+      ...ownerVideo,
+      id: videoId,
+      ownerId,
+      visibility,
+    }));
+
+    const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
+    const adapter = new SqliteLibraryVideoMutationAdapter({
+      repository: {
+        delete: vi.fn(),
+        findById,
+        findOwnedById: vi.fn(),
+        update: vi.fn(),
+        updateVisibility,
+      },
+    });
+
+    await expect(adapter.resolveVisibilityManagementTarget({
+      requesterId: 'owner-1',
+      videoId: 'owner-video',
+    })).resolves.toEqual({
+      type: 'owned',
+      video: ownerVideo,
+    });
+    await expect(adapter.resolveVisibilityManagementTarget({
+      requesterId: 'owner-1',
+      videoId: 'public-other',
+    })).resolves.toEqual({ type: 'public_non_owner' });
+    await expect(adapter.resolveVisibilityManagementTarget({
+      requesterId: 'owner-1',
+      videoId: 'private-other',
+    })).resolves.toEqual({ type: 'not_found_or_private_inaccessible' });
+    await expect(adapter.resolveVisibilityManagementTarget({
+      requesterId: 'owner-1',
+      videoId: 'missing-video',
+    })).resolves.toEqual({ type: 'not_found_or_private_inaccessible' });
+    await expect(adapter.updateLibraryVideoVisibility({
+      ownerId: 'owner-1',
+      videoId: 'owner-video',
+      visibility: 'public',
+    })).resolves.toEqual(expect.objectContaining({
+      id: 'owner-video',
+      visibility: 'public',
+    }));
+    expect(updateVisibility).toHaveBeenCalledWith('owner-video', 'owner-1', 'public');
+  });
+
   test('preserves the delete result contract expected by the library use case', async () => {
     const findById = vi
       .fn()
@@ -180,6 +258,7 @@ describe('sqlite library video mutation adapter', () => {
         findById,
         findOwnedById: vi.fn(),
         update: vi.fn(),
+        updateVisibility: vi.fn(),
       },
     });
 

@@ -262,6 +262,32 @@ export class SqliteLibraryVideoMetadataRepository {
     return row ? mapRowToLibraryVideo(database, row) : null;
   }
 
+  async updateVisibility(
+    id: string,
+    ownerId: string,
+    visibility: VideoVisibility,
+  ): Promise<LibraryVideo | null> {
+    const database = await this.getDatabase();
+    const result = await database.prepare(`
+      UPDATE videos
+      SET
+        visibility = ?,
+        updated_at = ?
+      WHERE id = ? AND owner_id = ?
+    `).run(
+      visibility,
+      new Date().toISOString(),
+      id,
+      ownerId,
+    );
+
+    if ((result.changes ?? 0) === 0) {
+      return null;
+    }
+
+    return this.findOwnedById(id, ownerId);
+  }
+
   async findByIdByReadAccessScope(id: string, scope: VideoReadAccessScope): Promise<LibraryVideo | null> {
     const database = await this.getDatabase();
     const row = scope.type === 'public_only'

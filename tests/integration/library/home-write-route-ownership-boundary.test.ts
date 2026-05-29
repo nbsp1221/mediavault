@@ -6,6 +6,7 @@ const projectRoot = process.cwd();
 const routeFiles = [
   join(projectRoot, 'app/routes/api.update.$id.ts'),
   join(projectRoot, 'app/routes/api.delete.$id.ts'),
+  join(projectRoot, 'app/routes/api.visibility.$id.ts'),
 ];
 const compositionFiles = [
   join(projectRoot, 'app/composition/server/library.ts'),

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { describe, expect, test, vi } from 'vitest';
@@ -104,6 +104,7 @@ describe('home library surfaces', () => {
               tags: ['good_boy-comedy'],
             }),
           }}
+          onChangeVisibility={vi.fn()}
           onClose={vi.fn()}
           onDeleteVideo={vi.fn()}
           onTagClick={vi.fn()}
@@ -133,6 +134,7 @@ describe('home library surfaces', () => {
               },
             }),
           }}
+          onChangeVisibility={vi.fn()}
           onClose={vi.fn()}
           onDeleteVideo={vi.fn()}
           onTagClick={vi.fn()}
@@ -144,6 +146,196 @@ describe('home library surfaces', () => {
     expect(screen.getByRole('link', { name: 'Watch' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit Info' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Visibility: Public')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Make Private' })).not.toBeInTheDocument();
+  });
+
+  test('HomeQuickViewDialog requires confirmation before making a private video public', async () => {
+    const user = userEvent.setup();
+    const onChangeVisibility = vi.fn().mockResolvedValue(undefined);
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <HomeQuickViewDialog
+          isOpen
+          modalState={{
+            isOpen: true,
+            video: createVideo({
+              isPrivate: true,
+            }),
+          }}
+          onChangeVisibility={onChangeVisibility}
+          onClose={vi.fn()}
+          onDeleteVideo={vi.fn()}
+          onTagClick={vi.fn()}
+          onUpdateVideo={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Visibility: Private')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Make Public' }));
+    expect(screen.getByRole('dialog', { name: 'Make video public?' })).toBeInTheDocument();
+    expect(screen.getByText('Anyone who can access this site can find and watch this video. You can make it private again later.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onChangeVisibility).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Make Public' }));
+    await user.click(screen.getAllByRole('button', { name: 'Make Public' }).at(-1)!);
+    expect(onChangeVisibility).toHaveBeenCalledWith(expect.objectContaining({ id: 'video-1' }), 'public');
+    expect(await screen.findByRole('status')).toHaveTextContent('Visibility updated to Public.');
+    expect(screen.getByRole('dialog', { name: 'Catalog Fixture' })).toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <HomeQuickViewDialog
+          isOpen
+          modalState={{
+            isOpen: true,
+            video: createVideo({
+              isPrivate: false,
+            }),
+          }}
+          onChangeVisibility={onChangeVisibility}
+          onClose={vi.fn()}
+          onDeleteVideo={vi.fn()}
+          onTagClick={vi.fn()}
+          onUpdateVideo={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Visibility: Public')).toBeInTheDocument();
+  });
+
+  test('HomeQuickViewDialog makes public videos private without confirmation and hides controls in edit mode', async () => {
+    const user = userEvent.setup();
+    const onChangeVisibility = vi.fn().mockResolvedValue(undefined);
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <HomeQuickViewDialog
+          isOpen
+          modalState={{
+            isOpen: true,
+            video: createVideo({
+              isPrivate: false,
+            }),
+          }}
+          onChangeVisibility={onChangeVisibility}
+          onClose={vi.fn()}
+          onDeleteVideo={vi.fn()}
+          onTagClick={vi.fn()}
+          onUpdateVideo={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Visibility: Public')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit Info' }));
+    expect(screen.queryByText('Visibility: Public')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Make Private' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await user.click(screen.getByRole('button', { name: 'Make Private' }));
+    expect(screen.queryByRole('dialog', { name: 'Make video public?' })).not.toBeInTheDocument();
+    expect(onChangeVisibility).toHaveBeenCalledWith(expect.objectContaining({ id: 'video-1' }), 'private');
+    expect(await screen.findByRole('status')).toHaveTextContent('Visibility updated to Private.');
+
+    rerender(
+      <MemoryRouter>
+        <HomeQuickViewDialog
+          isOpen
+          modalState={{
+            isOpen: true,
+            video: createVideo({
+              isPrivate: true,
+            }),
+          }}
+          onChangeVisibility={onChangeVisibility}
+          onClose={vi.fn()}
+          onDeleteVideo={vi.fn()}
+          onTagClick={vi.fn()}
+          onUpdateVideo={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Visibility: Private')).toBeInTheDocument();
+  });
+
+  test('HomeQuickViewDialog keeps visibility state stable on update failures and supports retry', async () => {
+    const user = userEvent.setup();
+    const onChangeVisibility = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce(undefined);
+
+    render(
+      <MemoryRouter>
+        <HomeQuickViewDialog
+          isOpen
+          modalState={{
+            isOpen: true,
+            video: createVideo({
+              isPrivate: false,
+            }),
+          }}
+          onChangeVisibility={onChangeVisibility}
+          onClose={vi.fn()}
+          onDeleteVideo={vi.fn()}
+          onTagClick={vi.fn()}
+          onUpdateVideo={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Make Private' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Visibility could not be updated. Try again.');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByText('Visibility: Public')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Catalog Fixture' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Make Private' }));
+    expect(onChangeVisibility).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('status')).toHaveTextContent('Visibility updated to Private.');
+  });
+
+  test('HomeQuickViewDialog disables visibility actions while an update is pending', async () => {
+    const user = userEvent.setup();
+    let resolveVisibilityChange: (() => void) | undefined;
+    const onChangeVisibility = vi.fn(() => new Promise<void>((resolve) => {
+      resolveVisibilityChange = resolve;
+    }));
+
+    render(
+      <MemoryRouter>
+        <HomeQuickViewDialog
+          isOpen
+          modalState={{
+            isOpen: true,
+            video: createVideo({
+              isPrivate: false,
+            }),
+          }}
+          onChangeVisibility={onChangeVisibility}
+          onClose={vi.fn()}
+          onDeleteVideo={vi.fn()}
+          onTagClick={vi.fn()}
+          onUpdateVideo={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Make Private' }));
+    const updatingButton = await screen.findByRole('button', { name: 'Updating...' });
+
+    expect(updatingButton).toBeDisabled();
+    await user.click(updatingButton);
+    expect(onChangeVisibility).toHaveBeenCalledTimes(1);
+
+    resolveVisibilityChange?.();
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Visibility updated to Private.'));
   });
 
   test('LibraryVideoCard shows private badge only for private videos', () => {

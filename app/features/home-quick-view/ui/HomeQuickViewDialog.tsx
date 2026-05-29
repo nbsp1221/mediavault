@@ -1,7 +1,8 @@
-import { Clock, Edit, Play, Trash2, X } from 'lucide-react';
+import { type LucideIcon, Clock, Edit, Eye, EyeOff, Play, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
+import type { VideoVisibility } from '~/modules/library/domain/value-objects/video-visibility';
 import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
 import { formatVideoTagLabel } from '~/modules/library/domain/video-tag';
 import { formatDisplayDate } from '~/shared/lib/format-display-date';
@@ -32,6 +33,52 @@ interface UpdateVideoPayload {
   description?: string;
 }
 
+type VisibilityFeedback = {
+  message: string;
+  type: 'error' | 'success';
+};
+
+const visibilitySuccessMessages: Record<VideoVisibility, string> = {
+  private: 'Visibility updated to Private.',
+  public: 'Visibility updated to Public.',
+};
+
+function getVisibilityAction(isPrivate: boolean): {
+  currentLabel: 'Private' | 'Public';
+  Icon: LucideIcon;
+  label: 'Make Private' | 'Make Public';
+  nextVisibility: VideoVisibility;
+} {
+  return isPrivate
+    ? {
+        currentLabel: 'Private',
+        Icon: Eye,
+        label: 'Make Public',
+        nextVisibility: 'public',
+      }
+    : {
+        currentLabel: 'Public',
+        Icon: EyeOff,
+        label: 'Make Private',
+        nextVisibility: 'private',
+      };
+}
+
+function VisibilityFeedbackMessage({ feedback }: { feedback: VisibilityFeedback }) {
+  const isError = feedback.type === 'error';
+
+  return (
+    <div
+      role={isError ? 'alert' : 'status'}
+      className={isError
+        ? 'mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
+        : 'mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700'}
+    >
+      {feedback.message}
+    </div>
+  );
+}
+
 interface HomeQuickViewDialogProps {
   contentTypes?: VideoTaxonomyItem[];
   genres?: VideoTaxonomyItem[];
@@ -39,6 +86,7 @@ interface HomeQuickViewDialogProps {
   isOpen?: boolean;
   onClose: () => void;
   onTagClick: (tag: string) => void;
+  onChangeVisibility: (video: HomeLibraryVideo, visibility: VideoVisibility) => Promise<void>;
   onDeleteVideo: (video: HomeLibraryVideo) => Promise<void>;
   onUpdateVideo: (video: HomeLibraryVideo, updates: UpdateVideoPayload) => Promise<void>;
 }
@@ -49,6 +97,7 @@ export function HomeQuickViewDialog({
   modalState,
   isOpen,
   onClose,
+  onChangeVisibility,
   onDeleteVideo,
   onTagClick,
   onUpdateVideo,
@@ -56,10 +105,13 @@ export function HomeQuickViewDialog({
   const video = modalState.video;
   const open = isOpen ?? modalState.isOpen;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPublicConfirm, setShowPublicConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isChangingVisibility, setIsChangingVisibility] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [visibilityFeedback, setVisibilityFeedback] = useState<VisibilityFeedback | null>(null);
 
   if (!video) {
     return null;
@@ -67,11 +119,15 @@ export function HomeQuickViewDialog({
 
   const canDelete = video.permissions.canDelete;
   const canEdit = video.permissions.canEdit;
+  const canManageVisibility = video.permissions.canManageVisibility;
   const effectiveEditMode = isEditMode && canEdit;
+  const visibilityAction = getVisibilityAction(video.isPrivate);
+  const VisibilityActionIcon = visibilityAction.Icon;
 
   const clearActionErrors = () => {
     setDeleteError(null);
     setEditError(null);
+    setVisibilityFeedback(null);
   };
 
   const handleTagClick = (tag: string, event: React.MouseEvent) => {
@@ -116,6 +172,40 @@ export function HomeQuickViewDialog({
     }
   };
 
+  const executeVisibilityChange = async (visibility: VideoVisibility) => {
+    setIsChangingVisibility(true);
+    setVisibilityFeedback(null);
+
+    try {
+      await onChangeVisibility(video, visibility);
+      setShowPublicConfirm(false);
+      setVisibilityFeedback({
+        message: visibilitySuccessMessages[visibility],
+        type: 'success',
+      });
+    }
+    catch (error) {
+      console.error('Failed to update visibility:', error);
+      setVisibilityFeedback({
+        message: 'Visibility could not be updated. Try again.',
+        type: 'error',
+      });
+    }
+    finally {
+      setIsChangingVisibility(false);
+    }
+  };
+
+  const handleVisibilityAction = () => {
+    if (visibilityAction.nextVisibility === 'public') {
+      setVisibilityFeedback(null);
+      setShowPublicConfirm(true);
+      return;
+    }
+
+    void executeVisibilityChange('private');
+  };
+
   return (
     <>
       <Dialog
@@ -124,6 +214,7 @@ export function HomeQuickViewDialog({
           if (!nextOpen) {
             setIsEditMode(false);
             setShowDeleteConfirm(false);
+            setShowPublicConfirm(false);
             clearActionErrors();
             onClose();
           }
@@ -248,6 +339,38 @@ export function HomeQuickViewDialog({
                     </div>
                   </div>
 
+                  {canManageVisibility && (
+                    <section className="rounded-md border bg-muted/30 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h3 className="font-medium">
+                            {`Visibility: ${visibilityAction.currentLabel}`}
+                          </h3>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleVisibilityAction}
+                          disabled={isChangingVisibility}
+                          type="button"
+                        >
+                          {isChangingVisibility
+                            ? 'Updating...'
+                            : (
+                                <>
+                                  <VisibilityActionIcon className="mr-2 h-4 w-4" />
+                                  {visibilityAction.label}
+                                </>
+                              )}
+                        </Button>
+                      </div>
+
+                      {visibilityFeedback && (
+                        <VisibilityFeedbackMessage feedback={visibilityFeedback} />
+                      )}
+                    </section>
+                  )}
+
                   <div className="flex gap-3 border-t pt-4">
                     <Button asChild className="flex-1" size="default">
                       <Link to={`/player/${video.id}`} onClick={onClose}>
@@ -278,6 +401,54 @@ export function HomeQuickViewDialog({
                   </div>
                 </div>
               )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showPublicConfirm}
+        onOpenChange={(nextOpen) => {
+          setShowPublicConfirm(nextOpen);
+
+          if (!nextOpen) {
+            setVisibilityFeedback(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Make video public?</DialogTitle>
+            <DialogDescription>
+              Anyone who can access this site can find and watch this video. You can make it private again later.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setVisibilityFeedback(null);
+                setShowPublicConfirm(false);
+              }}
+              disabled={isChangingVisibility}
+              type="button"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void executeVisibilityChange('public')}
+              disabled={isChangingVisibility}
+              type="button"
+            >
+              {isChangingVisibility
+                ? 'Updating...'
+                : (
+                    <>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Make Public
+                    </>
+                  )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
