@@ -52,6 +52,7 @@ describe('CI parity contract', () => {
     expect(packageJson.scripts['test:coverage:changed']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-coverage-changed.ts');
     expect(packageJson.scripts['test:coverage:update-baseline']).toBe('LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/update-coverage-baseline.ts');
     expect(packageJson.scripts.check).toContain('bun run test:coverage');
+    expect(packageJson.scripts.check).toContain('bun run verify:hermetic-inputs && bun run design:lint && bun run lint');
     expect(packageJson.scripts.check).not.toContain('bun run test:run');
     expect(packageJson.scripts.check).not.toContain('test:coverage:update-baseline');
     expect(workflow).not.toContain('test:coverage:changed');
@@ -117,6 +118,7 @@ describe('CI parity contract', () => {
     expect(packageJson.scripts['test:smoke:bun-auth:run']).toBe(
       'LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file test ./tests/smoke/bun-auth-gate.test.ts',
     );
+    expect(packageJson.scripts['design:lint']).toBe('bun --no-env-file x designmd lint DESIGN.md');
     expect(packageJson.scripts.check).not.toContain('bun run test &&');
     expect(packageJson.scripts.check).toContain('bun run typecheck && bun run test:smoke:dev-auth');
     expect(packageJson.scripts.check).toContain('bun run test:smoke:dev-auth && bun run test:coverage');
@@ -136,6 +138,7 @@ describe('CI parity contract', () => {
     expect(changedFileMutationModule).toContain('options.files.join(\',\')');
     expect(sharedChangedFilesModule).toContain('--diff-filter=ACMRT');
     expect(verificationContract).toContain('bun run test:mutation:changed');
+    expect(verificationContract).toContain('bun run design:lint');
     expect(verificationContract).toContain('Changed-file mutation is intentionally local-only in GitHub Actions');
     expect(verificationContract).toContain('Test-facing Vitest, Stryker, and runtime smoke helpers set `MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1`');
     expect(verificationContract).toContain('inherits the shared `thresholds.break: 70` mutation-score floor');

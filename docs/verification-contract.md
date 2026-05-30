@@ -8,6 +8,7 @@ The expanded base sequence is:
 
 ```text
 bun run verify:hermetic-inputs
+bun run design:lint
 bun run lint
 bun run typecheck
 bun run test:smoke:dev-auth
@@ -41,6 +42,7 @@ appropriate Docker gate.
 
 ## Purpose of each command
 
+- `design:lint` validates the root `DESIGN.md` against the Google DESIGN.md CLI so design-system structure regressions are part of the base gate.
 - `lint` checks static lint rules.
 - `typecheck` checks React Router type generation plus TypeScript contracts.
 - `test` covers Vitest plus the Bun auth smoke layers under env-scrubbed conditions for standalone local test runs.
@@ -96,6 +98,7 @@ The authoritative commands for the current repo state are:
 - `bun run verify:ci-clean-export`
 - `bun run verify:ci-worktree:docker`
 - `bun run verify:docker-compose-smoke`
+- `bun run design:lint`
 - `bun run lint`
 - `bun run typecheck`
 - `bun run test`
