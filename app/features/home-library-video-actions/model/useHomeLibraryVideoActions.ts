@@ -71,45 +71,15 @@ function deserializeUpdatedVideo(result: VideoActionResult, fallbackMessage: str
 
 export function useHomeLibraryVideoActions(): HomeLibraryVideoActions {
   const changeVisibility = useCallback(async (video: HomeLibraryVideo, visibility: VideoVisibility) => {
-    if (!video.permissions.canManageVisibility) {
-      throw new Error('Video visibility cannot be changed by this viewer');
-    }
-
-    const result = await executeVideoAction(`/api/visibility/${video.id}`, {
-      body: JSON.stringify({ visibility }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'PUT',
-    }, 'Visibility could not be updated. Try again.');
-
-    return deserializeUpdatedVideo(result, 'Updated video response was incomplete');
+    return changeLibraryVideoVisibility(video, visibility);
   }, []);
 
   const deleteVideo = useCallback(async (video: HomeLibraryVideo) => {
-    if (!video.permissions.canDelete) {
-      throw new Error('Video cannot be deleted by this viewer');
-    }
-
-    await executeVideoAction(`/api/delete/${video.id}`, {
-      method: 'DELETE',
-    }, 'Failed to delete video');
+    await deleteLibraryVideo(video);
   }, []);
 
   const updateVideo = useCallback(async (video: HomeLibraryVideo, updates: UpdateVideoPayload) => {
-    if (!video.permissions.canEdit) {
-      throw new Error('Video cannot be edited by this viewer');
-    }
-
-    const result = await executeVideoAction(`/api/update/${video.id}`, {
-      body: JSON.stringify(updates),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'PUT',
-    }, 'Failed to update video');
-
-    return deserializeUpdatedVideo(result, 'Updated video response was incomplete');
+    return updateLibraryVideoMetadata(video, updates);
   }, []);
 
   return {
@@ -117,4 +87,49 @@ export function useHomeLibraryVideoActions(): HomeLibraryVideoActions {
     deleteVideo,
     updateVideo,
   };
+}
+
+export async function changeLibraryVideoVisibility(video: HomeLibraryVideo, visibility: VideoVisibility): Promise<HomeLibraryVideo> {
+  if (!video.permissions.canManageVisibility) {
+    throw new Error('Video visibility cannot be changed by this viewer');
+  }
+
+  const result = await executeVideoAction(`/api/visibility/${video.id}`, {
+    body: JSON.stringify({ visibility }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'PUT',
+  }, 'Visibility could not be updated. Try again.');
+
+  return deserializeUpdatedVideo(result, 'Updated video response was incomplete');
+}
+
+export async function deleteLibraryVideo(video: HomeLibraryVideo): Promise<void> {
+  if (!video.permissions.canDelete) {
+    throw new Error('Video cannot be deleted by this viewer');
+  }
+
+  await executeVideoAction(`/api/delete/${video.id}`, {
+    method: 'DELETE',
+  }, 'Failed to delete video');
+}
+
+export async function updateLibraryVideoMetadata(
+  video: HomeLibraryVideo,
+  updates: UpdateVideoPayload,
+): Promise<HomeLibraryVideo> {
+  if (!video.permissions.canEdit) {
+    throw new Error('Video cannot be edited by this viewer');
+  }
+
+  const result = await executeVideoAction(`/api/update/${video.id}`, {
+    body: JSON.stringify(updates),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'PUT',
+  }, 'Failed to update video');
+
+  return deserializeUpdatedVideo(result, 'Updated video response was incomplete');
 }

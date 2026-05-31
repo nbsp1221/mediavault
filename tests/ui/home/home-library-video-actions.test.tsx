@@ -2,7 +2,12 @@ import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
-import { useHomeLibraryVideoActions } from '../../../app/features/home-library-video-actions/model/useHomeLibraryVideoActions';
+import {
+  changeLibraryVideoVisibility,
+  deleteLibraryVideo,
+  updateLibraryVideoMetadata,
+  useHomeLibraryVideoActions,
+} from '../../../app/features/home-library-video-actions/model/useHomeLibraryVideoActions';
 
 function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVideo {
   return {
@@ -162,6 +167,45 @@ describe('useHomeLibraryVideoActions', () => {
     const { result } = renderHook(() => useHomeLibraryVideoActions());
 
     await expect(result.current.deleteVideo(createVideo())).rejects.toThrow('Failed to delete video');
+  });
+
+  test('uses the fallback delete error when an error response is not JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => {
+        throw new Error('invalid json');
+      },
+      ok: false,
+    }));
+
+    await expect(deleteLibraryVideo(createVideo())).rejects.toThrow('Failed to delete video');
+  });
+
+  test('uses the fallback update error when a successful HTTP response reports failure without a message', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ success: false }),
+      ok: true,
+    }));
+
+    await expect(updateLibraryVideoMetadata(createVideo(), {
+      genreSlugs: [],
+      tags: ['Action'],
+      title: 'Updated title',
+    })).rejects.toThrow('Failed to update video');
+  });
+
+  test('rejects incomplete update and visibility success responses', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ success: true }),
+      ok: true,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(updateLibraryVideoMetadata(createVideo(), {
+      genreSlugs: [],
+      tags: ['Action'],
+      title: 'Updated title',
+    })).rejects.toThrow('Updated video response was incomplete');
+    await expect(changeLibraryVideoVisibility(createVideo(), 'private')).rejects.toThrow('Updated video response was incomplete');
   });
 
   test('propagates network failures without swallowing them', async () => {

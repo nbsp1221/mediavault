@@ -6,17 +6,30 @@ import { defineConfig } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { resolveViteEnvDir } from './scripts/vite-env-files';
 
-function normalizeRequestPath(url: string | undefined): string {
+export function normalizeRequestUrl(url: string | undefined): { pathname: string; search: string } {
   try {
-    const pathname = new URL(url ?? '/', 'http://local.invalid').pathname;
-    return decodeURIComponent(pathname).replace(/\/+/g, '/');
+    const parsedUrl = new URL(url ?? '/', 'http://local.invalid');
+
+    return {
+      pathname: decodeURIComponent(parsedUrl.pathname).replace(/\/+/g, '/'),
+      search: parsedUrl.search,
+    };
   }
   catch {
-    return '/';
+    return {
+      pathname: '/',
+      search: '',
+    };
   }
 }
 
-function isSensitiveDirectDevPath(pathname: string): boolean {
+export function isSensitiveDirectDevPath(pathname: string, search = ''): boolean {
+  const isViteModuleImport = new URLSearchParams(search).has('import');
+
+  if (isViteModuleImport && pathname === '/app/routes/videos.$videoId.edit.tsx') {
+    return false;
+  }
+
   return pathname === '/.env' ||
     pathname.startsWith('/.env.') ||
     pathname.startsWith('/storage/') ||
@@ -39,9 +52,9 @@ function denySensitiveDirectDevRequests(): Plugin {
     name: 'mediavault-deny-sensitive-direct-dev-requests',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const pathname = normalizeRequestPath(req.url);
+        const { pathname, search } = normalizeRequestUrl(req.url);
 
-        if (!isSensitiveDirectDevPath(pathname)) {
+        if (!isSensitiveDirectDevPath(pathname, search)) {
           next();
           return;
         }

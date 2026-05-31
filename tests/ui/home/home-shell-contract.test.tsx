@@ -150,7 +150,7 @@ describe('Home shell contract', () => {
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
   });
 
-  test('closes the mobile navigation drawer through navigation links', async () => {
+  test('closes the mobile navigation drawer through the All Videos navigation link', async () => {
     const user = userEvent.setup();
     renderHomeShell();
 
@@ -160,7 +160,13 @@ describe('Home shell contract', () => {
 
     await user.click(screen.getByRole('link', { name: 'All Videos' }));
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
+  });
 
+  test('closes the mobile navigation drawer through the brand navigation link', async () => {
+    const user = userEvent.setup();
+    renderHomeShell();
+
+    const toggleButton = screen.getByRole('button', { name: 'Toggle sidebar menu' });
     await user.click(toggleButton);
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Mediavault' }));

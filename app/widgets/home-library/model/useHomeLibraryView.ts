@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
-import type { HomeLibraryModalState } from '~/features/home-quick-view/ui/HomeQuickViewDialog';
-import type { VideoVisibility } from '~/modules/library/domain/value-objects/video-visibility';
 import { type HomeLibraryVideoActions, useHomeLibraryVideoActions } from '~/features/home-library-video-actions/model/useHomeLibraryVideoActions';
 import { doesLibraryVideoMatchHomeFilters } from '~/modules/library/domain/library-home-filters';
 import {
@@ -14,15 +12,7 @@ import {
 interface UseHomeLibraryViewOptions {
   initialVideos: HomeLibraryVideo[];
   initialFilters?: Partial<HomeLibraryFilters>;
-  videoActions?: HomeLibraryVideoActions;
-}
-
-interface UpdateVideoPayload {
-  contentTypeSlug?: string | null;
-  title: string;
-  tags: string[];
-  genreSlugs: string[];
-  description?: string;
+  videoActions?: Pick<HomeLibraryVideoActions, 'deleteVideo'>;
 }
 
 function createVideoSnapshotKey(video: HomeLibraryVideo) {
@@ -50,47 +40,6 @@ function areVideoSnapshotsEqual(a: HomeLibraryVideo[], b: HomeLibraryVideo[]) {
   return createVideoListSnapshotKey(a) === createVideoListSnapshotKey(b);
 }
 
-function createClosedModalState(): HomeLibraryModalState {
-  return {
-    video: null,
-    isOpen: false,
-  };
-}
-
-function syncModalStateAfterCanonicalVideoUpdate(
-  modalState: HomeLibraryModalState,
-  updatedVideo: HomeLibraryVideo,
-): HomeLibraryModalState {
-  if (modalState.video?.id !== updatedVideo.id) {
-    return modalState;
-  }
-
-  return {
-    isOpen: true,
-    video: updatedVideo,
-  };
-}
-
-function syncModalStateAfterCanonicalVideoListUpdate(
-  modalState: HomeLibraryModalState,
-  nextVideos: HomeLibraryVideo[],
-): HomeLibraryModalState {
-  const openVideoId = modalState.video?.id;
-
-  if (!modalState.isOpen || !openVideoId) {
-    return modalState;
-  }
-
-  const nextVideo = nextVideos.find(video => video.id === openVideoId);
-
-  return nextVideo
-    ? {
-        isOpen: true,
-        video: nextVideo,
-      }
-    : createClosedModalState();
-}
-
 export function useHomeLibraryView({
   initialVideos,
   initialFilters,
@@ -102,7 +51,6 @@ export function useHomeLibraryView({
   const previousInitialVideosRef = useRef<HomeLibraryVideo[]>(initialVideos);
   const [videos, setVideos] = useState<HomeLibraryVideo[]>(initialVideos);
   const [searchFilters, setSearchFilters] = useState<HomeLibraryFilters>(() => createHomeLibraryFilters(initialFilters));
-  const [modalState, setModalState] = useState<HomeLibraryModalState>(createClosedModalState);
 
   const filteredVideos = useMemo(() => {
     const domainFilters = toLibraryHomeFilters(searchFilters);
@@ -114,17 +62,6 @@ export function useHomeLibraryView({
     setSearchFilters(prevFilters => (areHomeLibraryFiltersEqual(prevFilters, nextFilters) ? prevFilters : nextFilters));
   };
 
-  const handleQuickView = (video: HomeLibraryVideo) => {
-    setModalState({
-      video,
-      isOpen: true,
-    });
-  };
-
-  const handleCloseModal = () => {
-    setModalState(createClosedModalState());
-  };
-
   const handleDeleteVideo = async (video: HomeLibraryVideo) => {
     if (!video.permissions.canDelete) {
       throw new Error('Video cannot be deleted by this viewer');
@@ -132,27 +69,6 @@ export function useHomeLibraryView({
 
     await actions.deleteVideo(video);
     setVideos(prev => prev.filter(candidate => candidate.id !== video.id));
-    setModalState(prev => (prev.video?.id === video.id ? createClosedModalState() : prev));
-  };
-
-  const handleChangeVisibility = async (video: HomeLibraryVideo, visibility: VideoVisibility) => {
-    if (!video.permissions.canManageVisibility) {
-      throw new Error('Video visibility cannot be changed by this viewer');
-    }
-
-    const updatedVideo = await actions.changeVisibility(video, visibility);
-    setVideos(prev => prev.map(candidate => (candidate.id === video.id ? updatedVideo : candidate)));
-    setModalState(prev => syncModalStateAfterCanonicalVideoUpdate(prev, updatedVideo));
-  };
-
-  const handleUpdateVideo = async (video: HomeLibraryVideo, updates: UpdateVideoPayload) => {
-    if (!video.permissions.canEdit) {
-      throw new Error('Video cannot be edited by this viewer');
-    }
-
-    const updatedVideo = await actions.updateVideo(video, updates);
-    setVideos(prev => prev.map(candidate => (candidate.id === video.id ? updatedVideo : candidate)));
-    setModalState(prev => syncModalStateAfterCanonicalVideoUpdate(prev, updatedVideo));
   };
 
   useEffect(() => {
@@ -162,7 +78,6 @@ export function useHomeLibraryView({
 
     previousInitialVideosRef.current = initialVideos;
     setVideos(initialVideos);
-    setModalState(prev => syncModalStateAfterCanonicalVideoListUpdate(prev, initialVideos));
   }, [initialVideos]);
 
   useEffect(() => {
@@ -180,12 +95,7 @@ export function useHomeLibraryView({
     videos: filteredVideos,
     totalVideosCount: videos.length,
     searchFilters,
-    modalState,
     replaceSearchFilters,
-    handleQuickView,
-    handleCloseModal,
-    handleChangeVisibility,
     handleDeleteVideo,
-    handleUpdateVideo,
   };
 }

@@ -42,7 +42,7 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
 }
 
 describe('Home library surface contract', () => {
-  test('renders the approved heading, card surface, tags, and quick-view action menu affordances', async () => {
+  test('renders the approved heading, card surface, tags, and owner action menu affordances', async () => {
     const user = userEvent.setup();
     const expectedDate = new Intl.DateTimeFormat('en-US').format(new Date('2026-03-11T00:00:00.000Z'));
 
@@ -63,12 +63,16 @@ describe('Home library surface contract', () => {
     expect(screen.getByText('#Action')).toBeInTheDocument();
     expect(screen.getByText('#Neo')).toBeInTheDocument();
     expect(screen.getByText('#Vault')).toBeInTheDocument();
-    expect(screen.getByText('+1')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Open actions menu' }));
-    expect(screen.getByRole('menuitem', { name: 'Quick view' })).toBeVisible();
+    expect(screen.getByText('#Hidden')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Catalog Fixture/ })).toHaveAttribute('href', '/player/video-1');
+    await user.click(screen.getByRole('button', { name: 'Open actions menu for Catalog Fixture' }));
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toHaveAttribute('href', '/videos/video-1/edit?redirectTo=%2F');
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: 'Quick view' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Watch' })).not.toBeInTheDocument();
   });
 
-  test('renders the approved modal, edit, and delete-confirm flows', async () => {
+  test('renders card delete confirmation without using quick view', async () => {
     const user = userEvent.setup();
 
     render(
@@ -81,30 +85,12 @@ describe('Home library surface contract', () => {
     );
 
     expect(screen.getByText('Active filters:')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Open actions menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Quick view' }));
-
-    expect(screen.getByRole('heading', { name: 'Catalog Fixture' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Description' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Tags' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit Info' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
-    const quickViewDialog = screen.getByRole('dialog', { name: 'Catalog Fixture' });
-    expect(within(quickViewDialog).getAllByRole('button', { name: 'Close' }).length).toBeGreaterThan(0);
-
-    await user.click(screen.getByRole('button', { name: 'Edit Info' }));
-    expect(screen.getByRole('heading', { name: 'Edit Video Information' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Title')).toHaveValue('Catalog Fixture');
-    expect(screen.getByText('Action')).toBeInTheDocument();
-    expect(screen.getByText('Neo')).toBeInTheDocument();
-    expect(screen.getByText('Vault')).toBeInTheDocument();
-    expect(screen.getByText('Hidden')).toBeInTheDocument();
-    expect(screen.getByLabelText('Description (optional)')).toHaveValue('A stored vault clip.');
-
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
-    const deleteDialog = screen.getByRole('dialog', { name: 'Delete Video' });
+    await user.click(screen.getByRole('button', { name: 'Open actions menu for Catalog Fixture' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    const deleteDialog = screen.getByRole('dialog', { name: 'Delete video?' });
+    expect(deleteDialog).toHaveTextContent('Catalog Fixture');
     expect(deleteDialog).toHaveTextContent('This action cannot be undone.');
+    expect(within(deleteDialog).getByRole('button', { name: 'Delete video' })).toBeInTheDocument();
   });
 
   test('renders the approved empty-state copy', () => {

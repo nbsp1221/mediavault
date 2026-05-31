@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useLocation, useSearchParams } from 'react-router';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
 import { LibraryVideoCard } from '~/entities/library-video/ui/LibraryVideoCard';
-import { HomeQuickViewDialog } from '~/features/home-quick-view/ui/HomeQuickViewDialog';
 import { HomeAppliedFiltersBar } from '~/features/home-tag-filter/ui/HomeAppliedFiltersBar';
 import { HomeFilterSurface } from '~/features/home-tag-filter/ui/HomeFilterSurface';
+import { DeleteVideoConfirmDialog } from '~/features/video-delete/ui/DeleteVideoConfirmDialog';
 import { Button } from '~/shared/ui/button';
 import { HomeShell } from '~/widgets/home-shell/ui/HomeShell';
 import {
@@ -32,8 +32,12 @@ export function HomeLibraryWidget({
   videos,
   initialFilters,
 }: HomeLibraryWidgetProps) {
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<HomeLibraryVideo | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const view = useHomeLibraryView({
     initialFilters,
     initialVideos: videos,
@@ -72,6 +76,31 @@ export function HomeLibraryWidget({
 
   const activeFilterCount = getHomeLibraryActiveFilterCount(view.searchFilters);
   const hasActiveFilters = hasHomeLibraryActiveFilters(view.searchFilters);
+  const returnTarget = `${location.pathname}${location.search}`;
+
+  const createEditHref = (video: HomeLibraryVideo) => {
+    return `/videos/${video.id}/edit?redirectTo=${encodeURIComponent(returnTarget)}`;
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget || isDeleting) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await view.handleDeleteVideo(deleteTarget);
+      setDeleteTarget(null);
+    }
+    catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete video');
+    }
+    finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <HomeShell
@@ -121,8 +150,14 @@ export function HomeLibraryWidget({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 sm:gap-6">
                   {view.videos.map(video => (
                     <LibraryVideoCard
+                      editHref={video.permissions.canEdit ? createEditHref(video) : undefined}
                       key={video.id}
-                      onQuickView={view.handleQuickView}
+                      onDelete={video.permissions.canDelete
+                        ? (target) => {
+                            setDeleteError(null);
+                            setDeleteTarget(target);
+                          }
+                        : undefined}
                       onTagClick={handleTagToggle}
                       video={video}
                     />
@@ -132,15 +167,18 @@ export function HomeLibraryWidget({
         </div>
       </div>
 
-      <HomeQuickViewDialog
-        contentTypes={contentTypes}
-        genres={genres}
-        modalState={view.modalState}
-        onChangeVisibility={view.handleChangeVisibility}
-        onClose={view.handleCloseModal}
-        onDeleteVideo={view.handleDeleteVideo}
-        onTagClick={handleTagToggle}
-        onUpdateVideo={view.handleUpdateVideo}
+      <DeleteVideoConfirmDialog
+        error={deleteError}
+        isDeleting={isDeleting}
+        onCancel={() => {
+          if (!isDeleting) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+        onConfirm={() => void handleDeleteConfirm()}
+        open={Boolean(deleteTarget)}
+        videoTitle={deleteTarget?.title ?? ''}
       />
       <HomeFilterSurface
         contentTypes={contentTypes}

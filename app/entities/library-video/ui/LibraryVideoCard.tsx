@@ -1,4 +1,4 @@
-import { Clock, Eye, Lock, MoreVertical, Play } from 'lucide-react';
+import { Clock, Edit, Lock, MoreVertical, Play, Trash2 } from 'lucide-react';
 import { Link } from 'react-router';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import { formatVideoTagLabel } from '~/modules/library/domain/video-tag';
@@ -15,32 +15,25 @@ import {
 } from '~/shared/ui/dropdown-menu';
 
 interface LibraryVideoCardProps {
+  editHref?: string;
+  onDelete?: (video: HomeLibraryVideo) => void;
   video: HomeLibraryVideo;
-  onQuickView?: (video: HomeLibraryVideo) => void;
   onTagClick?: (tag: string) => void;
 }
 
-export function LibraryVideoCard({ video, onQuickView, onTagClick }: LibraryVideoCardProps) {
+export function LibraryVideoCard({ editHref, onDelete, video, onTagClick }: LibraryVideoCardProps) {
   const handleTagClick = (tag: string, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     onTagClick?.(tag);
   };
 
-  const handleQuickView = (event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onQuickView?.(video);
-  };
-
-  const handleQuickViewMenuSelect = () => {
-    onQuickView?.(video);
-  };
-
-  const hasActions = Boolean(onQuickView);
+  const canEdit = Boolean(editHref && video.permissions.canEdit);
+  const canDelete = Boolean(onDelete && video.permissions.canDelete);
+  const hasActions = canEdit || canDelete;
 
   return (
-    <div className="group relative">
+    <article className="group relative">
       <Link to={`/player/${video.id}`} className="block">
         <div className="space-y-3">
           <div className="relative overflow-hidden rounded-lg bg-muted">
@@ -88,30 +81,43 @@ export function LibraryVideoCard({ video, onQuickView, onTagClick }: LibraryVide
       </Link>
 
       {hasActions && (
-        <div className="pointer-events-none absolute top-2 right-2 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
+        <div className="absolute top-2 right-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="secondary"
-                size="sm"
-                aria-label="Open actions menu"
-                className="pointer-events-auto h-8 w-8 rounded-full border-0 bg-black/60 p-0 text-white hover:bg-black/80"
+                size="icon"
+                aria-label={`Open actions menu for ${video.title}`}
+                className="h-11 w-11 rounded-full border-0 bg-black/70 p-0 text-white shadow-sm hover:bg-black/85"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onSelect={handleQuickViewMenuSelect}>
-                <Eye className="mr-2 h-4 w-4" />
-                Quick view
-              </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem asChild>
+                  <Link to={editHref ?? `/videos/${video.id}/edit`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  onSelect={() => onDelete?.(video)}
+                  variant="destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       )}
 
       <div className="mt-2 flex flex-wrap gap-1">
-        {video.tags.slice(0, 3).map(tag => (
+        {video.tags.map(tag => (
           <Badge
             asChild
             key={tag}
@@ -126,21 +132,7 @@ export function LibraryVideoCard({ video, onQuickView, onTagClick }: LibraryVide
             </button>
           </Badge>
         ))}
-        {video.tags.length > 3 && (
-          <Badge
-            asChild
-            variant="outline"
-          >
-            <button
-              type="button"
-              className="h-5 cursor-pointer px-2 text-xs transition-colors hover:bg-muted"
-              onClick={handleQuickView}
-            >
-              +{video.tags.length - 3}
-            </button>
-          </Badge>
-        )}
       </div>
-    </div>
+    </article>
   );
 }

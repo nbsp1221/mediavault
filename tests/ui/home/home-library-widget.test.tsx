@@ -11,6 +11,7 @@ const updateVideoMock = vi.fn();
 
 vi.mock('~/features/home-library-video-actions/model/useHomeLibraryVideoActions', () => ({
   useHomeLibraryVideoActions: () => ({
+    changeVisibility: vi.fn(),
     deleteVideo: deleteVideoMock,
     updateVideo: updateVideoMock,
   }),
@@ -59,9 +60,9 @@ function renderHomeLibraryWidget(videoOverrides: Partial<HomeLibraryVideo> = {})
   );
 }
 
-async function openQuickView(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Open actions menu' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Quick view' }));
+async function openDeleteDialogFromActionsMenu(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /^Open actions menu for / }));
+  await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
 }
 
 describe('HomeLibraryWidget', () => {
@@ -195,76 +196,24 @@ describe('HomeLibraryWidget', () => {
     expect(screen.queryByRole('button', { name: 'Remove required Drama tag' })).not.toBeInTheDocument();
   });
 
-  test('opens the quick view from the action menu', async () => {
+  test('opens the edit page from the card action menu while preserving return context', async () => {
     const user = userEvent.setup();
     renderHomeLibraryWidget({
       description: 'Original description',
     });
 
-    await openQuickView(user);
+    await user.click(screen.getByRole('button', { name: /^Open actions menu for / }));
 
-    expect(screen.getByRole('heading', { name: 'Catalog Fixture' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toHaveAttribute('href', '/videos/video-1/edit?redirectTo=%2F');
+    expect(screen.queryByRole('menuitem', { name: 'Quick view' })).not.toBeInTheDocument();
   });
 
-  test('surfaces update failures and preserves draft state before a successful save', async () => {
+  test('surfaces delete failures without removing the card', async () => {
     const user = userEvent.setup();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     deleteVideoMock.mockReset();
     updateVideoMock.mockReset();
-    updateVideoMock
-      .mockRejectedValueOnce(new Error('update failed'))
-      .mockResolvedValueOnce({
-        createdAt: new Date('2026-03-11T00:00:00.000Z'),
-        description: 'Canonical description',
-        duration: 180,
-        id: 'video-1',
-        isPrivate: false,
-        permissions: {
-          canDelete: true,
-          canEdit: true,
-          canManageVisibility: true,
-        },
-        tags: ['Action', 'Neo'],
-        thumbnailUrl: '/thumb.jpg',
-        title: 'Canonical Fixture',
-        videoUrl: '/videos/video-1/manifest.mpd',
-      });
-
-    try {
-      renderHomeLibraryWidget({
-        description: 'Original description',
-      });
-
-      await openQuickView(user);
-      expect(screen.getByRole('heading', { name: 'Catalog Fixture' })).toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: 'Edit Info' }));
-      await user.clear(screen.getByLabelText('Title'));
-      await user.type(screen.getByLabelText('Title'), 'Updated Fixture');
-      await user.click(screen.getByRole('button', { name: 'Save' }));
-
-      expect(updateVideoMock).toHaveBeenCalledOnce();
-      expect(screen.getByRole('alert')).toHaveTextContent('update failed');
-      expect(screen.getByLabelText('Title')).toHaveValue('Updated Fixture');
-
-      await user.click(screen.getByRole('button', { name: 'Save' }));
-      expect(screen.getByRole('heading', { name: 'Canonical Fixture' })).toBeInTheDocument();
-      expect(screen.getByText('Canonical description')).toBeInTheDocument();
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    }
-    finally {
-      consoleError.mockRestore();
-    }
-  });
-
-  test('surfaces delete failures and removes the quick view after a successful delete', async () => {
-    const user = userEvent.setup();
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    deleteVideoMock.mockReset();
-    updateVideoMock.mockReset();
-    deleteVideoMock
-      .mockRejectedValueOnce(new Error('delete failed'))
-      .mockResolvedValueOnce(undefined);
+    deleteVideoMock.mockRejectedValueOnce(new Error('delete failed'));
 
     try {
       renderHomeLibraryWidget({
@@ -273,24 +222,34 @@ describe('HomeLibraryWidget', () => {
         title: 'Canonical Fixture',
       });
 
-      await openQuickView(user);
-      expect(screen.getByRole('heading', { name: 'Canonical Fixture' })).toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: 'Delete' }));
-      const failedDeleteDialog = screen.getByRole('dialog', { name: 'Delete Video' });
-      await user.click(within(failedDeleteDialog).getByRole('button', { name: 'Delete' }));
+      await openDeleteDialogFromActionsMenu(user);
+      const failedDeleteDialog = screen.getByRole('dialog', { name: 'Delete video?' });
+      await user.click(within(failedDeleteDialog).getByRole('button', { name: 'Delete video' }));
       expect(within(failedDeleteDialog).getByRole('alert')).toHaveTextContent('delete failed');
       await user.click(screen.getByRole('button', { name: 'Cancel' }));
       expect(screen.getByRole('heading', { name: 'Canonical Fixture' })).toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: 'Delete' }));
-      const successfulDeleteDialog = screen.getByRole('dialog', { name: 'Delete Video' });
-      await user.click(within(successfulDeleteDialog).getByRole('button', { name: 'Delete' }));
-
-      expect(screen.queryByRole('heading', { name: 'Canonical Fixture' })).not.toBeInTheDocument();
     }
     finally {
       consoleError.mockRestore();
     }
+  });
+
+  test('removes the card after a successful delete', async () => {
+    const user = userEvent.setup();
+    deleteVideoMock.mockReset();
+    updateVideoMock.mockReset();
+    deleteVideoMock.mockResolvedValueOnce(undefined);
+
+    renderHomeLibraryWidget({
+      description: 'Canonical description',
+      tags: ['Action', 'Neo'],
+      title: 'Canonical Fixture',
+    });
+
+    await openDeleteDialogFromActionsMenu(user);
+    const successfulDeleteDialog = screen.getByRole('dialog', { name: 'Delete video?' });
+    await user.click(within(successfulDeleteDialog).getByRole('button', { name: 'Delete video' }));
+
+    expect(screen.queryByRole('heading', { name: 'Canonical Fixture' })).not.toBeInTheDocument();
   });
 });
