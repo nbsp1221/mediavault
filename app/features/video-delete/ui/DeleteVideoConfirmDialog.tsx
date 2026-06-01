@@ -1,13 +1,15 @@
 import { Loader2, Trash2 } from 'lucide-react';
-import { Button } from '~/shared/ui/button';
+import { Alert, AlertDescription } from '~/shared/ui/alert';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '~/shared/ui/dialog';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/shared/ui/alert-dialog';
 
 interface DeleteVideoConfirmDialogProps {
   error?: string | null;
@@ -27,7 +29,7 @@ export function DeleteVideoConfirmDialog({
   videoTitle,
 }: DeleteVideoConfirmDialogProps) {
   return (
-    <Dialog
+    <AlertDialog
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen && !isDeleting) {
@@ -35,56 +37,52 @@ export function DeleteVideoConfirmDialog({
         }
       }}
     >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Delete video?</DialogTitle>
-          <DialogDescription>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete video?</AlertDialogTitle>
+          <AlertDialogDescription>
             {`Delete "${videoTitle}"? This action cannot be undone.`}
-          </DialogDescription>
-        </DialogHeader>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
         {error && (
-          <div
-            role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          >
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>
+              {error}
+            </AlertDescription>
+          </Alert>
         )}
 
-        <DialogFooter>
-          <Button
-            className="min-h-11"
+        <AlertDialogFooter>
+          <AlertDialogCancel
             disabled={isDeleting}
-            onClick={onCancel}
-            type="button"
-            variant="outline"
           >
             Cancel
-          </Button>
-          <Button
-            className="min-h-11"
+          </AlertDialogCancel>
+          <AlertDialogAction
             disabled={isDeleting}
-            onClick={onConfirm}
-            type="button"
             variant="destructive"
+            onClick={(event) => {
+              event.preventDefault();
+              onConfirm();
+            }}
           >
             {isDeleting
               ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
                     Deleting...
                   </>
                 )
               : (
                   <>
-                    <Trash2 className="mr-2 h-4 w-4" />
+                    <Trash2 data-icon="inline-start" />
                     Delete video
                   </>
                 )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

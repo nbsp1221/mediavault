@@ -11,8 +11,8 @@ const activeHomeRoots = [
   join(projectRoot, 'app/features/home-library-video-actions'),
   join(projectRoot, 'app/features/home-tag-filter'),
   join(projectRoot, 'app/features/home-quick-view'),
-  join(projectRoot, 'app/widgets/home-shell'),
   join(projectRoot, 'app/widgets/home-library'),
+  join(projectRoot, 'app/widgets/product-shell'),
 ];
 const forbiddenImportPatterns = [
   /(?:from|import\s*\(|require\s*\()\s*['"]~\/legacy(?:\/|['"])/,

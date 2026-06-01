@@ -1,12 +1,14 @@
 import type { HeadersFunction, LoaderFunctionArgs } from 'react-router';
+import { AlertTriangle } from 'lucide-react';
 import { useMemo } from 'react';
-import { useLoaderData, useSearchParams } from 'react-router';
+import { useLoaderData, useRouteError, useSearchParams } from 'react-router';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
 import { resolvePublicVideoAccess } from '~/composition/server/auth';
 import { getHomeLibraryPageServices } from '~/composition/server/home-library-page';
 import { HomePage } from '~/pages/home/ui/HomePage';
 import { createHomeLibraryFilters } from '~/widgets/home-library/model/home-library-filters';
+import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 
 interface LoaderData {
   contentTypes: VideoTaxonomyItem[];
@@ -98,7 +100,7 @@ export function shouldRevalidate({
 
 export function meta() {
   return [
-    { title: 'Mediavault - My Library' },
+    { title: 'Mediavault - Videos' },
     { name: 'description', content: 'Personal video library' },
   ];
 }
@@ -121,6 +123,24 @@ export default function HomeRoute() {
       genres={data.genres}
       initialFilters={initialFilters}
       videos={videos}
+    />
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  return (
+    <ProductRouteErrorView
+      activeRoute="videos"
+      contentWidth="wide"
+      description={<p>{error instanceof Error ? error.message : 'Unable to load home library.'}</p>}
+      icon={<AlertTriangle className="h-6 w-6" aria-hidden />}
+      title="Unable to load home library"
+      tone="critical"
+      actions={[
+        { label: 'Try again', to: '/' },
+      ]}
     />
   );
 }

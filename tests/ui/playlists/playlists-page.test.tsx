@@ -66,7 +66,9 @@ describe('PlaylistsPage', () => {
     );
 
     expect(screen.getByText('Mediavault')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'My Playlists' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Playlists' })).toBeInTheDocument();
+    expect(screen.getByText('1 playlist')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'My Playlists' })).toBeInTheDocument();
     expect(screen.getByText('Vault')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /new playlist/i }));
     expect(screen.getByRole('dialog', { name: 'Create New Playlist' })).toBeInTheDocument();
@@ -149,7 +151,7 @@ describe('PlaylistsPage', () => {
       <RouterProvider router={router} />,
     );
 
-    const searchInput = screen.getByRole('searchbox', { name: 'Search library (desktop)' });
+    const searchInput = screen.getByRole('searchbox', { name: 'Search playlists' });
     await user.type(searchInput, 'vault');
 
     expect(onSearchChange).toHaveBeenLastCalledWith('vault');
@@ -159,5 +161,31 @@ describe('PlaylistsPage', () => {
 
     expect(onSearchChange).toHaveBeenLastCalledWith('');
     expect(mockNavigate).toHaveBeenLastCalledWith('/playlists');
+  });
+
+  test('renders empty playlist copy when there are no playlists', () => {
+    const router = createMemoryRouter([
+      {
+        path: '/playlists',
+        element: (
+          <PlaylistsPage
+            playlists={[]}
+            videoCountMap={{}}
+            total={0}
+            searchQuery=""
+            onSearchChange={() => {}}
+          />
+        ),
+      },
+    ], {
+      initialEntries: ['/playlists'],
+    });
+
+    render(
+      <RouterProvider router={router} />,
+    );
+
+    expect(screen.getByRole('heading', { level: 2, name: 'My Playlists' })).toBeInTheDocument();
+    expect(screen.getByText('No playlists yet')).toBeInTheDocument();
   });
 });

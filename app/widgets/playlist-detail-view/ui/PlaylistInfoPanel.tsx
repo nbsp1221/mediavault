@@ -85,7 +85,7 @@ export function PlaylistInfoPanel({
 
   return (
     <Card className="overflow-hidden border border-border/60 shadow-sm">
-      <div className="relative overflow-hidden bg-gradient-to-br from-primary/15 via-background to-background">
+      <div className="relative overflow-hidden bg-card">
         {playlist.thumbnailUrl && (
           <img
             src={playlist.thumbnailUrl}
@@ -93,7 +93,7 @@ export function PlaylistInfoPanel({
             className="absolute inset-0 h-full w-full object-cover"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/10" />
+        <div className="absolute inset-0 bg-card/85" />
 
         <div className="relative flex flex-col justify-end gap-3 px-6 pt-6 pb-7">
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -103,9 +103,9 @@ export function PlaylistInfoPanel({
             {visibilityBadge}
           </div>
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold leading-tight tracking-tight md:text-4xl">
+            <h2 className="text-xl font-semibold leading-tight tracking-normal">
               {playlist.name}
-            </h1>
+            </h2>
             {playlist.description && (
               <p className="max-w-xl text-sm text-muted-foreground">
                 {playlist.description}

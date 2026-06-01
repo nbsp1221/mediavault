@@ -87,7 +87,6 @@ describe('HomeLibraryWidget', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Total 2 videos • Showing 1')).toBeInTheDocument();
     expect(screen.getByText('Catalog Fixture')).toBeInTheDocument();
     expect(screen.queryByText('Second Fixture')).not.toBeInTheDocument();
 
@@ -223,7 +222,7 @@ describe('HomeLibraryWidget', () => {
       });
 
       await openDeleteDialogFromActionsMenu(user);
-      const failedDeleteDialog = screen.getByRole('dialog', { name: 'Delete video?' });
+      const failedDeleteDialog = screen.getByRole('alertdialog', { name: 'Delete video?' });
       await user.click(within(failedDeleteDialog).getByRole('button', { name: 'Delete video' }));
       expect(within(failedDeleteDialog).getByRole('alert')).toHaveTextContent('delete failed');
       await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -247,7 +246,7 @@ describe('HomeLibraryWidget', () => {
     });
 
     await openDeleteDialogFromActionsMenu(user);
-    const successfulDeleteDialog = screen.getByRole('dialog', { name: 'Delete video?' });
+    const successfulDeleteDialog = screen.getByRole('alertdialog', { name: 'Delete video?' });
     await user.click(within(successfulDeleteDialog).getByRole('button', { name: 'Delete video' }));
 
     expect(screen.queryByRole('heading', { name: 'Canonical Fixture' })).not.toBeInTheDocument();

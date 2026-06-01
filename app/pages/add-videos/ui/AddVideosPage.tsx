@@ -1,7 +1,7 @@
 import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
-import { AddVideosShell } from '~/widgets/add-videos-shell/ui/AddVideosShell';
 import { useAddVideosView } from '~/widgets/add-videos/model/useAddVideosView';
 import { AddVideosView } from '~/widgets/add-videos/ui/AddVideosView';
+import { ProductShell } from '~/widgets/product-shell/ui/ProductShell';
 
 interface AddVideosPageProps {
   contentTypes: VideoTaxonomyItem[];
@@ -26,24 +26,32 @@ export function AddVideosPage({ contentTypes, genres }: AddVideosPageProps) {
   } = useAddVideosView();
 
   return (
-    <AddVideosShell>
-      <AddVideosView
-        canAddToLibrary={canAddToLibrary}
-        contentTypes={contentTypes}
-        genres={genres}
-        onAddToLibrary={() => { void handleAddToLibrary(); }}
-        onChooseFiles={handleChooseFiles}
-        onClearSession={handleClearSession}
-        onContentTypeChange={handleContentTypeChange}
-        onDescriptionChange={handleDescriptionChange}
-        onGenreSlugsChange={handleGenreSlugsChange}
-        onRemoveSession={() => { void handleRemoveSession(); }}
-        onRetryUpload={handleRetryUpload}
-        onTagsChange={handleTagsChange}
-        onTitleChange={handleTitleChange}
-        pageError={pageError}
-        session={session}
-      />
-    </AddVideosShell>
+    <ProductShell
+      activeRoute="upload"
+      contentWidth="standard"
+      description="Choose one video, review its details, then add it to your library."
+      title="Upload a video"
+    >
+      <div className="[&>div]:max-w-none [&>div]:px-0 [&>div]:py-0">
+        <AddVideosView
+          canAddToLibrary={canAddToLibrary}
+          contentTypes={contentTypes}
+          genres={genres}
+          onAddToLibrary={() => { void handleAddToLibrary(); }}
+          onChooseFiles={handleChooseFiles}
+          onClearSession={handleClearSession}
+          onContentTypeChange={handleContentTypeChange}
+          onDescriptionChange={handleDescriptionChange}
+          onGenreSlugsChange={handleGenreSlugsChange}
+          onRemoveSession={() => { void handleRemoveSession(); }}
+          onRetryUpload={handleRetryUpload}
+          onTagsChange={handleTagsChange}
+          onTitleChange={handleTitleChange}
+          pageError={pageError}
+          session={session}
+          showPageHeader={false}
+        />
+      </div>
+    </ProductShell>
   );
 }

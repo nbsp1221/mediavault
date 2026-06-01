@@ -1,36 +1,28 @@
-import { Plus } from 'lucide-react';
 import type { Playlist } from '~/entities/playlist/model/playlist';
-import { CreatePlaylistDialog } from '~/features/playlist-create/ui/CreatePlaylistDialog';
-import { Button } from '~/shared/ui/button';
-import { usePlaylistsView } from '../model/usePlaylistsView';
 import { PlaylistGrid } from './PlaylistGrid';
 
 interface PlaylistsViewProps {
   playlists: Playlist[];
-  videoCountMap: Record<string, number>;
+  videoCountMap: Map<string, number>;
+  onCreateNew: () => void;
+  onPlaylistClick: (playlist: Playlist) => void;
+  onPlaylistPlay: (playlist: Playlist) => void;
   total: number;
 }
 
 export function PlaylistsView({
   playlists,
   videoCountMap,
+  onCreateNew,
+  onPlaylistClick,
+  onPlaylistPlay,
   total,
 }: PlaylistsViewProps) {
-  const {
-    isCreateDialogOpen,
-    videoCountMapData,
-    handlePlaylistPlay,
-    handlePlaylistClick,
-    handleCreatePlaylist,
-    handleCreateDialogChange,
-  } = usePlaylistsView({ videoCountMap });
-
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header section */}
-      <div className="flex items-center justify-between mb-8">
+    <div className="flex flex-col gap-6">
+      <div>
         <div>
-          <h1 className="text-2xl font-bold mb-2">My Playlists</h1>
+          <h2 className="text-lg font-semibold">My Playlists</h2>
           <p className="text-muted-foreground">
             {total === 0 ? (
               'No playlists yet'
@@ -39,27 +31,15 @@ export function PlaylistsView({
             )}
           </p>
         </div>
-
-        <Button onClick={handleCreatePlaylist} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Playlist
-        </Button>
       </div>
 
-      {/* Playlist grid */}
       <PlaylistGrid
         playlists={playlists}
-        videoCountMap={videoCountMapData}
+        videoCountMap={videoCountMap}
         isLoading={false}
-        onPlay={handlePlaylistPlay}
-        onClick={handlePlaylistClick}
-        onCreateNew={handleCreatePlaylist}
-      />
-
-      {/* Create Playlist Dialog */}
-      <CreatePlaylistDialog
-        open={isCreateDialogOpen}
-        onOpenChange={handleCreateDialogChange}
+        onPlay={onPlaylistPlay}
+        onClick={onPlaylistClick}
+        onCreateNew={onCreateNew}
       />
     </div>
   );

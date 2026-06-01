@@ -2,15 +2,27 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import type { VideoVisibility } from '~/modules/library/domain/value-objects/video-visibility';
+import { Alert, AlertDescription } from '~/shared/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/shared/ui/alert-dialog';
+import { Badge } from '~/shared/ui/badge';
 import { Button } from '~/shared/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '~/shared/ui/dialog';
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/shared/ui/card';
 
 interface VideoVisibilitySectionProps {
   isChanging?: boolean;
@@ -69,68 +81,89 @@ export function VideoVisibilitySection({
   };
 
   return (
-    <section className="space-y-4 rounded-md border bg-muted/20 p-4" aria-labelledby="video-visibility-heading">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h2 id="video-visibility-heading" className="text-base font-semibold">
-            {`Visibility: ${currentLabel}`}
-          </h2>
-          <p className="text-sm text-muted-foreground">
+    <section aria-labelledby="video-visibility-heading">
+      <Card>
+        <CardHeader>
+          <CardTitle id="video-visibility-heading" className="text-base">
+            Visibility
+          </CardTitle>
+          <CardDescription>
             {video.isPrivate
               ? 'Only you can browse and watch this video.'
               : 'Anyone who can access this site can find and watch this video.'}
+          </CardDescription>
+          <CardAction>
+            <Badge variant="secondary">{currentLabel}</Badge>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {`Current visibility: ${currentLabel}`}
           </p>
-        </div>
-        <Button
-          className="min-h-11"
-          disabled={isChanging}
-          onClick={handleAction}
-          type="button"
-          variant="outline"
-        >
-          <ActionIcon className="mr-2 h-4 w-4" />
-          {isChanging ? 'Updating...' : actionLabel}
-        </Button>
-      </div>
+          <Button
+            disabled={isChanging}
+            onClick={handleAction}
+            type="button"
+            variant="outline"
+          >
+            <ActionIcon data-icon="inline-start" />
+            {isChanging ? 'Updating...' : actionLabel}
+          </Button>
+        </CardContent>
 
-      {feedback && (
-        <div
-          role={feedback.type === 'error' ? 'alert' : 'status'}
-          className={feedback.type === 'error'
-            ? 'rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
-            : 'rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground'}
-        >
-          {feedback.message}
-        </div>
-      )}
+        {feedback && (
+          <CardContent>
+            {feedback.type === 'error' ? (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {feedback.message}
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div role="status" className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-foreground">
+                {feedback.message}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
 
-      <Dialog
+      <AlertDialog
         open={showPublicConfirm}
         onOpenChange={(nextOpen) => {
+          if (isChanging) {
+            return;
+          }
           setShowPublicConfirm(nextOpen);
           if (!nextOpen) {
             setFeedback(null);
           }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Make video public?</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Make video public?</AlertDialogTitle>
+            <AlertDialogDescription>
               Anyone who can access this site can find and watch this video. You can make it private again later.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button className="min-h-11" disabled={isChanging} onClick={() => setShowPublicConfirm(false)} type="button" variant="outline">
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isChanging}>
               Cancel
-            </Button>
-            <Button className="min-h-11" disabled={isChanging} onClick={() => void executeChange('public')} type="button">
-              <Eye className="mr-2 h-4 w-4" />
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isChanging}
+              onClick={(event) => {
+                event.preventDefault();
+                void executeChange('public');
+              }}
+            >
+              <Eye data-icon="inline-start" />
               {isChanging ? 'Updating...' : 'Make Public'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

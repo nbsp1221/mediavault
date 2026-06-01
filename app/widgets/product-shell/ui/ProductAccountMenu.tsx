@@ -1,16 +1,18 @@
 import { LogOut, User } from 'lucide-react';
+import { Link } from 'react-router';
 import { useRootUser } from '~/shared/hooks/use-root-user';
 import { Button } from '~/shared/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/shared/ui/dropdown-menu';
 
-export function HomeAccountMenu() {
+export function ProductAccountMenu() {
   const user = useRootUser();
 
   if (!user) {
@@ -21,32 +23,33 @@ export function HomeAccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="ghost"
+          aria-label="Account menu"
+          className="size-10 overflow-hidden rounded-full"
           size="icon"
-          className="h-8 w-8 overflow-hidden rounded-full bg-primary"
           title="Account Menu"
+          variant="ghost"
         >
-          <div className="flex h-full w-full items-center justify-center bg-primary">
-            <User className="h-4 w-4 text-primary-foreground" />
-          </div>
+          <User aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium leading-none">Account</p>
-            <p className="text-xs leading-none text-muted-foreground">
+            <p className="truncate text-xs leading-none text-muted-foreground">
               {user.username}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="text-destructive focus:text-destructive">
-          <a href="/api/auth/logout">
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </a>
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem asChild variant="destructive">
+            <Link to="/api/auth/logout">
+              <LogOut data-icon="inline-start" />
+              Logout
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

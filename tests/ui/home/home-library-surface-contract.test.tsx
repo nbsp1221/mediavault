@@ -55,8 +55,7 @@ describe('Home library surface contract', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: 'My Library' })).toBeInTheDocument();
-    expect(screen.getByText('Total 1 videos • Showing 1')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Videos' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Catalog Fixture' })).toBeInTheDocument();
     expect(screen.getByText(expectedDate)).toBeInTheDocument();
     expect(screen.getByText('3:00')).toBeInTheDocument();
@@ -87,7 +86,7 @@ describe('Home library surface contract', () => {
     expect(screen.getByText('Active filters:')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Open actions menu for Catalog Fixture' }));
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
-    const deleteDialog = screen.getByRole('dialog', { name: 'Delete video?' });
+    const deleteDialog = screen.getByRole('alertdialog', { name: 'Delete video?' });
     expect(deleteDialog).toHaveTextContent('Catalog Fixture');
     expect(deleteDialog).toHaveTextContent('This action cannot be undone.');
     expect(within(deleteDialog).getByRole('button', { name: 'Delete video' })).toBeInTheDocument();

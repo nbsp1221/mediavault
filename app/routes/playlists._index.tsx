@@ -4,7 +4,7 @@ import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router
 import { requireProtectedPageSession } from '~/composition/server/auth';
 import { getServerPlaylistServices } from '~/composition/server/playlist';
 import { PlaylistsPage } from '~/pages/playlists/ui/PlaylistsPage';
-import { RouteErrorView } from '~/shared/ui/route-error-view';
+import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Failed to load playlists';
@@ -75,7 +75,9 @@ export function ErrorBoundary() {
 
   if (isRouteErrorResponse(error)) {
     return (
-      <RouteErrorView
+      <ProductRouteErrorView
+        activeRoute="playlists"
+        contentWidth="wide"
         tone="warning"
         icon={<RefreshCw className="h-6 w-6" aria-hidden />}
         title="We couldn’t load your playlists"
@@ -93,7 +95,9 @@ export function ErrorBoundary() {
   }
 
   return (
-    <RouteErrorView
+    <ProductRouteErrorView
+      activeRoute="playlists"
+      contentWidth="wide"
       tone="critical"
       icon={<AlertTriangle className="h-6 w-6" aria-hidden />}
       title="Something went wrong"

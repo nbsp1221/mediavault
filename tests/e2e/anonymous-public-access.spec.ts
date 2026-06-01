@@ -23,13 +23,17 @@ test.describe('anonymous public access', () => {
     await page.goto('/');
 
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'My Library' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Videos' })).toBeVisible();
     await expect(page.getByRole('heading', { exact: true, level: 3, name: 'playtime' })).toBeVisible();
     await expect(page.getByRole('heading', { exact: true, level: 3, name: 'playtime2' })).toBeVisible();
     await expect(page.getByText('owner-private-playtime')).toHaveCount(0);
     await expect(page.getByText('other-private-playtime')).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Upload/ })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Account Menu' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Playlists' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Favorites, Soon' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'History, Soon' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Settings, Soon' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Account menu' })).toHaveCount(0);
   });
 
   test('hides private direct URLs while issuing public playback tokens without a session', async ({ request }) => {

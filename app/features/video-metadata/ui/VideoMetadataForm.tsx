@@ -10,7 +10,14 @@ import {
   VideoTaxonomyMultiSelect,
   VideoTaxonomySingleSelect,
 } from '~/features/video-metadata/ui/VideoTaxonomyCombobox';
+import { Alert, AlertDescription } from '~/shared/ui/alert';
 import { Button } from '~/shared/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '~/shared/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '~/shared/ui/form';
 import { Input } from '~/shared/ui/input';
 import { Textarea } from '~/shared/ui/textarea';
@@ -28,10 +35,13 @@ export type VideoMetadataFormValues = z.infer<typeof formSchema>;
 interface VideoMetadataFormProps {
   contentTypes: VideoTaxonomyItem[];
   error?: string | null;
+  formId?: string;
   genres: VideoTaxonomyItem[];
   onCancel: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
   onSave: (data: VideoMetadataFormValues) => Promise<void>;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
+  renderActions?: boolean;
   video: HomeLibraryVideo;
 }
 
@@ -48,10 +58,13 @@ function createDefaultValues(video: HomeLibraryVideo): VideoMetadataFormValues {
 export function VideoMetadataForm({
   contentTypes,
   error,
+  formId,
   genres,
   onCancel,
   onDirtyChange,
   onSave,
+  onSubmittingChange,
+  renderActions = true,
   video,
 }: VideoMetadataFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,6 +83,10 @@ export function VideoMetadataForm({
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
+  useEffect(() => {
+    onSubmittingChange?.(isSubmitting);
+  }, [isSubmitting, onSubmittingChange]);
+
   const handleSubmit = async (values: VideoMetadataFormValues) => {
     setIsSubmitting(true);
     try {
@@ -87,131 +104,148 @@ export function VideoMetadataForm({
   };
 
   return (
-    <section className="space-y-4" aria-labelledby="video-details-form-heading">
-      <div>
-        <h2 id="video-details-form-heading" className="text-base font-semibold">Details</h2>
-      </div>
+    <Form {...form}>
+      <form id={formId} onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-6">
+        <section aria-labelledby="video-basic-information-heading">
+          <Card>
+            <CardHeader>
+              <CardTitle id="video-basic-information-heading" className="text-base">
+                Basic information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter video title" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="title"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Title</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter video title" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        className="resize-none"
+                        placeholder="Enter video description"
+                        rows={4}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="tags"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tags</FormLabel>
-                <FormControl>
-                  <VideoTagInput
-                    ariaLabel="Tags"
-                    onChange={field.onChange}
-                    placeholder="Add tags like family, action, watch-later"
-                    value={field.value}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="tags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tags</FormLabel>
+                    <FormControl>
+                      <VideoTagInput
+                        ariaLabel="Tags"
+                        onChange={field.onChange}
+                        placeholder="Add tags like family, action, watch-later"
+                        value={field.value}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+        </section>
 
-          <FormField
-            control={form.control}
-            name="contentTypeSlug"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Content type</FormLabel>
-                <FormControl>
-                  <VideoTaxonomySingleSelect
-                    ariaLabel="Content type"
-                    onChange={field.onChange}
-                    options={contentTypes}
-                    placeholder="No content type"
-                    value={field.value ?? undefined}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <section aria-labelledby="video-classification-heading">
+          <Card>
+            <CardHeader>
+              <CardTitle id="video-classification-heading" className="text-base">
+                Classification
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="contentTypeSlug"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Content type</FormLabel>
+                    <FormControl>
+                      <VideoTaxonomySingleSelect
+                        ariaLabel="Content type"
+                        onChange={field.onChange}
+                        options={contentTypes}
+                        placeholder="No content type"
+                        value={field.value ?? undefined}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="genreSlugs"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Genre</FormLabel>
-                <FormControl>
-                  <VideoTaxonomyMultiSelect
-                    ariaLabel="Genre"
-                    onChange={field.onChange}
-                    options={genres}
-                    placeholder="No genres"
-                    value={field.value}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="genreSlugs"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Genre</FormLabel>
+                    <FormControl>
+                      <VideoTaxonomyMultiSelect
+                        ariaLabel="Genre"
+                        onChange={field.onChange}
+                        options={genres}
+                        placeholder="No genres"
+                        value={field.value}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+        </section>
 
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Description (optional)</FormLabel>
-                <FormControl>
-                  <Textarea
-                    className="resize-none"
-                    placeholder="Enter video description"
-                    rows={5}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {error && (
-            <div
-              role="alert"
-              className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-            >
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>
               {error}
-            </div>
-          )}
+            </AlertDescription>
+          </Alert>
+        )}
 
+        {renderActions && (
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-            <Button className="min-h-11" disabled={isSubmitting} onClick={onCancel} type="button" variant="outline">
+            <Button disabled={isSubmitting} onClick={onCancel} type="button" variant="outline">
               Cancel
             </Button>
-            <Button className="min-h-11" disabled={isSubmitting} type="submit">
+            <Button disabled={isSubmitting} type="submit">
               {isSubmitting
                 ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
                       Saving...
                     </>
                   )
                 : 'Save changes'}
             </Button>
           </div>
-        </form>
-      </Form>
-    </section>
+        )}
+      </form>
+    </Form>
   );
 }

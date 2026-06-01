@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 describe('HomePage bootstrap compatibility', () => {
-  test('applies loader bootstrap filters without changing the current Total / Showing behavior', () => {
+  test('applies loader bootstrap filters to the visible catalog', () => {
     render(
       <MemoryRouter>
         <HomePage
@@ -58,9 +58,8 @@ describe('HomePage bootstrap compatibility', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: 'My Library' })).toBeInTheDocument();
-    expect(screen.getByText('Total 2 videos • Showing 1')).toBeInTheDocument();
-    expect(screen.getAllByDisplayValue('Action')).toHaveLength(2);
+    expect(screen.getByRole('heading', { level: 1, name: 'Videos' })).toBeInTheDocument();
+    expect(screen.getAllByDisplayValue('Action')).toHaveLength(1);
     expect(screen.getByText('Active filters:')).toBeInTheDocument();
     expect(screen.getByText('Catalog Fixture')).toBeInTheDocument();
     expect(screen.queryByText('Second Fixture')).not.toBeInTheDocument();
@@ -98,8 +97,6 @@ describe('HomePage bootstrap compatibility', () => {
       </MemoryRouter>,
     );
 
-    expect(container.textContent).toContain('Total 2 videos');
-    expect(container.textContent).toContain('Showing 1');
     expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });

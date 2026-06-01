@@ -8,9 +8,9 @@ import { HomePage } from '../../../app/pages/home/ui/HomePage';
 
 const rootLoaderDataMock = vi.fn(() => ({
   user: {
-    email: 'owner@example.com',
     id: 'user-1',
     role: 'admin',
+    username: 'owner',
   },
 }));
 
@@ -54,7 +54,7 @@ function renderHomeShell() {
 }
 
 describe('Home shell contract', () => {
-  test('renders the approved sidebar, header, and shell affordances in the correct order', () => {
+  test('renders the approved product sidebar, header, and shell affordances', () => {
     render(
       <MemoryRouter>
         <HomePage
@@ -64,26 +64,25 @@ describe('Home shell contract', () => {
       </MemoryRouter>,
     );
 
-    const libraryHeading = screen.getByRole('heading', { level: 3, name: 'Library' });
-    const manageHeading = screen.getByRole('heading', { level: 3, name: 'Manage' });
-    const settingsHeading = screen.getByRole('heading', { level: 3, name: 'Settings' });
-    const homeLink = screen.getByRole('link', { name: 'All Videos' });
+    const libraryHeading = screen.getByRole('heading', { level: 2, name: 'Library' });
+    const manageHeading = screen.getByRole('heading', { level: 2, name: 'Manage' });
+    const accountHeading = screen.getByRole('heading', { level: 2, name: 'Account' });
+    const homeLink = screen.getByRole('link', { name: 'Videos' });
     const playlistsLink = screen.getByRole('link', { name: 'Playlists' });
-    const uploadLink = screen.getAllByRole('link', { name: /Upload/i })[0];
-    const settingsLink = screen.getByRole('link', { name: 'Settings' });
-    const desktopSearch = screen.getAllByPlaceholderText('Search titles and tags...')[0];
+    const uploadLink = screen.getAllByRole('link', { name: 'Upload' })[0];
     const filtersButton = screen.getByRole('button', { name: 'Filters' });
-    const accountMenu = screen.getByTitle('Account Menu');
+    const accountMenu = screen.getByLabelText('Account menu');
 
-    expect(screen.getByText('Mediavault')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mediavault home' })).toBeInTheDocument();
     expect(libraryHeading.compareDocumentPosition(manageHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(manageHeading.compareDocumentPosition(settingsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(manageHeading.compareDocumentPosition(accountHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(homeLink).toHaveAttribute('href', '/');
     expect(screen.queryByRole('heading', { level: 3, name: 'Browse' })).not.toBeInTheDocument();
     expect(playlistsLink).toHaveAttribute('href', '/playlists');
     expect(uploadLink).toHaveAttribute('href', '/add-videos');
-    expect(settingsLink).toHaveAttribute('href', '/settings');
-    expect(desktopSearch).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settings, Soon' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: /Search library/ })).toBeInTheDocument();
     expect(filtersButton).toBeInTheDocument();
     expect(accountMenu).toBeInTheDocument();
   });
@@ -98,8 +97,8 @@ describe('Home shell contract', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByPlaceholderText('Search titles and tags...')).toHaveLength(2);
-    expect(screen.getAllByDisplayValue('Action')).toHaveLength(2);
+    expect(screen.getByPlaceholderText('Search titles and tags...')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Action')).toBeInTheDocument();
   });
 
   test('preserves q/tag/type/genre URL state when home navigation returns to all videos', async () => {
@@ -126,7 +125,7 @@ describe('Home shell contract', () => {
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByRole('link', { name: 'All Videos' }));
+    await user.click(screen.getByRole('link', { name: 'Videos' }));
 
     const nextSearch = new URLSearchParams(screen.getByTestId('location-search').textContent ?? '');
     expect(nextSearch.get('q')).toBe('Action');
@@ -140,8 +139,9 @@ describe('Home shell contract', () => {
     const user = userEvent.setup();
     renderHomeShell();
 
-    const toggleButton = screen.getByRole('button', { name: 'Toggle sidebar menu' });
+    const toggleButton = screen.getByRole('button', { name: 'Open navigation menu' });
     expect(toggleButton).toHaveAttribute('aria-expanded', 'false');
+    expect(toggleButton).toHaveAttribute('aria-controls', 'product-mobile-navigation');
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
 
     await user.click(toggleButton);
@@ -150,15 +150,15 @@ describe('Home shell contract', () => {
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
   });
 
-  test('closes the mobile navigation drawer through the All Videos navigation link', async () => {
+  test('closes the mobile navigation drawer through the Videos navigation link', async () => {
     const user = userEvent.setup();
     renderHomeShell();
 
-    const toggleButton = screen.getByRole('button', { name: 'Toggle sidebar menu' });
+    const toggleButton = screen.getByRole('button', { name: 'Open navigation menu' });
     await user.click(toggleButton);
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('link', { name: 'All Videos' }));
+    await user.click(screen.getAllByRole('link', { name: 'Videos' }).at(-1)!);
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
   });
 
@@ -166,10 +166,10 @@ describe('Home shell contract', () => {
     const user = userEvent.setup();
     renderHomeShell();
 
-    const toggleButton = screen.getByRole('button', { name: 'Toggle sidebar menu' });
+    const toggleButton = screen.getByRole('button', { name: 'Open navigation menu' });
     await user.click(toggleButton);
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'Mediavault' }));
+    await user.click(screen.getAllByRole('link', { name: 'Mediavault home' }).at(-1)!);
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
   });
 
@@ -177,7 +177,7 @@ describe('Home shell contract', () => {
     const user = userEvent.setup();
     renderHomeShell();
 
-    const toggleButton = screen.getByRole('button', { name: 'Toggle sidebar menu' });
+    const toggleButton = screen.getByRole('button', { name: 'Open navigation menu' });
     await user.click(toggleButton);
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
 
@@ -189,7 +189,7 @@ describe('Home shell contract', () => {
     const user = userEvent.setup();
     renderHomeShell();
 
-    await user.click(screen.getByRole('button', { name: 'Toggle sidebar menu' }));
+    await user.click(screen.getByRole('button', { name: 'Open navigation menu' }));
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
 
     Object.defineProperty(window, 'innerWidth', {

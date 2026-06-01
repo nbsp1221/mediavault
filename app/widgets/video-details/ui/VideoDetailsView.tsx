@@ -16,6 +16,13 @@ import { AspectRatio } from '~/shared/ui/aspect-ratio';
 import { Badge } from '~/shared/ui/badge';
 import { Button } from '~/shared/ui/button';
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/shared/ui/card';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -23,24 +30,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/shared/ui/dialog';
-import { Separator } from '~/shared/ui/separator';
 import { useUnsavedChangesGuard } from '../model/useUnsavedChangesGuard';
 
 interface VideoDetailsViewProps {
   contentTypes: VideoTaxonomyItem[];
   genres: VideoTaxonomyItem[];
+  metadataFormId?: string;
+  onMetadataSubmittingChange?: (isSubmitting: boolean) => void;
   redirectTo: string;
+  renderMetadataActions?: boolean;
+  showPageHeader?: boolean;
   video: HomeLibraryVideo;
 }
 
 export function VideoDetailsView({
   contentTypes,
   genres,
+  metadataFormId,
+  onMetadataSubmittingChange,
   redirectTo,
+  renderMetadataActions = true,
+  showPageHeader = true,
   video: initialVideo,
 }: VideoDetailsViewProps) {
   const navigate = useNavigate();
   const [video, setVideo] = useState(initialVideo);
+  const [metadataFormVideo, setMetadataFormVideo] = useState(initialVideo);
   const [isMetadataDirty, setIsMetadataDirty] = useState(false);
   const [metadataError, setMetadataError] = useState<string | null>(null);
   const [isChangingVisibility, setIsChangingVisibility] = useState(false);
@@ -74,6 +89,7 @@ export function VideoDetailsView({
     try {
       const updatedVideo = await updateLibraryVideoMetadata(video, values);
       setVideo(updatedVideo);
+      setMetadataFormVideo(updatedVideo);
       setIsMetadataDirty(false);
       toast.success('Video details saved.');
     }
@@ -124,21 +140,23 @@ export function VideoDetailsView({
   }, [navigate, redirectTo]);
 
   return (
-    <main className="container mx-auto px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-2">
-          <Button asChild variant="ghost" className="-ml-3 min-h-11">
-            <Link to={redirectTo}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to library
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-semibold tracking-normal">Video details</h1>
+    <div className={showPageHeader ? 'container mx-auto px-4 py-6 sm:px-6 lg:px-8' : 'w-full'}>
+      {showPageHeader && (
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Button asChild variant="ghost" className="-ml-3 min-h-11">
+              <Link to={redirectTo}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to library
+              </Link>
+            </Button>
+            <h1 className="text-2xl font-semibold tracking-normal">Video details</h1>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <aside className="space-y-4">
+      <div className="grid gap-8 lg:grid-cols-12">
+        <aside className="flex flex-col gap-4 lg:col-span-7">
           <div className="overflow-hidden rounded-md border bg-muted">
             <AspectRatio ratio={16 / 9}>
               {video.thumbnailUrl
@@ -157,12 +175,12 @@ export function VideoDetailsView({
             </AspectRatio>
           </div>
 
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold">{video.title}</h2>
-              {video.isPrivate && (
-                <Badge variant="secondary">Private</Badge>
-              )}
+              <Badge variant="secondary">
+                {video.isPrivate ? 'Private' : 'Public'}
+              </Badge>
             </div>
             <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1">
@@ -171,29 +189,38 @@ export function VideoDetailsView({
               </span>
               <span>{formatDisplayDate(video.createdAt)}</span>
             </div>
-            <Button asChild className="min-h-11" variant="outline">
+            {video.description ? (
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold">About this video</h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  {video.description}
+                </p>
+              </div>
+            ) : null}
+            <Button asChild variant="outline">
               <Link to={`/player/${video.id}`}>
-                <Play className="mr-2 h-4 w-4" />
+                <Play data-icon="inline-start" />
                 Watch video
               </Link>
             </Button>
           </div>
         </aside>
 
-        <div className="space-y-8">
+        <div className="flex flex-col gap-6 lg:col-span-5">
           {canEditMetadata && (
             <VideoMetadataForm
               contentTypes={contentTypes}
               error={metadataError}
+              formId={metadataFormId}
               genres={genres}
               onCancel={handleCancel}
               onDirtyChange={setIsMetadataDirty}
+              onSubmittingChange={onMetadataSubmittingChange}
               onSave={handleMetadataSave}
-              video={video}
+              renderActions={renderMetadataActions}
+              video={metadataFormVideo}
             />
           )}
-
-          {canEditMetadata && canManageVisibility && <Separator />}
 
           {canManageVisibility && (
             <VideoVisibilitySection
@@ -204,31 +231,31 @@ export function VideoDetailsView({
           )}
 
           {canDeleteVideo && (
-            <>
-              {(canEditMetadata || canManageVisibility) && <Separator />}
-              <section className="space-y-3 rounded-md border border-destructive/30 p-4" aria-labelledby="danger-zone-heading">
-                <div>
-                  <h2 id="danger-zone-heading" className="text-base font-semibold text-destructive">
+            <section aria-labelledby="danger-zone-heading">
+              <Card className="border-destructive/30">
+                <CardHeader>
+                  <CardTitle id="danger-zone-heading" className="text-base text-destructive">
                     Danger zone
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  </CardTitle>
+                  <CardDescription>
                     Delete this video from your library. This action cannot be undone.
-                  </p>
-                </div>
-                <Button
-                  className="min-h-11"
-                  onClick={() => {
-                    setDeleteError(null);
-                    setDeleteDialogOpen(true);
-                  }}
-                  type="button"
-                  variant="destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </Button>
-              </section>
-            </>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeleteDialogOpen(true);
+                    }}
+                    type="button"
+                    variant="destructive"
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Delete
+                  </Button>
+                </CardContent>
+              </Card>
+            </section>
           )}
         </div>
       </div>
@@ -282,6 +309,6 @@ export function VideoDetailsView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </main>
+    </div>
   );
 }

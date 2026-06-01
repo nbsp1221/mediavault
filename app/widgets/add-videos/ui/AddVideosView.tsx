@@ -52,6 +52,7 @@ export interface AddVideosViewProps {
   onTitleChange: (value: string) => void;
   pageError: string | null;
   session: AddVideosSession | null;
+  showPageHeader?: boolean;
 }
 
 export function AddVideosView({
@@ -70,6 +71,7 @@ export function AddVideosView({
   onTitleChange,
   pageError,
   session,
+  showPageHeader = true,
 }: AddVideosViewProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -91,25 +93,27 @@ export function AddVideosView({
 
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button asChild size="sm" variant="ghost">
-              <Link to="/">
-                <ArrowLeft data-icon="inline-start" />
-                Back to Library
-              </Link>
-            </Button>
+      {showPageHeader && (
+        <div className="mb-8 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button asChild size="sm" variant="ghost">
+                <Link to="/">
+                  <ArrowLeft data-icon="inline-start" />
+                  Back to Library
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <h1 className="text-3xl font-bold">Upload a video</h1>
+            <p className="text-muted-foreground">
+              Choose one video from your browser, review its details, then add it to your library.
+            </p>
           </div>
         </div>
-
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold">Upload a video</h1>
-          <p className="text-muted-foreground">
-            Choose one video from your browser, review its details, then add it to your library.
-          </p>
-        </div>
-      </div>
+      )}
 
       {pageError ? (
         <Alert className="mb-6" variant="destructive">

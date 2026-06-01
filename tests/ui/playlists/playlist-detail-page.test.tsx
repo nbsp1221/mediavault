@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { PlaylistWithVideos } from '../../../app/entities/playlist/model/playlist';
@@ -73,7 +73,7 @@ describe('PlaylistDetailPage', () => {
 
     expect(screen.getByText('Mediavault')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 3, name: 'Browse' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: 'Library' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Library' })).toBeInTheDocument();
     expect(screen.getByTestId('mock-playlist-detail-view')).toBeInTheDocument();
     expect(playlistDetailViewMock).toHaveBeenCalledWith({
       permissions,
@@ -100,7 +100,8 @@ describe('PlaylistDetailPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Vault' })).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).getByRole('heading', { level: 1, name: 'Playlist details' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Vault' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Play All' })).toBeInTheDocument();
     expect(screen.getByText('Playlist Videos')).toBeInTheDocument();
     expect(screen.getByText('playtime')).toBeInTheDocument();

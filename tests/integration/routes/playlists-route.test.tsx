@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, test, vi } from 'vitest';
@@ -23,6 +22,14 @@ function routeErrorResponse(status: number, data?: string) {
   };
 }
 
+function expectProductShellErrorFrame(html: string) {
+  expect(html).toContain('<header');
+  expect(html).toContain('<main');
+  expect(html).toContain('Product navigation');
+  expect(html).toContain('Mediavault');
+  expect(html).toContain('aria-current="page"');
+}
+
 vi.mock('react-router', async () => {
   const actual = await vi.importActual<typeof import('react-router')>('react-router');
 
@@ -30,6 +37,11 @@ vi.mock('react-router', async () => {
     ...actual,
     isRouteErrorResponse: (error: unknown) => Boolean((error as { isRouteErrorResponse?: boolean } | null)?.isRouteErrorResponse),
     useLoaderData: () => useLoaderDataMock(),
+    useRouteLoaderData: (routeId: string) => (
+      routeId === 'root'
+        ? { user: { id: 'owner-1', role: 'user', username: 'owner' } }
+        : undefined
+    ),
     useRouteError: () => useRouteErrorMock(),
   };
 });
@@ -40,12 +52,6 @@ vi.mock('~/pages/playlists/ui/PlaylistsPage', () => ({
 
 vi.mock('~/pages/playlist-detail/ui/PlaylistDetailPage', () => ({
   PlaylistDetailPage: (props: unknown) => playlistDetailPageMock(props),
-}));
-
-vi.mock('~/widgets/home-shell/ui/HomeShell', () => ({
-  HomeShell: ({ children }: { children: ReactNode }) => (
-    <div data-testid="mock-home-shell">{children}</div>
-  ),
 }));
 
 async function importPlaylistsRoute() {
@@ -209,6 +215,7 @@ describe('playlist route adapters', () => {
     );
 
     expect(html).toContain('We couldn’t load your playlists');
+    expectProductShellErrorFrame(html);
     expect(html).toContain('Playlist storage unavailable');
     expect(html).toContain('href="/playlists"');
     expect(html).toContain('Try again');
@@ -223,6 +230,7 @@ describe('playlist route adapters', () => {
     );
 
     expect(html).toContain('Something went wrong');
+    expectProductShellErrorFrame(html);
     expect(html).toContain('Database unavailable');
     expect(html).toContain('href="/playlists"');
     expect(html).toContain('Try again');
@@ -364,10 +372,11 @@ describe('playlist route adapters', () => {
     );
 
     expect(html).toContain('This playlist is private');
-    expect(html).toContain('The owner hasn’t shared this playlist yet');
+    expectProductShellErrorFrame(html);
+    expect(html).toContain('This playlist is not available to your account');
     expect(html).toContain('If you believe you should have access, contact the playlist owner for an invitation.');
     expect(html).toContain('href="/playlists"');
-    expect(html).toContain('Explore public playlists');
+    expect(html).toContain('Back to playlists');
     expect(html).toContain('href="/"');
     expect(html).toContain('Back to library');
 
@@ -379,6 +388,7 @@ describe('playlist route adapters', () => {
     );
 
     expect(html).toContain('Playlist not found');
+    expectProductShellErrorFrame(html);
     expect(html).toContain('The playlist might have been removed or the link could be incorrect. Try a different collection instead.');
     expect(html).toContain('href="/playlists"');
     expect(html).toContain('Browse playlists');
@@ -393,6 +403,7 @@ describe('playlist route adapters', () => {
     );
 
     expect(html).toContain('We couldn’t open this playlist');
+    expectProductShellErrorFrame(html);
     expect(html).toContain('Playlist service unavailable');
     expect(html).toContain('href="/playlists"');
     expect(html).toContain('Try again');

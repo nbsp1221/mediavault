@@ -1,6 +1,6 @@
 import type { PlaylistStats, PlaylistWithVideos } from '~/entities/playlist/model/playlist';
-import { HomeShell } from '~/widgets/home-shell/ui/HomeShell';
 import { PlaylistDetailView } from '~/widgets/playlist-detail-view/ui/PlaylistDetailView';
+import { ProductShell } from '~/widgets/product-shell/ui/ProductShell';
 
 interface PlaylistDetailPageProps {
   playlist: PlaylistWithVideos;
@@ -34,7 +34,12 @@ export function PlaylistDetailPage({
   permissions,
 }: PlaylistDetailPageProps) {
   return (
-    <HomeShell searchQuery="" onSearchChange={() => {}}>
+    <ProductShell
+      activeRoute="playlists"
+      contentWidth="wide"
+      description={playlist.name}
+      title="Playlist details"
+    >
       <PlaylistDetailView
         playlist={playlist}
         stats={stats}
@@ -42,6 +47,6 @@ export function PlaylistDetailPage({
         videoPagination={videoPagination}
         permissions={permissions}
       />
-    </HomeShell>
+    </ProductShell>
   );
 }

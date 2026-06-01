@@ -90,6 +90,38 @@ describe('video details route library slice adapter', () => {
     });
   });
 
+  test('rejects missing route params before hitting the library service', async () => {
+    const { loader } = await importVideoDetailsRoute();
+
+    await expect(loader({
+      params: {},
+      request: new Request('http://localhost/videos//edit'),
+    } as never)).rejects.toMatchObject({
+      status: 400,
+    });
+
+    expect(loadOwnedVideoDetailsExecuteMock).not.toHaveBeenCalled();
+  });
+
+  test('builds route metadata from loaded video titles when available', async () => {
+    const { meta } = await importVideoDetailsRoute();
+
+    expect(meta({
+      data: {
+        video: {
+          title: 'Catalog Fixture',
+        },
+      },
+    } as never)).toEqual([
+      { title: 'Catalog Fixture - Video details' },
+      { name: 'description', content: 'Manage video details' },
+    ]);
+    expect(meta({ data: undefined } as never)).toEqual([
+      { title: 'Video details' },
+      { name: 'description', content: 'Manage video details' },
+    ]);
+  });
+
   test('maps anonymous, non-owner, and missing videos to the same non-disclosing 404', async () => {
     const { loader } = await importVideoDetailsRoute();
     loadOwnedVideoDetailsExecuteMock.mockResolvedValue({

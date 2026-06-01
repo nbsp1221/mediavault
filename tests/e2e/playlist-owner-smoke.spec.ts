@@ -7,7 +7,8 @@ test.describe('playlist owner smoke', () => {
       expectedUrl: /\/playlists$/,
       redirectTo: '/playlists',
     });
-    await expect(page.getByRole('heading', { level: 1, name: 'My Playlists' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Playlists' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'My Playlists' })).toBeVisible();
 
     await page.getByRole('button', { name: 'New Playlist' }).click();
     await page.getByLabel('Playlist Name *').fill('Smoke Playlist');
@@ -22,7 +23,8 @@ test.describe('playlist owner smoke', () => {
     await page.getByText('Smoke Playlist').click();
 
     await expect(page).toHaveURL(/\/playlists\/.+$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Smoke Playlist' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Playlist details' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Smoke Playlist' })).toBeVisible();
     await expect(page.getByText('Playlist Videos')).toBeVisible();
   });
 });

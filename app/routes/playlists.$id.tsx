@@ -4,7 +4,7 @@ import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router
 import { requireProtectedPageSession } from '~/composition/server/auth';
 import { getServerPlaylistServices } from '~/composition/server/playlist';
 import { PlaylistDetailPage } from '~/pages/playlist-detail/ui/PlaylistDetailPage';
-import { RouteErrorView } from '~/shared/ui/route-error-view';
+import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const authSession = await requireProtectedPageSession(request);
@@ -66,17 +66,19 @@ export function ErrorBoundary() {
   if (isRouteErrorResponse(error)) {
     if (error.status === 403) {
       return (
-        <RouteErrorView
+        <ProductRouteErrorView
+          activeRoute="playlists"
+          contentWidth="wide"
           tone="warning"
           icon={<Lock className="h-6 w-6" aria-hidden />}
           title="This playlist is private"
           description={(
             <p>
-              The owner hasn’t shared this playlist yet. Ask them to invite you or explore public collections instead.
+              This playlist is not available to your account. Ask the owner for access if you expected to see it.
             </p>
           )}
           actions={[
-            { label: 'Explore public playlists', to: '/playlists' },
+            { label: 'Back to playlists', to: '/playlists' },
             { label: 'Back to library', to: '/', variant: 'outline' },
           ]}
           footnote="If you believe you should have access, contact the playlist owner for an invitation."
@@ -86,7 +88,9 @@ export function ErrorBoundary() {
 
     if (error.status === 404) {
       return (
-        <RouteErrorView
+        <ProductRouteErrorView
+          activeRoute="playlists"
+          contentWidth="wide"
           icon={<FileWarning className="h-6 w-6" aria-hidden />}
           title="Playlist not found"
           description={<p>The playlist might have been removed or the link could be incorrect. Try a different collection instead.</p>}
@@ -100,7 +104,9 @@ export function ErrorBoundary() {
   }
 
   return (
-    <RouteErrorView
+    <ProductRouteErrorView
+      activeRoute="playlists"
+      contentWidth="wide"
       tone="critical"
       icon={<AlertTriangle className="h-6 w-6" aria-hidden />}
       title="We couldn’t open this playlist"

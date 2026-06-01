@@ -16,7 +16,7 @@ test.describe('home library owner smoke', () => {
       expectedUrl: /\/\?q=action&tag=action&type=clip&genre=action$/,
       redirectTo: '/?q=action&tag=action&type=clip&genre=action',
     });
-    await expect(page.getByRole('heading', { level: 1, name: 'My Library' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Videos' })).toBeVisible();
     await expect(page.getByLabel('Search library (desktop)')).toHaveValue('action');
     await expect(page.getByText('Active filters:')).toBeVisible();
     await expect(page.getByText('Has: action')).toBeVisible();
@@ -101,7 +101,7 @@ test.describe('home library owner smoke', () => {
     await page.getByLabel('Description (optional)').fill('Owner private playback fixture edited in E2E');
     await page.getByRole('button', { name: 'Save changes' }).click();
     await expect(page.getByText('Video details saved.')).toBeVisible();
-    await expect(page.getByText('Visibility: Private')).toBeVisible();
+    await expect(page.getByText('Current visibility: Private')).toBeVisible();
     await expect(page.getByLabel('Description (optional)')).toHaveValue('Owner private playback fixture edited in E2E');
 
     await page.goto(`/player/${OWNER_PRIVATE_VIDEO_ID}`);
@@ -160,7 +160,7 @@ test.describe('home library owner smoke', () => {
 
       await expect(page.getByRole('heading', { level: 1, name: 'Video details' })).toBeVisible();
       await expect(page.getByLabel('Title')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible();
+      await expect(page.getByRole('banner').getByRole('button', { name: width < 768 ? 'Save' : 'Save changes' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Make Public' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible();
       await expect(page.getByRole('link', { name: 'Watch video' })).toBeVisible();
@@ -181,12 +181,12 @@ test.describe('home library owner smoke', () => {
     await ownerPrivateCard.getByRole('button', { name: 'Open actions menu for owner-private-playtime' }).click();
     await page.getByRole('menuitem', { name: 'Edit' }).click();
 
-    await expect(page.getByText('Visibility: Private')).toBeVisible();
+    await expect(page.getByText('Current visibility: Private')).toBeVisible();
     await page.getByRole('button', { name: 'Make Public' }).click();
-    await expect(page.getByRole('dialog', { name: 'Make video public?' })).toBeVisible();
-    await page.getByRole('dialog', { name: 'Make video public?' }).getByRole('button', { name: 'Make Public' }).click();
+    await expect(page.getByRole('alertdialog', { name: 'Make video public?' })).toBeVisible();
+    await page.getByRole('alertdialog', { name: 'Make video public?' }).getByRole('button', { name: 'Make Public' }).click();
     await expect(page.getByRole('status')).toHaveText('Visibility updated to Public.');
-    await expect(page.getByText('Visibility: Public')).toBeVisible();
+    await expect(page.getByText('Current visibility: Public')).toBeVisible();
 
     const anonymousTokenResponse = await request.get(`/videos/${OWNER_PRIVATE_VIDEO_ID}/token`);
     expect(anonymousTokenResponse.status()).toBe(200);
@@ -234,7 +234,7 @@ test.describe('home library owner smoke', () => {
 
     await page.getByRole('button', { name: 'Make Private' }).click();
     await expect(page.getByRole('status')).toHaveText('Visibility updated to Private.');
-    await expect(page.getByText('Visibility: Private')).toBeVisible();
+    await expect(page.getByText('Current visibility: Private')).toBeVisible();
 
     await anonymousPage.goto('/');
     await expect(anonymousPage.getByRole('link', { name: /owner-private-playtime/ })).toHaveCount(0);

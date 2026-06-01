@@ -3,7 +3,6 @@ import { Info } from 'lucide-react';
 import { Link } from 'react-router';
 import { cn } from '~/shared/lib/utils';
 import { Button } from '~/shared/ui/button';
-import { HomeShell } from '~/widgets/home-shell/ui/HomeShell';
 
 type ButtonVariant = ComponentProps<typeof Button>['variant'];
 type Tone = 'neutral' | 'warning' | 'critical';
@@ -23,9 +22,8 @@ export interface RouteErrorViewProps {
   icon?: ReactNode;
   actions?: RouteErrorAction[];
   footnote?: ReactNode;
-  layout?: 'app' | 'standalone';
-  searchQuery?: string;
-  onSearchChange?: (query: string) => void;
+  headingLevel?: 1 | 2;
+  layout?: 'content' | 'standalone';
   children?: ReactNode;
 }
 
@@ -57,14 +55,14 @@ export function RouteErrorView({
   icon,
   actions,
   footnote,
-  layout = 'app',
-  searchQuery = '',
-  onSearchChange = () => {},
+  headingLevel = 1,
+  layout = 'content',
   children,
 }: RouteErrorViewProps) {
   const resolvedTone = toneTokens[tone];
   const resolvedIcon = icon ?? <Info className="h-6 w-6" aria-hidden />;
   const resolvedActions = actions?.length ? actions : [{ label: 'Go to home', to: '/' }];
+  const Heading = headingLevel === 2 ? 'h2' : 'h1';
 
   const content = (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 py-16">
@@ -75,7 +73,7 @@ export function RouteErrorView({
               {resolvedIcon}
             </span>
             <div className="space-y-3">
-              <h1 className={cn('text-2xl font-semibold leading-tight', resolvedTone.title)}>{title}</h1>
+              <Heading className={cn('text-2xl font-semibold leading-tight', resolvedTone.title)}>{title}</Heading>
               <div className={cn('text-base leading-relaxed', resolvedTone.description)}>{description}</div>
             </div>
           </div>
@@ -103,9 +101,5 @@ export function RouteErrorView({
     return <div className="min-h-screen bg-background">{content}</div>;
   }
 
-  return (
-    <HomeShell searchQuery={searchQuery} onSearchChange={onSearchChange}>
-      {content}
-    </HomeShell>
-  );
+  return content;
 }

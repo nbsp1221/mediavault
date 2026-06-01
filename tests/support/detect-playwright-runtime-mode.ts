@@ -3,6 +3,7 @@ export const PLAYWRIGHT_SMOKE_SPEC_PATHS = [
   'tests/e2e/home-library-owner-smoke.spec.ts',
   'tests/e2e/add-videos-owner-upload-smoke.spec.ts',
   'tests/e2e/playlist-owner-smoke.spec.ts',
+  'tests/e2e/product-shell-smoke.spec.ts',
   'tests/e2e/player-layout.spec.ts',
   'tests/e2e/player-playback-compatibility.spec.ts',
 ] as const;
