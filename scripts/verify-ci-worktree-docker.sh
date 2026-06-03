@@ -59,5 +59,5 @@ tar -C "$tmp_dir" -cf - baseline current \
       cp -a /tmp/input/current/. /tmp/workspace/ &&
       git add -A &&
       bun install --frozen-lockfile &&
-      bun run verify:ci-faithful
+      bun run check:runtime
     '

@@ -29,7 +29,7 @@ function runSeedScript(args: string[], env: Record<string, string | undefined> =
     encoding: 'utf8',
     env: {
       ...process.env,
-      LOCAL_STREAMER_DISABLE_VITE_ENV_FILES: 'true',
+      MEDIAVAULT_DISABLE_VITE_ENV_FILES: 'true',
       ...env,
     },
   });

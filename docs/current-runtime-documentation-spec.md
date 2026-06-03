@@ -341,10 +341,10 @@ Documentation cleanup is complete when:
   document external requirements
 - verification docs make `bun run check` the base authority, including the hermetic
   input guard
-- storage-sensitive verification guidance requires `bun run verify:data-integrity` for
+- storage-sensitive verification guidance requires `bun run check:data-integrity` for
   changes that affect primary DB/media filesystem consistency
 - raw Docker reference commands are not presented as equivalent to the authoritative
-  `verify:ci-faithful:docker` or `verify:ci-worktree:docker` scripts
+  `check:runtime`, `check:docker-compose-smoke`, or `check:docker-worktree` scripts
 - resolved maintainer decisions above are reflected in current-facing docs and deployment
   examples
 - `rg` checks for retired runtime names return only clearly historical, compatibility-test,
@@ -358,28 +358,28 @@ The base verification authority is `bun run check`, not the prose-only list of
 The expanded base sequence is:
 
 ```text
-bun run verify:hermetic-inputs
+bun run check:hermetic-inputs
+bun run design:lint
 bun run lint
 bun run typecheck
-bun run test:smoke:dev-auth
 bun run test:coverage
 bun run test:mutation:changed
-bun run build
-bun run test:smoke:bun-auth:run
+bun run test:runtime:smoke
 ```
 
 Docs may still describe the individual commands, but they must not omit the hermetic input
 guard when defining the required base gate.
 
-Authoritative Docker parity commands are:
+Authoritative Docker/runtime parity commands are:
 
-- `bun run verify:ci-faithful:docker`
-- `bun run verify:ci-worktree:docker`
+- `bun run check:runtime`
+- `bun run check:docker-compose-smoke`
+- `bun run check:docker-worktree`
 
 Raw explanatory Docker commands must not be listed as authoritative unless they execute the
 same required script surface, including hermetic input checks and required browser smoke.
 
-`bun run verify:data-integrity` exists to prove primary DB and media filesystem agreement.
+`bun run check:data-integrity` exists to prove primary DB and media filesystem agreement.
 It is required for changes that affect storage schema, media asset records, ingest commit
 visibility, media artifact paths, artifact deletion, or data-integrity reporting. It remains
 optional for documentation-only changes and pure UI changes that cannot alter DB/media

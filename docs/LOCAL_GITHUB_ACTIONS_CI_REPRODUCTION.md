@@ -5,9 +5,9 @@ Last reviewed: 2026-04-02
 
 Use the authority scripts first:
 
-- `bun run verify:ci-faithful`
-- `bun run verify:ci-clean-export`
-- `bun run verify:ci-faithful:docker`
+- `bun run check:runtime`
+- `bun run check:docker-worktree`
+- `bun run check:docker-compose-smoke`
 
 This guide is for failure investigation when those commands are not enough or when a GitHub Actions failure still needs exact local reproduction.
 
@@ -74,7 +74,7 @@ Do not substitute "close enough" commands.
 If CI runs:
 
 ```bash
-bun install --frozen-lockfile && bun run test
+bun run check:hermetic-inputs && bun run test
 ```
 
 then reproduce that exact shape first.
@@ -82,7 +82,7 @@ then reproduce that exact shape first.
 If CI runs:
 
 ```bash
-bun run verify:e2e-smoke
+bun run test:e2e:smoke
 ```
 
 then reproduce that exact browser command, not a broader or narrower suite.
@@ -105,7 +105,7 @@ If the same exported commit sometimes passes and sometimes fails with the same c
 
 ## Reproducing the non-browser CI job
 
-This reproduced the same `test` failure that happened in GitHub Actions.
+This reproduces the current non-browser `test` job shape from GitHub Actions.
 
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" \
@@ -117,15 +117,30 @@ docker run --rm --user "$(id -u):$(id -g)" \
   -v "$REPRO_DIR":/workspace \
   -w /workspace \
   oven/bun:<matching-packageManager-version> \
-  bash -lc 'bun install --frozen-lockfile && bun run test'
+  bash -lc 'bun install --frozen-lockfile && bun run check:hermetic-inputs && bun run test'
 ```
 
-Observed failure:
+Historical observed failure:
 
 - `tests/integration/smoke/ci-parity-contract.test.ts`
 - `ENOENT: no such file or directory, open 'docs/verification-contract.md'`
 
 This confirmed that the pushed commit was missing a file that the working tree still had.
+
+The runtime smoke job is separate in the current workflow. Reproduce it with:
+
+```bash
+docker run --rm --user "$(id -u):$(id -g)" \
+  -e CI=true \
+  -e GITHUB_ACTIONS=true \
+  -e LANG=C.UTF-8 \
+  -e LC_ALL=C.UTF-8 \
+  -e TZ=Etc/UTC \
+  -v "$REPRO_DIR":/workspace \
+  -w /workspace \
+  oven/bun:<matching-packageManager-version> \
+  bash -lc 'bun install --frozen-lockfile && bun run test:runtime:smoke'
+```
 
 ## Reproducing the browser smoke CI job
 
@@ -146,7 +161,7 @@ docker run --rm --user "$(id -u):$(id -g)" \
     npm install -g bun@<matching-packageManager-version> --prefix "$HOME/.npm-global" >/dev/null 2>&1 && \
     export PATH="$HOME/.npm-global/bin:$PATH" && \
     bun install --frozen-lockfile >/dev/null && \
-    bun run verify:e2e-smoke'
+    bun run test:e2e:smoke'
 ```
 
 One run is not enough for flaky browser smoke.
@@ -170,7 +185,7 @@ for i in $(seq 1 20); do
       npm install -g bun@<matching-packageManager-version> --prefix "$HOME/.npm-global" >/dev/null 2>&1 && \
       export PATH="$HOME/.npm-global/bin:$PATH" && \
       bun install --frozen-lockfile >/dev/null && \
-      bun run verify:e2e-smoke' || break
+      bun run test:e2e:smoke' || break
 done
 ```
 

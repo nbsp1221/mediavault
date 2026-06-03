@@ -22,7 +22,7 @@ describe('createRuntimeTestEnv', () => {
       expect(env.PATH).toBe('/tmp/test-bin');
       expect(env.PORT).toBe('4173');
       expect(env.MEDIAVAULT_STORAGE_DIR).toBe('/tmp/storage');
-      expect(env.LOCAL_STREAMER_DISABLE_VITE_ENV_FILES).toBe('true');
+      expect(env.MEDIAVAULT_DISABLE_VITE_ENV_FILES).toBe('true');
       expect(env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS).toBe('1');
       expect(env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET).toBe(RUNTIME_TEST_SECRETS.authClientCookieSecret);
       expect(env.TZ).toBe('Etc/UTC');

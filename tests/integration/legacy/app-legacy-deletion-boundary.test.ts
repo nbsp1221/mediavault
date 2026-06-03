@@ -8,7 +8,6 @@ const EXPLICIT_FILES = [
   'package.json',
   'eslint.config.js',
   '.github/workflows/ci.yml',
-  'scripts/verify-ci-clean-export.sh',
 ] as const;
 const FILE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.sh', '.yml', '.yaml']);
 const FORBIDDEN_PATTERNS = [

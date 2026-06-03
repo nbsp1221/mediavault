@@ -7,6 +7,7 @@ import {
   getPrimaryStorageConfigFromEnv,
 } from '../../app/shared/config/app-config.server';
 import { PUBLIC_ENV_KEYS } from '../../app/shared/config/public-env.server';
+import { HERMETIC_TEST_ENV } from '../../scripts/hermetic-env';
 import { TEST_DATABASE_ENCRYPTION_KEY } from './database-encryption-key';
 
 export type RuntimeTestEnv = Record<string, string>;
@@ -37,13 +38,9 @@ const FORWARDED_ENV_KEYS = [
 
 function createBaseRuntimeTestEnv(): RuntimeTestEnv {
   return {
-    LANG: 'C.UTF-8',
-    LC_ALL: 'C.UTF-8',
-    LOCAL_STREAMER_DISABLE_VITE_ENV_FILES: 'true',
-    MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS: '1',
+    ...HERMETIC_TEST_ENV,
     [PUBLIC_ENV_KEYS.authClientCookieSecret]: RUNTIME_TEST_SECRETS.authClientCookieSecret,
     [PUBLIC_ENV_KEYS.databaseEncryptionKey]: RUNTIME_TEST_SECRETS.databaseEncryptionKey,
-    TZ: 'Etc/UTC',
     [PUBLIC_ENV_KEYS.playbackJwtSecret]: RUNTIME_TEST_SECRETS.playbackJwtSecret,
     [PUBLIC_ENV_KEYS.mediaKeyDerivationSecret]: RUNTIME_TEST_SECRETS.mediaKeyDerivationSecret,
   };

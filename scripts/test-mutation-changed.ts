@@ -1,4 +1,7 @@
+import { applyHermeticTestEnv } from './hermetic-env';
 import { runChangedFileMutation } from './lib/mutation/changed-file-mutation';
+
+applyHermeticTestEnv();
 
 try {
   process.exit(await runChangedFileMutation());

@@ -42,7 +42,7 @@ Use browser QA to validate behavior that HTTP-only checks cannot prove:
 3. Run the required browser smoke command when the change is browser-visible:
 
 ```bash
-bun run verify:e2e-smoke
+bun run test:e2e:smoke
 ```
 
 4. Escalate to Playwright MCP or manual browser QA when the changed flow still depends on real browser state or rendered UI confirmation.

@@ -283,12 +283,8 @@ describe('changed-file mutation package and contract policy', () => {
       scripts: Record<string, string>;
     };
 
-    expect(packageJson.scripts['test:mutation']).toBe(
-      'MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file x stryker run',
-    );
-    expect(packageJson.scripts['test:mutation:changed']).toBe(
-      'MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1 LOCAL_STREAMER_DISABLE_VITE_ENV_FILES=true bun --no-env-file ./scripts/test-mutation-changed.ts',
-    );
+    expect(packageJson.scripts['test:mutation']).toBe('bun --no-env-file ./scripts/run-mutation.ts');
+    expect(packageJson.scripts['test:mutation:changed']).toBe('bun --no-env-file ./scripts/test-mutation-changed.ts');
     expect(packageJson.scripts.check).toContain('bun run test:mutation:changed');
     expect(packageJson.scripts.check).not.toContain('bun run test:mutation &&');
   });
@@ -297,9 +293,9 @@ describe('changed-file mutation package and contract policy', () => {
     const contract = await readFile('docs/verification-contract.md', 'utf8');
 
     expect(contract).toContain('test:mutation:changed');
-    expect(contract).toContain('staged, unstaged, and untracked local production files relative to `HEAD`');
-    expect(contract).toContain('includes changed deterministic production TypeScript under `app/`');
+    expect(contract).toContain('staged tracked changes, unstaged tracked changes, and untracked files relative');
+    expect(contract).toContain('calibrated changed-file production scope');
     expect(contract).toContain('No changed production files require mutation validation.');
-    expect(contract).toContain('inherits the shared `thresholds.break: 70` mutation-score floor');
+    expect(contract).toContain('calibrated `thresholds.break: 70` floor');
   });
 });

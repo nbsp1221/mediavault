@@ -1,9 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { applyHermeticTestEnv } from './hermetic-env';
 import { prependNoEnvFile } from './no-env-file-bun';
 
-process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS ??= '1';
+applyHermeticTestEnv();
 
 function runCommand(args: string[]) {
   const result = spawnSync('bun', prependNoEnvFile(args), {

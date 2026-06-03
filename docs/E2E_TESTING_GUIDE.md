@@ -5,13 +5,21 @@ This guide defines the current test layers for Mediavault.
 `docs/verification-contract.md` is the source of truth for the required verification bundle and escalation rules.
 `docs/browser-qa-contract.md` defines when browser-visible work must escalate beyond HTTP checks into Playwright MCP or equivalent isolated browser QA.
 
-`bun run test` is the default full-suite command. It runs:
+`bun run test` is the canonical non-watch Vitest command. It does not run Bun
+runtime smoke tests.
 
-- the Vitest suite
-- the dev auth smoke
-- the built Bun auth smoke
+Use:
 
-The default `bun run test*` verification commands are env-scrubbed by design. Bun `.env` autoloading is disabled and Vite env-file loading is disabled for the test-facing entrypoints. Unit, integration, and Bun smoke tests must not depend on an ambient local `.env`; any required env must be seeded explicitly inside the test or the test-local helper.
+- `bun run check` for the base commit-readiness gate
+- `bun run check:fast` for quick iteration
+- `bun run check:runtime` for runtime-sensitive work that also needs browser and
+  Docker Compose smoke coverage
+
+The default `bun run test*` verification commands are env-scrubbed by design.
+Bun `.env` autoloading is disabled and Vite env-file loading is disabled for the
+test-facing entrypoints. Unit, integration, and runtime smoke tests must not depend on
+an ambient local `.env`; any required env must be seeded explicitly inside the
+test or the test-local helper.
 
 ## Execution Paths
 
@@ -52,22 +60,29 @@ databases, or generated key material under `public/`, because Vite serves
 
 ## CI-Like Verification
 
-For auth, playback, route wiring, or other runtime-sensitive changes, run a Docker verification pass that matches GitHub Actions more closely than the host shell.
-
-Use the built-in authority commands first:
+For auth, playback, route wiring, or other runtime-sensitive changes, run the
+runtime escalation gate:
 
 ```bash
-bun run verify:ci-faithful:docker
-bun run verify:ci-worktree:docker
+bun run check:runtime
 ```
 
-- `verify:ci-faithful:docker` checks a clean tracked export and is the closest local match for CI.
-- `verify:ci-worktree:docker` checks the current dirty worktree in an isolated container filesystem so the host repository does not pick up root-owned `.react-router/`, `build/`, or `node_modules/.vite/` artifacts.
+This runs the base gate, required browser smoke, and Docker Compose smoke.
+
+When investigating a CI-like container failure for the current dirty worktree, use:
+
+```bash
+bun run check:docker-worktree
+```
+
+- `check:runtime` is the normal runtime-sensitive completion gate.
+- `check:docker-worktree` is a heavy diagnostic for dirty-worktree container
+  reproduction. It is not the normal local completion gate.
 
 Only fall back to an ad hoc raw Docker command when investigating the harness itself. If you do, use a Bun image matching the repo `packageManager` Bun version instead of a hardcoded tag:
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" -e CI=true -e GITHUB_ACTIONS=true -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -e TZ=Etc/UTC -v "$PWD":/workspace -w /workspace oven/bun:<matching-packageManager-version> bash -lc 'bun install --frozen-lockfile && bun run lint && bun run typecheck && bun run test && bun run build'
+docker run --rm --user "$(id -u):$(id -g)" -e CI=true -e GITHUB_ACTIONS=true -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -e TZ=Etc/UTC -v "$PWD":/workspace -w /workspace oven/bun:<matching-packageManager-version> bash -lc 'bun install --frozen-lockfile && bun run check'
 ```
 
 Use `--user "$(id -u):$(id -g)"` or a read-only/exported workspace so the container does not leave root-owned files behind in the bind-mounted repository. If you forget this, local `bun run dev`, `bun run typecheck`, or `bun run build` may fail until ownership is fixed for `.react-router/`, `build/`, or `node_modules/.vite/`.
@@ -77,16 +92,18 @@ When debugging CI-only failures:
 - reproduce the exact failing command inside Docker before changing production code
 - assume host-only passing results are insufficient for runtime-sensitive work
 - treat host-specific absolute paths and leaked local env vars as test bugs
-- treat leaked ambient `.env` values as test bugs in unit, integration, and Bun smoke layers
+- treat leaked ambient `.env` values as test bugs in unit, integration, and runtime smoke layers
 - prefer tests that seed their own temp storage and configuration explicitly
 
 For the required browser smoke layer, run:
 
 ```bash
-bun run verify:e2e-smoke
+bun run test:e2e:smoke
 ```
 
-with a `bun` matching the repo `packageManager` contract. The raw non-browser Docker reference above excludes browser smoke, but the Docker authority paths above already include this browser smoke layer because they run `bun run verify:ci-faithful`, which includes `bun run verify:e2e-smoke`.
+with a `bun` matching the repo `packageManager` contract. The raw non-browser
+Docker reference above excludes browser smoke. `bun run check:runtime` includes
+this browser smoke layer.
 The required hermetic smoke command intentionally runs with one Playwright worker while it uses a single built server and a single temporary SQLite runtime workspace. Use explicit `bun run test:e2e -- ... --workers=N` invocations only for targeted stress investigation.
 The current required smoke set covers the home owner path, the add-videos owner upload flow, the playlist owner flow, player layout, and protected playback compatibility.
 When the change is both browser-visible and runtime-sensitive, follow `docs/browser-qa-contract.md` to decide whether Playwright MCP or equivalent isolated browser QA is additionally required.
@@ -119,39 +136,30 @@ Use for:
 - media access denial / response headers
 - active-owned compatibility cases
 
-### 3. Bun Runtime Smoke
+### 3. Runtime Smoke
 
 ```bash
-bun run test:smoke:bun-auth
+bun run test:runtime:smoke
 ```
 
 Use for:
 
+- dev server startup under Bun
 - built server startup under Bun
 - account login
 - protected page redirect
 - playback token access
 - protected thumbnail access
+- dev-only sensitive file exposure checks
 
-This layer exists because Vitest runs in Node while production runs in Bun.
+This layer exists because Vitest does not prove that the development server and
+the built Bun server preserve the same critical runtime contracts.
 
-### 4. Dev Runtime Smoke
-
-```bash
-bun run test:smoke:dev-auth
-```
-
-Use for:
-
-- account login under `bun run dev`
-- catching dev-only loader/runtime regressions such as unsupported `bun:` imports
-- validating that the local development server can complete the basic auth happy path
-
-### 5. Browser Verification
+### 4. Browser Verification
 
 Use Playwright when API checks are not enough.
 Use `docs/browser-qa-contract.md` when deciding whether browser QA is required for a given change.
-Use `bun run verify:e2e-smoke` for the required hermetic browser smoke path.
+Use `bun run test:e2e:smoke` for the required hermetic browser smoke path.
 
 ## Testing Tools
 

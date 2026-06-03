@@ -39,4 +39,4 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Docker Compose smoke
-        run: bun run verify:docker-compose-smoke
+        run: bun run check:docker-compose-smoke
