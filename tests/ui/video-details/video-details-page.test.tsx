@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
 import { VideoDetailsPage } from '../../../app/pages/video-details/ui/VideoDetailsPage';
 
@@ -55,7 +55,7 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
   };
 }
 
-function renderDetailsPage(video = createVideo()) {
+function renderDetailsPage(video = createVideo(), options: { redirectTo?: string } = {}) {
   const router = createMemoryRouter([
     {
       path: '/videos/:videoId/edit',
@@ -63,7 +63,7 @@ function renderDetailsPage(video = createVideo()) {
         <VideoDetailsPage
           contentTypes={[{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }]}
           genres={[{ active: true, label: 'Action', slug: 'action', sortOrder: 10 }]}
-          redirectTo="/?q=Action&tag=Neo"
+          redirectTo={options.redirectTo ?? '/?q=Action&tag=Neo'}
           video={video}
         />
       ),
@@ -113,6 +113,27 @@ function createDeferred<T>() {
 }
 
 describe('VideoDetailsPage', () => {
+  beforeAll(() => {
+    class TestResizeObserver {
+      disconnect() {
+        return undefined;
+      }
+
+      observe() {
+        return undefined;
+      }
+
+      unobserve() {
+        return undefined;
+      }
+    }
+
+    globalThis.ResizeObserver = TestResizeObserver;
+    window.HTMLElement.prototype.scrollIntoView = function scrollIntoView() {
+      return undefined;
+    };
+  });
+
   beforeEach(() => {
     mocks.changeLibraryVideoVisibility.mockReset();
     mocks.deleteLibraryVideo.mockReset();
@@ -140,7 +161,9 @@ describe('VideoDetailsPage', () => {
     expect(classification.compareDocumentPosition(visibility) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(visibility.compareDocumentPosition(dangerZone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(basicInformation).getByLabelText('Title')).toHaveValue('Catalog Fixture');
-    expect(within(basicInformation).getByLabelText('Description (optional)')).toHaveValue('A stored vault clip.');
+    expect(within(basicInformation).getByText('15 / 200')).toBeInTheDocument();
+    expect(within(basicInformation).getByLabelText('Description')).toHaveValue('A stored vault clip.');
+    expect(within(basicInformation).getByText('20 / 1000')).toBeInTheDocument();
     expect(within(basicInformation).getByLabelText('Tags')).toBeInTheDocument();
     expect(within(classification).getByLabelText('Content type')).toBeInTheDocument();
     expect(within(classification).getByLabelText('Genre')).toBeInTheDocument();
@@ -148,6 +171,13 @@ describe('VideoDetailsPage', () => {
     expect(screen.getAllByText('Private').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole('button', { name: 'Make Public' })).toBeInTheDocument();
     expect(dangerZone).toBeInTheDocument();
+    expect(screen.queryByText('4.2 GB')).not.toBeInTheDocument();
+    expect(screen.queryByText('MP4')).not.toBeInTheDocument();
+    expect(screen.queryByText('4K')).not.toBeInTheDocument();
+    expect(screen.queryByText('UHD')).not.toBeInTheDocument();
+    expect(screen.queryByText('FPS')).not.toBeInTheDocument();
+    expect(screen.queryByText('Last modified')).not.toBeInTheDocument();
+    expect(screen.queryByText('Storage')).not.toBeInTheDocument();
   });
 
   test('renders public and read-only video details without owner-only controls', () => {
@@ -159,11 +189,19 @@ describe('VideoDetailsPage', () => {
         canManageVisibility: false,
       },
       thumbnailUrl: undefined,
-    }));
+    }), { redirectTo: '/' });
 
     expect(screen.queryByText('Private')).not.toBeInTheDocument();
     expect(screen.getAllByText('Public').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('No thumbnail')).toBeInTheDocument();
+    expect(screen.getByText('About this video')).toBeInTheDocument();
+    expect(screen.getByText('A stored vault clip.')).toBeInTheDocument();
+    expect(screen.queryByText('Movie')).not.toBeInTheDocument();
+    expect(screen.queryByText('Action')).not.toBeInTheDocument();
+    expect(screen.queryByText('Neo')).not.toBeInTheDocument();
+    expect(document.body.innerHTML).not.toContain('Movie');
+    expect(document.body.innerHTML).not.toContain('Action');
+    expect(document.body.innerHTML).not.toContain('Neo');
     expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
@@ -235,7 +273,7 @@ describe('VideoDetailsPage', () => {
     fireEvent.change(screen.getByLabelText('Title'), {
       target: { value: 'A'.repeat(201) },
     });
-    fireEvent.change(screen.getByLabelText('Description (optional)'), {
+    fireEvent.change(screen.getByLabelText('Description'), {
       target: { value: 'D'.repeat(1001) },
     });
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -260,6 +298,28 @@ describe('VideoDetailsPage', () => {
 
     expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(expect.objectContaining({ id: 'video-1' }), expect.objectContaining({
       tags: ['action', 'neo', 'new_tag'],
+    }));
+  });
+
+  test('saves removed tag and taxonomy chips from the compact inspector controls', async () => {
+    const user = userEvent.setup();
+    mocks.updateLibraryVideoMetadata.mockResolvedValue(createVideo({
+      contentTypeSlug: undefined,
+      genreSlugs: [],
+      tags: ['Neo'],
+    }));
+    renderDetailsPage();
+
+    await user.click(screen.getByRole('button', { name: 'Remove Action tag' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Action genre' }));
+    await user.click(screen.getByRole('combobox', { name: 'Content type' }));
+    await user.click(await screen.findByText('No selection'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(expect.objectContaining({ id: 'video-1' }), expect.objectContaining({
+      contentTypeSlug: null,
+      genreSlugs: [],
+      tags: ['Neo'],
     }));
   });
 
@@ -358,7 +418,7 @@ describe('VideoDetailsPage', () => {
     const router = renderDetailsPage();
     mocks.deleteLibraryVideo.mockResolvedValue(undefined);
 
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: 'Delete video' }));
     const deleteDialog = screen.getByRole('alertdialog', { name: 'Delete video?' });
     expect(deleteDialog).toHaveTextContent('Catalog Fixture');
     expect(deleteDialog).toHaveTextContent('This action cannot be undone.');
@@ -374,7 +434,7 @@ describe('VideoDetailsPage', () => {
     mocks.deleteLibraryVideo.mockReturnValue(deferred.promise);
     renderDetailsPage();
 
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: 'Delete video' }));
     const deleteDialog = screen.getByRole('alertdialog', { name: 'Delete video?' });
     await user.click(within(deleteDialog).getByRole('button', { name: 'Delete video' }));
 
@@ -394,7 +454,7 @@ describe('VideoDetailsPage', () => {
     mocks.deleteLibraryVideo.mockRejectedValue(new Error('delete failed'));
     renderDetailsPage();
 
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: 'Delete video' }));
     const deleteDialog = screen.getByRole('alertdialog', { name: 'Delete video?' });
     await user.click(within(deleteDialog).getByRole('button', { name: 'Delete video' }));
 

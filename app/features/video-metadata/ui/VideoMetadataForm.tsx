@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import * as z from 'zod';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
@@ -74,6 +74,8 @@ export function VideoMetadataForm({
   });
 
   const isDirty = form.formState.isDirty;
+  const titleValue = useWatch({ control: form.control, name: 'title' }) ?? '';
+  const descriptionValue = useWatch({ control: form.control, name: 'description' }) ?? '';
 
   useEffect(() => {
     form.reset(createDefaultValues(video));
@@ -105,24 +107,33 @@ export function VideoMetadataForm({
 
   return (
     <Form {...form}>
-      <form id={formId} onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-6">
+      <form id={formId} onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-4">
         <section aria-labelledby="video-basic-information-heading">
-          <Card>
-            <CardHeader>
-              <CardTitle id="video-basic-information-heading" className="text-base">
+          <Card className="gap-0 rounded-xl border-border/70 bg-card/60 py-0 shadow-none">
+            <CardHeader className="px-4 pt-4 pb-0 lg:px-5 lg:pt-5">
+              <CardTitle id="video-basic-information-heading" className="text-sm">
                 Basic information
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-5 px-4 pt-5 pb-4 lg:px-5 lg:pb-5">
               <FormField
                 control={form.control}
                 name="title"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter video title" {...field} />
-                    </FormControl>
+                  <FormItem className="gap-1.5">
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Title</FormLabel>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          className="h-10 rounded-lg bg-input/30 pr-20 text-sm"
+                          placeholder="Enter video title"
+                          {...field}
+                        />
+                      </FormControl>
+                      <span className="absolute top-1/2 right-3 -translate-y-1/2 text-xs tabular-nums text-muted-foreground" aria-live="polite">
+                        {`${titleValue.length} / 200`}
+                      </span>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -132,16 +143,21 @@ export function VideoMetadataForm({
                 control={form.control}
                 name="description"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description (optional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        className="resize-none"
-                        placeholder="Enter video description"
-                        rows={4}
-                        {...field}
-                      />
-                    </FormControl>
+                  <FormItem className="gap-1.5">
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Description</FormLabel>
+                    <div className="relative">
+                      <FormControl>
+                        <Textarea
+                          className="min-h-28 resize-none rounded-lg bg-input/30 pb-8 text-sm leading-5"
+                          placeholder="Enter video description"
+                          rows={4}
+                          {...field}
+                        />
+                      </FormControl>
+                      <span className="absolute right-3 bottom-3 text-xs tabular-nums text-muted-foreground" aria-live="polite">
+                        {`${descriptionValue.length} / 1000`}
+                      </span>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -151,13 +167,13 @@ export function VideoMetadataForm({
                 control={form.control}
                 name="tags"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tags</FormLabel>
+                  <FormItem className="gap-1.5">
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Tags</FormLabel>
                     <FormControl>
                       <VideoTagInput
                         ariaLabel="Tags"
                         onChange={field.onChange}
-                        placeholder="Add tags like family, action, watch-later"
+                        placeholder="Add tag"
                         value={field.value}
                       />
                     </FormControl>
@@ -170,19 +186,19 @@ export function VideoMetadataForm({
         </section>
 
         <section aria-labelledby="video-classification-heading">
-          <Card>
-            <CardHeader>
-              <CardTitle id="video-classification-heading" className="text-base">
+          <Card className="gap-0 rounded-xl border-border/70 bg-card/60 py-0 shadow-none">
+            <CardHeader className="px-4 pt-4 pb-0 lg:px-5 lg:pt-5">
+              <CardTitle id="video-classification-heading" className="text-sm">
                 Classification
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="grid gap-4 px-4 pt-5 pb-4 sm:grid-cols-2 lg:px-5 lg:pb-5">
               <FormField
                 control={form.control}
                 name="contentTypeSlug"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Content type</FormLabel>
+                  <FormItem className="gap-1.5">
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Content type</FormLabel>
                     <FormControl>
                       <VideoTaxonomySingleSelect
                         ariaLabel="Content type"
@@ -201,8 +217,8 @@ export function VideoMetadataForm({
                 control={form.control}
                 name="genreSlugs"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Genre</FormLabel>
+                  <FormItem className="gap-1.5">
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Genre</FormLabel>
                     <FormControl>
                       <VideoTaxonomyMultiSelect
                         ariaLabel="Genre"

@@ -48,11 +48,11 @@ export function VideoTagInput({
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="min-h-11 rounded-lg border border-input bg-input/30 p-2 transition-colors focus-within:border-ring">
       {selectedTags.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-2">
           {selectedTags.map(tag => (
-            <Badge key={tag} variant="secondary" className="gap-1">
+            <Badge key={tag} variant="secondary" className="h-6 gap-1 rounded-md px-2 text-xs font-medium">
               {formatVideoTagLabel(tag)}
               <Button
                 aria-label={`Remove ${formatVideoTagLabel(tag)} tag`}
@@ -61,9 +61,9 @@ export function VideoTagInput({
                 size="sm"
                 type="button"
                 variant="ghost"
-                className="h-4 w-4 p-0 hover:bg-transparent"
+                className="size-4 p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
               >
-                <X className="h-3 w-3" />
+                <X className="size-3" />
               </Button>
             </Badge>
           ))}
@@ -72,6 +72,7 @@ export function VideoTagInput({
 
       <Input
         aria-label={ariaLabel}
+        className="h-6 border-0 bg-transparent px-1 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
         disabled={disabled}
         onBlur={() => {
           if (draft.trim().length > 0) {

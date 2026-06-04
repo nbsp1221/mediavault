@@ -57,13 +57,13 @@ export function VideoTaxonomySingleSelect({
         <Button
           aria-label={ariaLabel}
           aria-expanded={open}
-          className="w-full justify-between"
+          className="h-10 w-full justify-between rounded-lg border-input bg-input/30 px-3 font-normal hover:bg-input/50"
           disabled={disabled}
           role="combobox"
           type="button"
           variant="outline"
         >
-          <span className={cn(!value && 'text-muted-foreground')}>{selectedLabel}</span>
+          <span className={cn('truncate text-sm', !value && 'text-muted-foreground')}>{selectedLabel}</span>
           <ChevronsUpDown data-icon="inline-end" />
         </Button>
       </PopoverTrigger>
@@ -126,7 +126,7 @@ export function VideoTaxonomyMultiSelect({
       {value.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {value.map(slug => (
-            <Badge key={slug} variant="secondary" className="gap-1">
+            <Badge key={slug} variant="secondary" className="h-6 gap-1 rounded-md px-2 text-xs font-medium">
               {getOptionLabel(options, slug)}
               <Button
                 aria-label={`Remove ${getOptionLabel(options, slug)} genre`}
@@ -135,9 +135,9 @@ export function VideoTaxonomyMultiSelect({
                 size="sm"
                 type="button"
                 variant="ghost"
-                className="h-4 w-4 p-0 hover:bg-transparent"
+                className="size-4 p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
               >
-                <X className="h-3 w-3" />
+                <X className="size-3" />
               </Button>
             </Badge>
           ))}
@@ -149,13 +149,13 @@ export function VideoTaxonomyMultiSelect({
           <Button
             aria-label={ariaLabel}
             aria-expanded={open}
-            className="w-full justify-between"
+            className="h-10 w-full justify-between rounded-lg border-input bg-input/30 px-3 font-normal hover:bg-input/50"
             disabled={disabled}
             role="combobox"
             type="button"
             variant="outline"
           >
-            <span className={cn(value.length === 0 && 'text-muted-foreground')}>
+            <span className={cn('truncate text-sm', value.length === 0 && 'text-muted-foreground')}>
               {selectedLabels.length > 0 ? `${selectedLabels.length} selected` : placeholder}
             </span>
             <ChevronsUpDown data-icon="inline-end" />

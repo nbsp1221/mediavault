@@ -40,7 +40,7 @@ test.describe('home library owner smoke', () => {
     await expect(page.getByRole('button', { name: 'Make Private' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Make Public' })).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: 'Edit' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Delete video' })).toHaveCount(0);
     await page.goto(`/player/${OTHER_PUBLIC_VIDEO_ID}`);
     await expect(page.getByRole('heading', { level: 1, name: 'playtime2' })).toBeVisible();
 
@@ -96,13 +96,13 @@ test.describe('home library owner smoke', () => {
     await expect(page.getByRole('link', { name: 'Watch video' })).toHaveAttribute('href', `/player/${OWNER_PRIVATE_VIDEO_ID}`);
     await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Make Public' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Delete video' })).toBeVisible();
 
-    await page.getByLabel('Description (optional)').fill('Owner private playback fixture edited in E2E');
+    await page.getByLabel('Description').fill('Owner private playback fixture edited in E2E');
     await page.getByRole('button', { name: 'Save changes' }).click();
     await expect(page.getByText('Video details saved.')).toBeVisible();
     await expect(page.getByText('Current visibility: Private')).toBeVisible();
-    await expect(page.getByLabel('Description (optional)')).toHaveValue('Owner private playback fixture edited in E2E');
+    await expect(page.getByLabel('Description')).toHaveValue('Owner private playback fixture edited in E2E');
 
     await page.goto(`/player/${OWNER_PRIVATE_VIDEO_ID}`);
     await expect(page).toHaveURL(new RegExp(`/player/${OWNER_PRIVATE_VIDEO_ID}$`));
@@ -162,7 +162,7 @@ test.describe('home library owner smoke', () => {
       await expect(page.getByLabel('Title')).toBeVisible();
       await expect(page.getByRole('banner').getByRole('button', { name: width < 768 ? 'Save' : 'Save changes' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Make Public' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Delete video' })).toBeVisible();
       await expect(page.getByRole('link', { name: 'Watch video' })).toBeVisible();
       await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }

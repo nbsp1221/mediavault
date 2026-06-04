@@ -1,4 +1,4 @@
-import { ArrowLeft, Clock, Play, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, Play, Tag, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useNavigate } from 'react-router';
@@ -30,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/shared/ui/dialog';
+import { Separator } from '~/shared/ui/separator';
 import { useUnsavedChangesGuard } from '../model/useUnsavedChangesGuard';
 
 interface VideoDetailsViewProps {
@@ -69,6 +70,11 @@ export function VideoDetailsView({
   const canEditMetadata = video.permissions.canEdit;
   const canManageVisibility = video.permissions.canManageVisibility;
   const canDeleteVideo = video.permissions.canDelete;
+  const contentTypeLabel = contentTypes.find(item => item.slug === video.contentTypeSlug)?.label;
+  const genreLabelLookup = new Map(genres.map(genre => [genre.slug, genre.label]));
+  const genreLabels = (video.genreSlugs ?? [])
+    .map(genreSlug => genreLabelLookup.get(genreSlug))
+    .filter((genreLabel): genreLabel is string => Boolean(genreLabel));
 
   useEffect(() => {
     if (!pendingConfirmedNavigation) {
@@ -155,10 +161,10 @@ export function VideoDetailsView({
         </div>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-12">
-        <aside className="flex flex-col gap-4 lg:col-span-7">
-          <div className="overflow-hidden rounded-md border bg-muted">
-            <AspectRatio ratio={16 / 9}>
+      <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-12 lg:gap-8">
+        <aside aria-label="Video summary" className="flex flex-col gap-6 lg:col-span-7">
+          <div className="group overflow-hidden rounded-xl border border-border bg-black shadow-sm">
+            <AspectRatio ratio={16 / 9} className="relative">
               {video.thumbnailUrl
                 ? (
                     <img
@@ -168,45 +174,81 @@ export function VideoDetailsView({
                     />
                   )
                 : (
-                    <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+                    <div className="flex h-full w-full items-center justify-center bg-muted text-sm text-muted-foreground">
                       No thumbnail
                     </div>
                   )}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/10 transition group-hover:bg-black/25">
+                <Button
+                  asChild
+                  size="icon-lg"
+                  variant="secondary"
+                  className="size-16 rounded-full border border-white/20 bg-background/60 text-foreground shadow-xl backdrop-blur-sm hover:bg-background/75"
+                >
+                  <Link aria-label="Watch video" to={`/player/${video.id}`}>
+                    <Play className="size-7 fill-current" />
+                  </Link>
+                </Button>
+              </div>
+              <div className="absolute right-3 bottom-3 rounded-md bg-background/70 px-2 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm">
+                {formatDuration(video.duration)}
+              </div>
             </AspectRatio>
           </div>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold">{video.title}</h2>
-              <Badge variant="secondary">
+          <div className="flex flex-col gap-4 lg:gap-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h2 className="min-w-0 text-xl font-semibold leading-tight md:text-2xl">{video.title}</h2>
+              <Badge variant="secondary" className="h-6 rounded-md px-2 text-xs font-medium">
                 {video.isPrivate ? 'Private' : 'Public'}
               </Badge>
             </div>
-            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-muted-foreground lg:text-sm">
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="size-3.5" aria-hidden />
                 {formatDuration(video.duration)}
               </span>
-              <span>{formatDisplayDate(video.createdAt)}</span>
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="size-3.5" aria-hidden />
+                {formatDisplayDate(video.createdAt)}
+              </span>
+              {canEditMetadata && contentTypeLabel ? (
+                <span>
+                  {contentTypeLabel}
+                </span>
+              ) : null}
+              {canEditMetadata && genreLabels.map(genreLabel => (
+                <span key={genreLabel}>
+                  {genreLabel}
+                </span>
+              ))}
             </div>
+
+            {canEditMetadata && video.tags.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {video.tags.map(tag => (
+                  <Badge key={tag} variant="secondary" className="h-6 gap-1.5 rounded-md px-2 text-xs font-medium">
+                    <Tag className="size-3" />
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+
             {video.description ? (
-              <div className="border-t pt-4">
+              <div className="space-y-3">
+                <Separator />
                 <h3 className="text-sm font-semibold">About this video</h3>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                   {video.description}
                 </p>
               </div>
             ) : null}
-            <Button asChild variant="outline">
-              <Link to={`/player/${video.id}`}>
-                <Play data-icon="inline-start" />
-                Watch video
-              </Link>
-            </Button>
           </div>
         </aside>
 
-        <div className="flex flex-col gap-6 lg:col-span-5">
+        <div className="flex flex-col gap-4 lg:col-span-5 lg:gap-5">
           {canEditMetadata && (
             <VideoMetadataForm
               contentTypes={contentTypes}
@@ -232,26 +274,27 @@ export function VideoDetailsView({
 
           {canDeleteVideo && (
             <section aria-labelledby="danger-zone-heading">
-              <Card className="border-destructive/30">
-                <CardHeader>
-                  <CardTitle id="danger-zone-heading" className="text-base text-destructive">
+              <Card className="gap-0 rounded-xl border-destructive/20 bg-destructive/5 py-0 shadow-none">
+                <CardHeader className="px-4 pt-4 pb-0 lg:px-5 lg:pt-5">
+                  <CardTitle id="danger-zone-heading" className="text-sm text-destructive">
                     Danger zone
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="mt-2 text-xs leading-5">
                     Delete this video from your library. This action cannot be undone.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 pt-4 pb-4 lg:px-5 lg:pb-5">
                   <Button
                     onClick={() => {
                       setDeleteError(null);
                       setDeleteDialogOpen(true);
                     }}
+                    size="sm"
                     type="button"
                     variant="destructive"
                   >
                     <Trash2 data-icon="inline-start" />
-                    Delete
+                    Delete video
                   </Button>
                 </CardContent>
               </Card>

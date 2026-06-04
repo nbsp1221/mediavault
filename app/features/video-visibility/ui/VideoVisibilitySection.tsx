@@ -82,27 +82,33 @@ export function VideoVisibilitySection({
 
   return (
     <section aria-labelledby="video-visibility-heading">
-      <Card>
-        <CardHeader>
-          <CardTitle id="video-visibility-heading" className="text-base">
-            Visibility
-          </CardTitle>
-          <CardDescription>
-            {video.isPrivate
-              ? 'Only you can browse and watch this video.'
-              : 'Anyone who can access this site can find and watch this video.'}
-          </CardDescription>
+      <Card className="gap-0 rounded-xl border-border/70 bg-card/60 py-0 shadow-none">
+        <CardHeader className="grid-cols-[1fr_auto] px-4 py-4 lg:px-5 lg:py-5">
+          <div className="min-w-0">
+            <CardTitle id="video-visibility-heading" className="text-sm">
+              Visibility
+            </CardTitle>
+            <CardDescription className="mt-2 max-w-[16rem] text-xs leading-5">
+              {video.isPrivate
+                ? 'Only you can browse and watch this video.'
+                : 'Anyone with site access can find and watch this video.'}
+            </CardDescription>
+          </div>
           <CardAction>
-            <Badge variant="secondary">{currentLabel}</Badge>
+            <Badge variant="secondary" className="h-6 gap-1.5 rounded-md px-2 text-xs">
+              {video.isPrivate ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
+              {currentLabel}
+            </Badge>
           </CardAction>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
+        <CardContent className="flex flex-col gap-3 border-t border-border/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-5">
+          <p className="text-xs text-muted-foreground">
             {`Current visibility: ${currentLabel}`}
           </p>
           <Button
             disabled={isChanging}
             onClick={handleAction}
+            size="sm"
             type="button"
             variant="outline"
           >
@@ -112,7 +118,7 @@ export function VideoVisibilitySection({
         </CardContent>
 
         {feedback && (
-          <CardContent>
+          <CardContent className="px-4 pb-4 lg:px-5">
             {feedback.type === 'error' ? (
               <Alert variant="destructive">
                 <AlertDescription>
