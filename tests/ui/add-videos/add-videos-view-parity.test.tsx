@@ -58,7 +58,7 @@ function renderView(props: AddVideosViewProps) {
 }
 
 describe('AddVideosView', () => {
-  test('can delegate page chrome to the product shell without rendering its legacy header', () => {
+  test('can delegate page chrome to the product shell without rendering the standalone page header', () => {
     renderView(createViewProps({ showPageHeader: false }));
 
     expect(screen.queryByRole('heading', { level: 1, name: 'Upload a video' })).not.toBeInTheDocument();

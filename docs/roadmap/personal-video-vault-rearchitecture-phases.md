@@ -38,12 +38,12 @@ The phases are complete. Update this document only to clarify the historical rec
 
 ## 3. Phase Overview
 
-0. Legacy Fence
+0. Migration Fence
 1. Auth Gate + SQLite Foundation
 2. Playback Slice
 3. Library Slice
 4. Ingest Slice
-5. Playlist and Legacy Cleanup
+5. Playlist and Migration Cleanup
 
 ## 3A. Current Execution Snapshot
 
@@ -51,14 +51,14 @@ For the latest operational state, read `docs/roadmap/current-refactor-status.md`
 
 | Phase | Status | High-signal note |
 | --- | --- | --- |
-| 0. Legacy Fence | complete | historical isolation step; the old tree has now been removed |
+| 0. Migration Fence | complete | historical isolation step; the temporary tree has now been removed |
 | 1. Auth Gate + SQLite Foundation | complete | auth gate, SQLite sessions, and config-owned viewer identity are live without `users.json` or `vault@local` runtime fallback |
 | 2. Playback Slice | complete | player surface and routes are migrated, active playback infrastructure owns the path, unexpected ClearKey failures follow the shared playback error contract, and CI verifies hermetic playback/browser fixtures |
 | 3. Library Slice | complete | home read/write ownership and canonical metadata ownership live in the active structure |
 | 4. Ingest Slice | complete | upload, processing, transcoder, and thumbnail-finalization ownership live in active ingest/thumbnail infrastructure |
-| 5. Playlist and Legacy Cleanup | complete | playlist ownership is migrated, the legacy tree is gone, and only no-reintroduction boundary guards remain |
+| 5. Playlist and Migration Cleanup | complete | playlist ownership is migrated, and current verification focuses on active architecture boundaries |
 
-## 4. Phase 0: Legacy Fence
+## 4. Phase 0: Migration Fence
 
 Status: complete
 
@@ -105,7 +105,7 @@ Introduce the first real target-architecture slice and the first minimal SQLite 
 
 - no page is accessible without the new auth gate
 - no media path is accessible without the new auth gate
-- auth sessions no longer rely on legacy JSON auth/session storage
+- auth sessions no longer rely on previous JSON auth/session storage
 - SQLite is in real use, not just scaffolded
 - routes involved in auth no longer assemble dependencies directly
 
@@ -194,7 +194,7 @@ Move the upload and media processing lifecycle into the new structure.
 
 - keep deeper ingest runtime behavior changes separate from this ownership phase unless behavior changes are required
 
-## 9. Phase 5: Playlist and Legacy Cleanup
+## 9. Phase 5: Playlist and Migration Cleanup
 
 Status: complete
 
@@ -205,13 +205,13 @@ Handle non-core features only after the core vault flows are stable, then remove
 ### Scope
 
 - confirm playlist has its deliberate post-migration status
-- remove replaced legacy code
+- remove replaced migration code
 - move any surviving helper behavior into active-owned homes
-- remove legacy-only verification and repository blocker surfaces
+- remove migration-only verification and repository blocker surfaces
 
 ### Exit Criteria
 
-- legacy code no longer owns completed core flows
+- replaced code no longer owns completed core flows
 - the old implementation tree is removed
 - compatibility helpers that remain have active owners
 - playlist has a deliberate migrated status

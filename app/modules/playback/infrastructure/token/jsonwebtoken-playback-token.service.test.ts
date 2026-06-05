@@ -311,7 +311,7 @@ describe('PlaybackTokenService', () => {
       }),
     },
     {
-      label: 'legacy token shape',
+      label: 'deprecated token shape',
       token: () => jwt.sign({ sub: 'owner-1', videoId: 'video-1' }, TEST_CONFIG.jwtSecret, {
         algorithm: 'HS256',
         audience: TEST_CONFIG.jwtAudience,

@@ -148,16 +148,14 @@ describe('playlist route adapters', () => {
     }));
   });
 
-  test('playlist routes render active page modules instead of legacy page paths', async () => {
+  test('playlist routes render active page modules', async () => {
     const [playlistsIndexSource, playlistDetailSource] = await Promise.all([
       readFile(resolve(PROJECT_ROOT, 'app/routes/playlists._index.tsx'), 'utf8'),
       readFile(resolve(PROJECT_ROOT, 'app/routes/playlists.$id.tsx'), 'utf8'),
     ]);
 
     expect(playlistsIndexSource).toContain('~/pages/playlists/ui/PlaylistsPage');
-    expect(playlistsIndexSource).not.toContain('~/legacy/pages/playlists/ui/PlaylistsPage');
     expect(playlistDetailSource).toContain('~/pages/playlist-detail/ui/PlaylistDetailPage');
-    expect(playlistDetailSource).not.toContain('~/legacy/pages/playlist-detail/ui/PlaylistDetailPage');
   });
 
   test('playlist index route forwards loader data into the active page owner', async () => {

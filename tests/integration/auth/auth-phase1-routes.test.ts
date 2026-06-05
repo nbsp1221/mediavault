@@ -1283,7 +1283,7 @@ describe('auth gate routes', () => {
     await expect(response.text()).resolves.toBe('Playback token required');
   });
 
-  test('thumbnail delivery works with the site session without a legacy session cookie', async () => {
+  test('thumbnail delivery works with the site session without an old session cookie', async () => {
     process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = 'auth-routes-thumbnail-test-seed';
     const videoId = '00000000-0000-4000-8000-000000000123';
     const videoDir = join(storageDir, 'data', 'videos', videoId);

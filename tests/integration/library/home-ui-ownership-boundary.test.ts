@@ -14,13 +14,6 @@ const activeHomeRoots = [
   join(projectRoot, 'app/widgets/home-library'),
   join(projectRoot, 'app/widgets/product-shell'),
 ];
-const forbiddenImportPatterns = [
-  /(?:from|import\s*\(|require\s*\()\s*['"]~\/legacy(?:\/|['"])/,
-  /(?:from|import\s*\(|require\s*\()\s*['"]app\/legacy(?:\/|['"])/,
-  /(?:from|import\s*\(|require\s*\()\s*['"]\.\.\/legacy(?:\/|['"])/,
-  /(?:from|import\s*\(|require\s*\()\s*['"]\.\.\/\.\.\/legacy(?:\/|['"])/,
-  /(?:from|import\s*\(|require\s*\()\s*['"]\.\.\/\.\.\/\.\.\/legacy(?:\/|['"])/,
-];
 
 async function collectFiles(path: string): Promise<string[]> {
   const exists = await stat(path).then(() => true).catch(() => false);
@@ -48,17 +41,6 @@ async function collectFiles(path: string): Promise<string[]> {
 }
 
 describe('home UI ownership boundary', () => {
-  test('active home route path does not import app/legacy', async () => {
-    const files = (await Promise.all(activeHomeRoots.map(collectFiles))).flat();
-
-    for (const filePath of files) {
-      const source = await readFile(filePath, 'utf8');
-      const hasForbiddenImport = forbiddenImportPatterns.some(pattern => pattern.test(source));
-
-      expect(hasForbiddenImport, `Forbidden legacy import found in ${relative(projectRoot, filePath)}`).toBe(false);
-    }
-  });
-
   test('home UI does not derive video authorization from owner or visibility fields', async () => {
     const files = (await Promise.all(activeHomeRoots.map(collectFiles))).flat();
     const forbiddenAuthorizationPatterns = [

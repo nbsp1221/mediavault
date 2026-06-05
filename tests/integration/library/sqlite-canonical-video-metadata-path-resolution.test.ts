@@ -109,7 +109,7 @@ describe('active SQLite metadata path resolution', () => {
     );
   });
 
-  test('ignores legacy videos.json when SQLite is empty', async () => {
+  test('ignores previous videos.json when SQLite is empty', async () => {
     const workspace = await mkdtemp(path.join(tmpdir(), 'local-streamer-canonical-no-bootstrap-'));
     cleanupTasks.push(async () => rm(workspace, { force: true, recursive: true }));
 
@@ -121,10 +121,10 @@ describe('active SQLite metadata path resolution', () => {
       {
         addedAt: '2026-03-24T00:00:00.000Z',
         duration: 90,
-        id: 'legacy-json-video',
+        id: 'previous-json-video',
         tags: ['vault'],
-        title: 'legacy-json-video',
-        videoUrl: '/videos/legacy-json-video/manifest.mpd',
+        title: 'previous-json-video',
+        videoUrl: '/videos/previous-json-video/manifest.mpd',
       },
     ], null, 2));
 

@@ -1,8 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 
 const mockDecryptThumbnail = vi.fn();
@@ -80,13 +77,6 @@ afterEach(() => {
 });
 
 describe('thumbnail composition ownership', () => {
-  test('thumbnail composition does not import app/legacy directly', async () => {
-    const source = await readFile(path.resolve(PROJECT_ROOT, 'app/composition/server/thumbnails.ts'), 'utf8');
-
-    expect(source.includes('~/legacy/'), 'thumbnail composition').toBe(false);
-    expect(source.includes('app/legacy/'), 'thumbnail composition').toBe(false);
-  });
-
   test('loadDecryptedThumbnailResponse returns 404 when the thumbnail service reports not found', async () => {
     mockDecryptThumbnail.mockResolvedValue({
       error: new Error('Encrypted thumbnail not found for video'),

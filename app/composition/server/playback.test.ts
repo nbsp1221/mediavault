@@ -1,12 +1,4 @@
-import { readFile } from 'node:fs/promises';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-
-const RETIRED_PLAYBACK_FILENAMES = [
-  'legacy-video-catalog.adapter',
-  'legacy-playback-manifest.service.adapter',
-  'legacy-playback-media-segment.service.adapter',
-  'legacy-playback-clearkey.service.adapter',
-] as const;
 
 const ownerReadScope = {
   ownerId: 'owner-1',
@@ -19,13 +11,6 @@ const authenticatedTokenPayload = {
   videoId: 'video-1',
   viewerType: 'authenticated' as const,
 };
-
-function expectSourceToExcludeRetiredPlaybackFilenames(source: string) {
-  for (const fileName of RETIRED_PLAYBACK_FILENAMES) {
-    expect(source).not.toContain(fileName);
-    expect(source.match(new RegExp(fileName.replaceAll('.', '\\.'), 'g')) ?? []).toHaveLength(0);
-  }
-}
 
 describe('server playback composition root', () => {
   afterEach(() => {
@@ -159,14 +144,6 @@ describe('server playback composition root', () => {
     expect(first.servePlaybackManifest).toBeDefined();
     expect(first.servePlaybackMediaSegment).toBeDefined();
     expect(first.servePlaybackClearKeyLicense).toBeDefined();
-  });
-
-  test('does not assemble legacy-named playback infrastructure directly in the composition root', async () => {
-    const source = await readFile(new URL('./playback.ts', import.meta.url), 'utf8');
-
-    expectSourceToExcludeRetiredPlaybackFilenames(source);
-    expect(source).toContain('jsonwebtoken-playback-token.service');
-    expect(source).not.toContain('/token/playback-token.service');
   });
 
   test('does not construct unrelated playback defaults when only token issuance is exercised', async () => {

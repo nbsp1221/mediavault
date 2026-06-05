@@ -37,7 +37,7 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('HomePage bootstrap compatibility', () => {
+describe('HomePage loader bootstrap', () => {
   test('applies loader bootstrap filters to the visible catalog', () => {
     render(
       <MemoryRouter>

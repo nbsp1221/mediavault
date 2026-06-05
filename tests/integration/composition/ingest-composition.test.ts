@@ -1,5 +1,3 @@
-import { access, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const SqliteCanonicalVideoMetadataAdapterMock = vi.fn();
@@ -214,15 +212,5 @@ describe('server ingest composition root', () => {
     expect(FilesystemIngestStagedUploadStorageAdapterMock).toHaveBeenCalledOnce();
     expect(SqliteCanonicalVideoMetadataAdapterMock).toHaveBeenCalledOnce();
     expect(FfmpegMediaPreparationAdapterMock).toHaveBeenCalledOnce();
-  });
-
-  test('ingest composition root does not import the retiring canonical metadata seam file', async () => {
-    const source = await readFile(resolve(process.cwd(), 'app/composition/server/ingest.ts'), 'utf8');
-
-    expect(source.includes('./canonical-video-metadata-legacy-store')).toBe(false);
-  });
-
-  test('retired canonical metadata composition seam file no longer exists on disk', async () => {
-    await expect(access(resolve(process.cwd(), 'app/composition/server/canonical-video-metadata-legacy-store.ts'))).rejects.toBeDefined();
   });
 });

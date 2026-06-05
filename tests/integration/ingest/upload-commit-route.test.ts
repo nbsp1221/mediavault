@@ -82,7 +82,7 @@ describe('upload commit api route', () => {
     });
   });
 
-  test('accepts malformed legacy encoding options without letting them affect the command', async () => {
+  test('accepts malformed deprecated encoding options without letting them affect the command', async () => {
     const execute = vi.fn(async () => ({
       ok: true as const,
       data: {

@@ -106,11 +106,9 @@ Each backend context should use:
 
 ### Migration Aftermath
 
-The old `app/legacy` tree was a migration scaffold, not part of the target architecture.
+Migration scaffolds are not part of the target architecture.
 
-That tree has now been removed.
-
-If compatibility behavior still exists, it must live under an active owner in `app/modules/*` or `app/composition/server/*`, not under a revived legacy namespace.
+Compatibility behavior that remains after a cutover must live under an active owner in `app/modules/*` or `app/composition/server/*`, not under a parallel namespace.
 
 ## 7. Final Target Structure
 
@@ -275,7 +273,7 @@ It should not be split into separate top-level contexts unless maintenance prove
 - `application` may depend on domain and ports only
 - `infrastructure` may depend on domain, application, and shared
 - `modules/storage` may provide shared persistence infrastructure, but business policies remain in their owning bounded contexts
-- new code must not reintroduce an `app/legacy` dependency or namespace
+- new code must stay inside the active owner and layer boundaries
 - `shared` is for truly shared concerns only
 - cross-context dependencies should be rare and explicit
 - playback complexity must not leak into unrelated contexts

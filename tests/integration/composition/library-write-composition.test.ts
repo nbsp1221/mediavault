@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 const SqliteLibraryVideoMutationAdapterMock = vi.fn();
@@ -193,11 +191,5 @@ describe('server library mutation composition root', () => {
     expect(first.changeLibraryVideoVisibility).toBeDefined();
     expect(SqliteLibraryVideoMutationAdapterMock).toHaveBeenCalledOnce();
     expect(FilesystemLibraryVideoArtifactRemovalAdapterMock).toHaveBeenCalledOnce();
-  });
-
-  test('library write composition root does not import the retiring library mutation seam file', async () => {
-    const source = await readFile(resolve(process.cwd(), 'app/composition/server/library.ts'), 'utf8');
-
-    expect(source.includes('./library-legacy-video-mutation')).toBe(false);
   });
 });

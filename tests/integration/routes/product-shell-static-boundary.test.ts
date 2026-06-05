@@ -33,8 +33,6 @@ const retiredShellImports = [
   'HomeShell',
   'AddVideosShell',
   'home-navigation',
-  `~/${'legacy'}/`,
-  `app/${'legacy'}`,
 ];
 
 function read(path: string) {

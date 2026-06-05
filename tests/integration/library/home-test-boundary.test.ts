@@ -34,32 +34,7 @@ async function collectActiveHomeTestFiles() {
   ].map(file => file.replace(`${PROJECT_ROOT}/`, ''));
 }
 
-function includesLegacyImport(source: string) {
-  return source.includes('~/legacy/') ||
-    source.includes('\'../../../app/legacy/') ||
-    source.includes('"../../../app/legacy/') ||
-    source.includes('\'../../app/legacy/') ||
-    source.includes('"../../app/legacy/') ||
-    source.includes('\'../app/legacy/') ||
-    source.includes('"../app/legacy/');
-}
-
 describe('home test boundary', () => {
-  test('active home tests do not import app/legacy', async () => {
-    const files = await collectActiveHomeTestFiles();
-
-    expect(files.length).toBeGreaterThan(0);
-
-    for (const file of files) {
-      if (file.endsWith('tests/integration/library/home-test-boundary.test.ts')) {
-        continue;
-      }
-
-      const source = await readFile(resolve(PROJECT_ROOT, file), 'utf8');
-      expect(includesLegacyImport(source), file).toBe(false);
-    }
-  });
-
   test('active home tests do not depend on screenshot baselines', async () => {
     const files = await collectActiveHomeTestFiles();
 

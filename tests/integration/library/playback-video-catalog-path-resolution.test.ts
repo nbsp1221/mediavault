@@ -85,10 +85,10 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
       {
         addedAt: '2026-03-24T00:00:00.000Z',
         duration: 90,
-        id: 'legacy-catalog-video',
+        id: 'previous-catalog-video',
         tags: ['vault'],
-        title: 'legacy-catalog-video',
-        videoUrl: '/videos/legacy-catalog-video/manifest.mpd',
+        title: 'previous-catalog-video',
+        videoUrl: '/videos/previous-catalog-video/manifest.mpd',
       },
     ], null, 2));
 
@@ -98,6 +98,6 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
     const { PlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
     const adapter = new PlaybackVideoCatalogAdapter();
 
-    await expect(adapter.getPlayerVideo('legacy-catalog-video', ownerReadScope)).resolves.toBeNull();
+    await expect(adapter.getPlayerVideo('previous-catalog-video', ownerReadScope)).resolves.toBeNull();
   });
 });

@@ -12,7 +12,7 @@ describe('Vite env-file disabling for test entrypoints', () => {
     })).toBe(false);
   });
 
-  test('keeps legacy local streamer flag compatibility for existing external callers', () => {
+  test('keeps local streamer flag compatibility for existing external callers', () => {
     expect(resolveViteEnvDir({
       [LOCAL_STREAMER_DISABLE_VITE_ENV_FILES]: 'true',
     })).toBe(false);

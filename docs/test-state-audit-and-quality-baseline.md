@@ -35,7 +35,7 @@ The main weakness is not raw test count. The main weakness is classification and
 - `tests/integration` mixes real integration tests with mocked route-adapter contract tests.
 - Coverage is measurable but not configured as a project gate.
 - The current aggregate coverage output includes config, entrypoints, routes, generated-style UI primitives, and other surfaces that make the global statement/line percentage misleading.
-- Some tests use weak assertions, implementation-detail assertions, or heavy mocks for legitimate historical reasons, but there is no mechanical policy distinguishing acceptable legacy tests from new AI-generated test debt.
+- Some tests use weak assertions, implementation-detail assertions, or heavy mocks for legitimate historical reasons, but there is no mechanical policy distinguishing acceptable existing test debt from new AI-generated test debt.
 
 The recommended first step is calibrated coverage gating, not mutation testing, mock budgets, or broad test-smell enforcement.
 

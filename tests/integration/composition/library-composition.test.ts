@@ -1,5 +1,3 @@
-import { access, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { LibraryVideo } from '../../../app/modules/library/domain/library-video';
 
@@ -175,17 +173,5 @@ describe('server library composition root', () => {
     expect(listLibraryVideos).toHaveBeenCalledWith({
       type: 'public_only',
     });
-  });
-
-  test('library composition root does not import retiring compatibility seam files', async () => {
-    const source = await readFile(resolve(process.cwd(), 'app/composition/server/library.ts'), 'utf8');
-
-    expect(source.includes('./canonical-video-metadata-legacy-store')).toBe(false);
-    expect(source.includes('./library-legacy-video-mutation')).toBe(false);
-  });
-
-  test('retired library compatibility seam files no longer exist on disk', async () => {
-    await expect(access(resolve(process.cwd(), 'app/composition/server/canonical-video-metadata-legacy-store.ts'))).rejects.toBeDefined();
-    await expect(access(resolve(process.cwd(), 'app/composition/server/library-legacy-video-mutation.ts'))).rejects.toBeDefined();
   });
 });

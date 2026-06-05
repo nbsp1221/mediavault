@@ -42,10 +42,10 @@ Ownership migration is complete.
 High-signal facts:
 
 - the main owner flows for `auth`, `home`, `add-videos`, `ingest`, `playback`, and `playlist` are owned by the target structure
-- the repository no longer contains an `app/legacy` tree
-- active code now has zero `~/legacy` imports
+- the repository now follows the active target structure for the main owner flows
+- active code routes through current owners instead of migration-era namespaces
 - playback fixture backfill now lives under active playback infrastructure
-- legacy-only behavior suites and repo-cleanliness blockers were removed as part of the final cleanup pass
+- migration-only behavior suites and repo-cleanliness blockers were removed as part of the final cleanup pass
 - CI and local verification now share hermetic playback/browser fixture inputs instead of relying on ignored repo-local `storage/`
 - playlist application ownership now lives under `app/modules/playlist/*`, with `app/composition/server/playlist.ts` reduced to active composition and response mapping
 
@@ -53,16 +53,16 @@ High-signal facts:
 
 | Phase | Status | High-signal note |
 | --- | --- | --- |
-| 0. Legacy Fence | complete | historical isolation step; the old tree has now been removed |
+| 0. Migration Fence | complete | historical isolation step; the temporary tree has now been removed |
 | 1. Auth Gate + SQLite Foundation | complete | auth gate, SQLite account users, and user-bound sessions are live |
 | 2. Playback Slice | complete | player surface and routes are migrated, active playback infrastructure owns the path, and CI verifies hermetic playback/browser fixtures |
 | 3. Library Slice | complete | home read/write ownership and canonical metadata ownership live in the active structure |
 | 4. Ingest Slice | complete | upload, processing, transcoder, and thumbnail-finalization ownership live in active ingest/thumbnail infrastructure |
-| 5. Playlist and Legacy Cleanup | complete | playlist ownership is migrated, the legacy tree is gone, and only no-reintroduction boundary guards remain |
+| 5. Playlist and Migration Cleanup | complete | playlist ownership is migrated, and current verification focuses on active architecture boundaries |
 
 ## 5. Current Runtime Contracts
 
-The legacy tree is gone, and these current runtime contracts remain intentionally active-owned:
+These current runtime contracts remain intentionally active-owned:
 
 ### Account-owned auth runtime
 
@@ -75,7 +75,7 @@ The legacy tree is gone, and these current runtime contracts remain intentionall
 - auth sessions, library metadata, taxonomy/tags, ingest upload state, media asset records, and playlists persist through the primary SQLite database under `storage/db.sqlite`
 - committed media artifacts live under `storage/videos/`
 - in-progress browser uploads live under `storage/staging/`
-- JSON playlist persistence has been retired with the legacy storage layout
+- JSON playlist persistence has been retired with the previous storage layout
 
 ### Playback fixture maintenance
 
@@ -87,11 +87,11 @@ The legacy tree is gone, and these current runtime contracts remain intentionall
 
 These are no longer open rearchitecture tasks:
 
-- deleting `app/legacy`
-- removing legacy-only repository tests
-- removing the legacy Vitest project
-- moving the playback fixture backfill path off legacy helpers
-- clearing direct `~/legacy` imports from active code
+- removing the temporary migration tree
+- removing migration-only repository tests
+- removing the migration-only Vitest project
+- moving the playback fixture backfill path into active playback infrastructure
+- clearing retired migration imports from active code
 - extracting playlist use-case ownership out of `app/composition/server/playlist.ts`
 
 ## 7. Recommended Next Work

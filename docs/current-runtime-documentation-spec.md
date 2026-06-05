@@ -7,7 +7,7 @@ Owner: Project maintainer
 ## 1. Purpose
 
 This document freezes the current runtime and documentation-alignment contract after the
-legacy cleanup, codec-aware ingest work, and primary SQLite storage cutover.
+ownership cleanup, codec-aware ingest work, and primary SQLite storage cutover.
 
 Use this document when deciding whether an environment example, deployment file, roadmap
 note, or plan document still describes the live project accurately.
@@ -221,7 +221,7 @@ Specific status intent:
   pre-cutover design. Rename its "Current State" section to a pre-cutover snapshot if it is
   kept.
 - Mark `docs/plans/2026-04-28-data-storage-management-test-scenarios.md` as superseded
-  where it requires legacy import/apply/cleanup tests. Current storage confidence should be
+  where it requires migration import/apply/cleanup tests. Current storage confidence should be
   framed around primary schema, demo seed, data integrity, and runtime wiring.
 - Mark `docs/plans/2026-04-28-storage-cutover-demo-seed-plan.md` with a status and date.
   It should read as the accepted/implemented cutover direction, not an unstarted plan.
