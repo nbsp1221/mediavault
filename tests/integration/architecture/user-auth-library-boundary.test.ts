@@ -225,4 +225,15 @@ describe('user/auth/library architecture boundary', () => {
       expect(source, file).not.toContain('userId ===');
     }
   });
+
+  test('playlist composition does not default authenticated mutation ownership', async () => {
+    const source = await readFile(
+      resolve(PROJECT_ROOT, 'app/composition/server/playlist.ts'),
+      'utf8',
+    );
+
+    expect(source).not.toContain('site-owner');
+    expect(source).not.toContain('resolveServerPlaylistOwnerId');
+    expect(source).not.toContain('input.ownerId ??');
+  });
 });

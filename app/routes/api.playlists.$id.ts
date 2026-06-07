@@ -118,9 +118,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
         name?: string;
       };
       const result = await services.updatePlaylist.execute({
+        description: body.description,
+        isPublic: body.isPublic,
+        metadata: body.metadata,
+        name: body.name,
         playlistId,
         ownerId,
-        ...body,
       });
 
       const response = handleUseCaseResult(result);
