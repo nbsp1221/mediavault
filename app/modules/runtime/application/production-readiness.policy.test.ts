@@ -18,6 +18,12 @@ describe('production readiness policy', () => {
     expect(isProductionRuntime({})).toBe(false);
   });
 
+  test('rejects invalid explicit NODE_ENV values instead of treating them as non-production', () => {
+    expect(() => isProductionRuntime({ NODE_ENV: 'prod' })).toThrow('NODE_ENV');
+    expect(() => collectCriticalProductionSecretIssues({ NODE_ENV: 'prod' })).toThrow('NODE_ENV');
+    expect(() => isProductionRuntime({ NODE_ENV: 'staging-secret' })).not.toThrow('staging-secret');
+  });
+
   test('reports all missing or blank critical production secrets without leaking values', () => {
     const issues = collectCriticalProductionSecretIssues({
       MEDIAVAULT_DATABASE_ENCRYPTION_KEY: 'secret-db-key',
@@ -65,6 +71,7 @@ describe('production readiness policy', () => {
 
   test('does not apply production startup secret failures outside production', () => {
     const issues = collectCriticalProductionSecretIssues({
+      DASH_SEGMENT_DURATION: 'bad',
       NODE_ENV: 'development',
     });
 

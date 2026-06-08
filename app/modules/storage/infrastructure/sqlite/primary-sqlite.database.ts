@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import type { Client, InValue, Transaction } from '@libsql/client';
 import { createClient } from '@libsql/client';
 import { Mutex } from 'async-mutex';
-import { getRequiredDatabaseEncryptionKey } from '../config/storage-config.server';
+import { getRequiredDatabaseEncryptionKey } from '~/shared/config/app-config.server';
 
 export interface SqliteRunResult {
   changes: number;

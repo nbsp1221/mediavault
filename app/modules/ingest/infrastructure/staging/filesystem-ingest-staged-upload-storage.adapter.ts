@@ -1,7 +1,7 @@
 import { mkdir, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
-import type { StoragePaths } from '~/shared/config/storage-paths.server';
-import { getStoragePaths } from '~/shared/config/storage-paths.server';
+import type { StoragePaths } from '~/shared/config/app-config.server';
+import { getStoragePaths } from '~/shared/config/app-config.server';
 import type {
   IngestStagedUploadStoragePort,
   PromoteStagedUploadInput,

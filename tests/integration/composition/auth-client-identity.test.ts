@@ -1,10 +1,21 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 async function importAuthClientIdentity() {
   return import('../../../app/composition/server/auth-client-identity');
 }
 
 describe('auth-client identity helpers', () => {
+  beforeEach(() => {
+    process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET = 'auth-client-identity-secret-012345';
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    delete process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET;
+    delete process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS;
+    vi.resetModules();
+  });
+
   test('uses the leftmost X-Forwarded-For hop as the trusted IP fallback when proxy trust is enabled', async () => {
     process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS = 'true';
 

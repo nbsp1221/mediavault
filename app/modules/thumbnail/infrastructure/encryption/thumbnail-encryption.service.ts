@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { getStoragePaths } from '~/shared/config/storage-paths.server';
+import { getStoragePaths } from '~/shared/config/app-config.server';
 import {
   decryptThumbnailEnvelope,
   encryptThumbnailEnvelope,

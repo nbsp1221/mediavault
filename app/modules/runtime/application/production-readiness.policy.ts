@@ -1,3 +1,4 @@
+import { getRuntimeConfig } from '~/shared/config/app-config.server';
 import { PUBLIC_ENV_KEYS } from '~/shared/config/public-env.server';
 import {
   CRITICAL_PRODUCTION_SECRET_KEYS,
@@ -51,7 +52,7 @@ export interface ProductionReadinessReport {
 }
 
 export function isProductionRuntime(env: RuntimeEnvironment): boolean {
-  return env.NODE_ENV === 'production';
+  return getRuntimeConfig(env).isProductionRuntime;
 }
 
 export function collectCriticalProductionSecretIssues(

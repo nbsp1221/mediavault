@@ -1,7 +1,7 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import type { LibraryVideoArtifactRemovalPort } from '~/modules/library/application/ports/library-video-artifact-removal.port';
-import { getStoragePaths } from '~/shared/config/storage-paths.server';
+import { getStoragePaths } from '~/shared/config/app-config.server';
 
 interface LoggerLike {
   error(message: string, error?: unknown): void;

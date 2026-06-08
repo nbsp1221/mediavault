@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 import { existsSync } from 'node:fs';
 import type { SqliteDatabaseAdapter } from '../app/modules/storage/infrastructure/sqlite/primary-sqlite.database';
-import { getPrimaryStorageConfig } from '../app/modules/storage/infrastructure/config/storage-config.server';
 import { createPrimarySqliteDatabase } from '../app/modules/storage/infrastructure/sqlite/primary-sqlite.database';
 import { normalizeUsernameKey } from '../app/modules/user/domain/value-objects/username';
+import { getPrimaryStorageConfig } from '../app/shared/config/app-config.server';
 
 interface MigrationOptions {
   dryRun: boolean;

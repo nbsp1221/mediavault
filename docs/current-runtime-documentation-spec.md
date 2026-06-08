@@ -45,8 +45,8 @@ storage/
 
 Canonical runtime configuration:
 
-- `STORAGE_DIR`: optional storage root override.
-- `DATABASE_SQLITE_PATH`: optional primary SQLite database path override.
+- `MEDIAVAULT_STORAGE_DIR`: optional storage root override. The primary SQLite
+  database path is derived as `db.sqlite` under this storage root.
 
 Retired runtime configuration:
 
@@ -58,9 +58,9 @@ Retired runtime configuration:
 Those retired names may appear only in clearly historical documents or migration notes that
 explicitly say they are no longer active runtime configuration.
 
-`STORAGE_DIR` is a supported public deployment knob. User-facing docs and environment
-examples should describe it alongside `DATABASE_SQLITE_PATH`, because it controls the
-default database location, committed media root, and staging root.
+`MEDIAVAULT_STORAGE_DIR` is a supported public deployment knob. User-facing docs and
+environment examples should describe it because it controls the default database
+location, committed media root, and staging root.
 
 ### Upload And Ingest
 
@@ -90,16 +90,16 @@ Retired surfaces:
 
 Protected playback uses:
 
-- `VIDEO_JWT_SECRET` for playback token signing.
-- `VIDEO_MASTER_ENCRYPTION_SEED` for per-video encryption key derivation.
+- `MEDIAVAULT_PLAYBACK_JWT_SECRET` for playback token signing.
+- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET` for per-video encryption key derivation.
 - DASH manifest, segment, and ClearKey routes under the active playback module.
 - media artifacts under `storage/videos/:videoId`.
 
 Documentation and examples must not use `JWT_SECRET` as the playback secret name.
 
-`VIDEO_MASTER_ENCRYPTION_SEED` is a free-form secret string. Runtime validation should
-require that it is present, but it should not reject values solely because they are not
-hex-encoded or a specific length.
+`MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET` is a free-form secret string. Runtime validation
+should require that it is present, but it should not reject values solely because they are
+not hex-encoded or a specific length.
 
 User-facing documentation must still recommend a cryptographically strong random value.
 This matches common framework secret policies: Auth.js uses a required random
@@ -116,6 +116,7 @@ Runtime auth uses:
 
 - username/password auth users in the primary SQLite database
 - auth sessions in the primary SQLite database
+- `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET` for signed client identity cookies
 
 Runtime auth must not document `users.json`, `vault@local`, or a separate `auth.sqlite`
 as current behavior.
@@ -153,14 +154,14 @@ claims still match the codebase.
 ### Environment Examples
 
 - Remove `AUTH_SQLITE_PATH` from `.env.example`.
-- Add optional `STORAGE_DIR` and `DATABASE_SQLITE_PATH` examples.
+- Add optional `MEDIAVAULT_STORAGE_DIR` examples.
 - Do not ship copy-pasteable public placeholders that satisfy secret presence checks while
   being weak known secrets.
 - Document account creation through the operator-only `POST /api/admin/users` bootstrap API instead of environment-backed
   shared password auth.
-- Document `VIDEO_MASTER_ENCRYPTION_SEED` as a required free-form secret string. Recommend
-  generating a strong random value, but do not document a required length or encoding that
-  the runtime does not enforce.
+- Document `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET` as a required free-form secret string.
+  Recommend generating a strong random value, but do not document a required length or
+  encoding that the runtime does not enforce.
 
 ### Current Roadmap
 
@@ -174,7 +175,7 @@ claims still match the codebase.
 
 ### Agent Guidance
 
-- Replace `JWT_SECRET` examples with `VIDEO_JWT_SECRET`.
+- Replace `JWT_SECRET` examples with `MEDIAVAULT_PLAYBACK_JWT_SECRET`.
 - Replace hard-coded token lifetimes in examples with the current playback config contract
   unless the example is deliberately generic.
 - Replace `data/videos` examples with `storage/videos`.
@@ -240,9 +241,10 @@ Required deployment alignment:
 
 - `NODE_ENV=production` enables the production full-vault preflight contract.
 - Production startup must fail before listening when no auth account exists or when
-  `VIDEO_JWT_SECRET` or `VIDEO_MASTER_ENCRYPTION_SEED` is absent or blank.
-- Production startup must fail before listening when the configured `STORAGE_DIR` or
-  primary SQLite database path cannot support app-owned writes.
+  `MEDIAVAULT_PLAYBACK_JWT_SECRET`, `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET`, or
+  `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET` is absent or blank.
+- Production startup must fail before listening when the configured `MEDIAVAULT_STORAGE_DIR`
+  cannot support app-owned writes.
 - Production readiness must fail when FFmpeg, ffprobe, or Shaka Packager is missing,
   non-executable, or cannot complete a bounded version check.
 - Dockerfile and Docker Compose healthchecks must use `GET /health/ready`, not `/` or an
@@ -259,8 +261,8 @@ Required deployment alignment:
   `storage/`, `storage/videos`, and `storage/staging`.
 - Do not prepare only retired `data/` or `incoming/` directories.
 - The container-internal storage path should be `/app/storage` by default. The app-level
-  `STORAGE_DIR` should point there in Docker examples unless a deployment intentionally
-  chooses another internal path.
+  `MEDIAVAULT_STORAGE_DIR` should point there in Docker examples unless a deployment
+  intentionally chooses another internal path.
 - Docker quick start must not hard-code a single persistence strategy as the only valid
   option. Provide examples for both Docker-managed named volumes and host bind mounts.
   The mount source may be selected through Compose interpolation or an `.env` value, while
@@ -272,10 +274,12 @@ Required deployment alignment:
   reachability, but production documentation must explain that remote browser use needs an
   HTTPS reverse proxy or equivalent TLS termination. The app does not bundle or enforce
   Caddy, Nginx, Traefik, ACME, firewall rules, or proxy-network topology.
-- `VIDEO_MASTER_ENCRYPTION_SEED` must be documented as durable vault configuration that
-  should be backed up with the storage volume and primary SQLite database.
-- `KEY_SALT_PREFIX` remains optional. If customized, documentation should tell operators to
-  preserve it with `VIDEO_MASTER_ENCRYPTION_SEED` and storage backups.
+- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET` must be documented as durable vault
+  configuration that should be backed up with the storage volume and primary SQLite
+  database.
+- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT` remains optional. If customized, documentation
+  should tell operators to preserve it with `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET` and
+  storage backups.
 - GPU/NVENC settings must not be required or implied by the default Docker quick start.
   Current runtime media preparation is CPU-first. Hardware acceleration can be reintroduced
   later as an explicit optional profile only when it is restored as a product/runtime
@@ -317,7 +321,7 @@ These decisions were reviewed with the maintainer on 2026-04-30 and are no longe
      implemented runtime feature.
 
 3. Secret seed format:
-   - `VIDEO_MASTER_ENCRYPTION_SEED` is a required free-form secret string.
+   - `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET` is a required free-form secret string.
    - Documentation should strongly recommend a cryptographically random value and provide
      generation examples.
    - Runtime validation should require presence, but should not enforce hex encoding,

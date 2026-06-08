@@ -1,4 +1,4 @@
-import { getStoragePaths } from '~/shared/config/storage-paths.server';
+import { getStoragePaths } from '~/shared/config/app-config.server';
 
 export function getIngestStoragePaths() {
   return getStoragePaths();

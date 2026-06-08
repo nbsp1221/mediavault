@@ -1,8 +1,8 @@
 import type { IngestVideoMetadataWriterPort } from '~/modules/ingest/application/ports/ingest-video-metadata-writer.port';
 import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import type { LibraryVideoSourcePort } from '~/modules/library/application/ports/library-video-source.port';
-import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
 import { SqliteLibraryVideoMetadataRepository } from './sqlite-library-video-metadata.repository';
 
 type SqliteCanonicalVideoMetadataAdapterRepository = Pick<

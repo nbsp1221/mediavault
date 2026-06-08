@@ -18,11 +18,11 @@ import {
 import {
   probeMediaTools,
 } from '~/modules/runtime/infrastructure/media-tool-runtime-probes.server';
-import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import { SqliteUserRepository } from '~/modules/user/infrastructure/sqlite/sqlite-user.repository';
-import { getAdminApiConfig } from '~/shared/config/admin-api.server';
-import { getRuntimeEnvInput } from '~/shared/config/runtime-env.server';
+import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
+import { getAdminApiConfig } from '~/shared/config/app-config.server';
+import { getRuntimeEnvInput } from '~/shared/config/app-config.server';
 
 interface RuntimeReadinessLogger {
   error: (message: string) => void;

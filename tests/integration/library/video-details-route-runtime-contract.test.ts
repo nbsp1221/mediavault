@@ -8,6 +8,7 @@ import {
 } from '../../support/create-runtime-test-workspace';
 
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
+const ORIGINAL_AUTH_CLIENT_COOKIE_SECRET = process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET;
 
 type RuntimeWorkspace = Awaited<ReturnType<typeof createRuntimeTestWorkspace>>;
 
@@ -45,10 +46,18 @@ describe('video details route runtime contract', () => {
   beforeEach(async () => {
     workspace = await createRuntimeTestWorkspace();
     process.env.MEDIAVAULT_STORAGE_DIR = workspace.storageDir;
+    process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET = 'video-details-client-cookie-secret-012345';
     vi.resetModules();
   });
 
   afterEach(async () => {
+    if (ORIGINAL_AUTH_CLIENT_COOKIE_SECRET) {
+      process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET = ORIGINAL_AUTH_CLIENT_COOKIE_SECRET;
+    }
+    else {
+      delete process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET;
+    }
+
     if (ORIGINAL_STORAGE_DIR) {
       process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
     }

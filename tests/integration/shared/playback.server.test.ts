@@ -16,7 +16,7 @@ afterEach(() => {
 describe('getPlaybackConfig', () => {
   test('returns the active playback JWT runtime contract from env', async () => {
     process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = '  playback-secret-0123456789abcdef  ';
-    const { getPlaybackConfig } = await import('../../../app/shared/config/playback.server');
+    const { getPlaybackConfig } = await import('../../../app/shared/config/app-config.server');
 
     expect(getPlaybackConfig()).toEqual({
       jwtAudience: 'video-streaming',
@@ -28,14 +28,14 @@ describe('getPlaybackConfig', () => {
 
   test('throws a clear error when the playback JWT secret is too short after trimming', async () => {
     process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = '  1234567890123456789012345678901  ';
-    const { getPlaybackConfig } = await import('../../../app/shared/config/playback.server');
+    const { getPlaybackConfig } = await import('../../../app/shared/config/app-config.server');
 
     expect(() => getPlaybackConfig()).toThrow('MEDIAVAULT_PLAYBACK_JWT_SECRET must be at least 32 characters');
   });
 
   test('throws a clear error when the playback JWT secret is missing', async () => {
     delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
-    const { getPlaybackConfig } = await import('../../../app/shared/config/playback.server');
+    const { getPlaybackConfig } = await import('../../../app/shared/config/app-config.server');
 
     expect(() => getPlaybackConfig()).toThrow('MEDIAVAULT_PLAYBACK_JWT_SECRET environment variable is required for playback authentication');
   });

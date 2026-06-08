@@ -67,8 +67,8 @@ describe('shared storage paths', () => {
   test('resolves runtime storage paths from the primary storage config', async () => {
     const storageRoot = createWorkspacePath('shared-storage-root');
     process.env.MEDIAVAULT_STORAGE_DIR = storageRoot;
-    const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
-    const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
+    const { getStoragePaths } = await import('../../../app/shared/config/app-config.server');
+    const { getPrimaryStorageConfig } = await import('../../../app/shared/config/app-config.server');
 
     expect(getStoragePaths()).toEqual({
       stagingDir: path.join(storageRoot, 'staging'),
@@ -86,11 +86,11 @@ describe('shared storage paths', () => {
     });
   });
 
-  test('falls back to the repository storage directory for production runtime primary config', async () => {
+  test('uses the repository storage directory for production runtime primary config', async () => {
     delete process.env.MEDIAVAULT_STORAGE_DIR;
     process.env.NODE_ENV = 'production';
-    const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
-    const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
+    const { getStoragePaths } = await import('../../../app/shared/config/app-config.server');
+    const { getPrimaryStorageConfig } = await import('../../../app/shared/config/app-config.server');
 
     expect(getStoragePaths()).toEqual({
       stagingDir: path.resolve(process.cwd(), 'storage', 'staging'),
@@ -108,11 +108,11 @@ describe('shared storage paths', () => {
     });
   });
 
-  test('falls back outside the repository storage directory for development runtime primary config', async () => {
+  test('uses the external development storage directory for development runtime primary config', async () => {
     delete process.env.MEDIAVAULT_STORAGE_DIR;
     process.env.NODE_ENV = 'development';
-    const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
-    const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
+    const { getStoragePaths } = await import('../../../app/shared/config/app-config.server');
+    const { getPrimaryStorageConfig } = await import('../../../app/shared/config/app-config.server');
     const storageDir = getExpectedDevelopmentStorageDir();
 
     expect(getStoragePaths()).toEqual({
@@ -138,8 +138,8 @@ describe('shared storage paths', () => {
     const databasePath = path.join(databaseRoot, 'db.sqlite');
     process.env.MEDIAVAULT_STORAGE_DIR = storageRoot;
     process.env.DATABASE_SQLITE_PATH = databasePath;
-    const { getStoragePaths } = await import('../../../app/shared/config/storage-paths.server');
-    const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
+    const { getStoragePaths } = await import('../../../app/shared/config/app-config.server');
+    const { getPrimaryStorageConfig } = await import('../../../app/shared/config/app-config.server');
 
     expect(getStoragePaths()).toEqual({
       stagingDir: path.join(storageRoot, 'staging'),
@@ -159,7 +159,7 @@ describe('shared storage paths', () => {
 
   test('requires a database encryption key without validating strength or format', async () => {
     process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = '  a  ';
-    const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
+    const { getPrimaryStorageConfig } = await import('../../../app/shared/config/app-config.server');
 
     expect(getPrimaryStorageConfig().databaseEncryptionKey).toBe('  a  ');
 

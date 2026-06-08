@@ -141,10 +141,10 @@ function DesktopFilterSheet({
 }: HomeFilterSurfaceProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent aria-describedby="home-filter-sheet-description">
+      <SheetContent>
         <SheetHeader>
           <SheetTitle>Filters</SheetTitle>
-          <SheetDescription id="home-filter-sheet-description">
+          <SheetDescription>
             Refine your library with tags and metadata.
           </SheetDescription>
         </SheetHeader>

@@ -62,7 +62,7 @@ describe('verify-hermetic-test-inputs', () => {
       'export const secret = process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;',
     );
     await writeFile(
-      join(rootDir, 'app', 'shared', 'config', 'runtime-env.server.ts'),
+      join(rootDir, 'app', 'shared', 'config', 'app-config.server.ts'),
       'export const env = process.env;',
     );
     await writeFile(
@@ -80,7 +80,7 @@ describe('verify-hermetic-test-inputs', () => {
     ]));
     expect(violations).not.toEqual(expect.arrayContaining([
       expect.objectContaining({
-        filePath: 'app/shared/config/runtime-env.server.ts',
+        filePath: 'app/shared/config/app-config.server.ts',
       }),
     ]));
     expect(violations).toEqual(expect.arrayContaining([

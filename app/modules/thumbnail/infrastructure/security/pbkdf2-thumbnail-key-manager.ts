@@ -1,10 +1,10 @@
 import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import type { MediaKeyDerivationConfig } from '~/shared/config/media.server';
-import type { RuntimeEnvInput } from '~/shared/config/runtime-env.server';
-import { getMediaKeyDerivationConfig } from '~/shared/config/media.server';
-import { getStoragePaths } from '~/shared/config/storage-paths.server';
+import type { MediaKeyDerivationConfig } from '~/shared/config/app-config.server';
+import type { RuntimeEnvInput } from '~/shared/config/app-config.server';
+import { getMediaKeyDerivationConfig } from '~/shared/config/app-config.server';
+import { getStoragePaths } from '~/shared/config/app-config.server';
 
 interface ThumbnailKeyGenerationResult {
   key: Buffer;

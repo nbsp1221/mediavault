@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
-import type { MediaKeyDerivationConfig } from '~/shared/config/media.server';
-import type { RuntimeEnvInput } from '~/shared/config/runtime-env.server';
-import { getMediaKeyDerivationConfig } from '~/shared/config/media.server';
+import type { MediaKeyDerivationConfig } from '~/shared/config/app-config.server';
+import type { RuntimeEnvInput } from '~/shared/config/app-config.server';
+import { getMediaKeyDerivationConfig } from '~/shared/config/app-config.server';
 
 export function derivePlaybackEncryptionKey(input: {
   config?: MediaKeyDerivationConfig;

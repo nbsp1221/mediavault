@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import type { RuntimeEnvInput } from '~/shared/config/runtime-env.server';
+import type { RuntimeEnvInput } from '~/shared/config/app-config.server';
 import {
   getFFmpegPath,
   getFFprobePath,

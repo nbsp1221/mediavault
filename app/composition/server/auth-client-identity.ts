@@ -3,7 +3,7 @@ import {
   getAuthClientIdentityConfig,
   getAuthCookieConfig,
   getAuthRateLimitConfig,
-} from '~/shared/config/auth.server';
+} from '~/shared/config/app-config.server';
 import { getCookieValue, serializeCookie } from '~/shared/lib/http/cookies.server';
 
 function signAuthClientId(clientId: string, secret: string): string {

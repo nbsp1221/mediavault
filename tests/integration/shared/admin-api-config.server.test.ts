@@ -1,16 +1,16 @@
 import { describe, expect, test } from 'vitest';
-import { getAdminApiConfigFromEnv } from '../../../app/shared/config/app-config.server';
+import { getAdminApiConfig } from '../../../app/shared/config/app-config.server';
 
-describe('getAdminApiConfigFromEnv', () => {
+describe('getAdminApiConfig', () => {
   test('defaults to disabled with no token', () => {
-    expect(getAdminApiConfigFromEnv({})).toEqual({
+    expect(getAdminApiConfig({})).toEqual({
       mode: 'disabled',
       token: null,
     });
   });
 
   test('parses allowed modes and trims blank tokens', () => {
-    expect(getAdminApiConfigFromEnv({
+    expect(getAdminApiConfig({
       MEDIAVAULT_ADMIN_API_MODE: ' bootstrap ',
       MEDIAVAULT_ADMIN_API_TOKEN: '  secret-token  ',
     })).toEqual({
@@ -18,7 +18,7 @@ describe('getAdminApiConfigFromEnv', () => {
       token: 'secret-token',
     });
 
-    expect(getAdminApiConfigFromEnv({
+    expect(getAdminApiConfig({
       MEDIAVAULT_ADMIN_API_MODE: 'always',
       MEDIAVAULT_ADMIN_API_TOKEN: '   ',
     })).toEqual({
@@ -27,14 +27,25 @@ describe('getAdminApiConfigFromEnv', () => {
     });
   });
 
+  test('ignores unrelated invalid runtime settings', () => {
+    expect(getAdminApiConfig({
+      DASH_SEGMENT_DURATION: 'bad',
+      MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
+      MEDIAVAULT_ADMIN_API_TOKEN: 'secret-token',
+    })).toEqual({
+      mode: 'bootstrap',
+      token: 'secret-token',
+    });
+  });
+
   test('throws without leaking token values for invalid modes', () => {
-    expect(() => getAdminApiConfigFromEnv({
+    expect(() => getAdminApiConfig({
       MEDIAVAULT_ADMIN_API_MODE: 'forever',
       MEDIAVAULT_ADMIN_API_TOKEN: 'do-not-leak',
     })).toThrow('MEDIAVAULT_ADMIN_API_MODE');
 
     try {
-      getAdminApiConfigFromEnv({
+      getAdminApiConfig({
         MEDIAVAULT_ADMIN_API_MODE: 'forever',
         MEDIAVAULT_ADMIN_API_TOKEN: 'do-not-leak',
       });

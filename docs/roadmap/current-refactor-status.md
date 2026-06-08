@@ -68,7 +68,7 @@ These current runtime contracts remain intentionally active-owned:
 
 - runtime auth uses the primary SQLite database
 - runtime owner identity comes from the authenticated account session
-- accounts are created and deleted through the operator-only admin API protected by `MEDIAVAULT_ADMIN_TOKEN`
+- accounts are created and deleted through the operator-only admin API protected by `MEDIAVAULT_ADMIN_API_TOKEN`
 
 ### Active-owned SQLite persistence
 

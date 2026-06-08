@@ -1,7 +1,7 @@
 import type { VideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
-import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
 import type { VideoCatalogPort } from '../../application/ports/video-catalog.port';
 
 interface PlaybackVideoCatalogRepositoryRecord {

@@ -1,10 +1,12 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import type { RuntimeEnvInput } from './runtime-env.server';
-import { getVideoToolOverridesConfigFromEnv } from './app-config.server';
+import {
+  type RuntimeEnvInput,
+  getVideoToolOverridesConfig,
+} from './app-config.server';
 
 export function getFFmpegPath(env?: RuntimeEnvInput): string {
-  const explicitPath = getVideoToolOverridesConfigFromEnv(env ?? process.env).ffmpegPath;
+  const explicitPath = getVideoToolOverridesConfig(env).ffmpegPath;
   if (explicitPath) {
     return explicitPath;
   }
@@ -18,7 +20,7 @@ export function getFFmpegPath(env?: RuntimeEnvInput): string {
 }
 
 export function getFFprobePath(env?: RuntimeEnvInput): string {
-  const explicitPath = getVideoToolOverridesConfigFromEnv(env ?? process.env).ffprobePath;
+  const explicitPath = getVideoToolOverridesConfig(env).ffprobePath;
   if (explicitPath) {
     return explicitPath;
   }
@@ -32,7 +34,7 @@ export function getFFprobePath(env?: RuntimeEnvInput): string {
 }
 
 export function getShakaPackagerPath(env?: RuntimeEnvInput): string {
-  const explicitPath = getVideoToolOverridesConfigFromEnv(env ?? process.env).shakaPackagerPath;
+  const explicitPath = getVideoToolOverridesConfig(env).shakaPackagerPath;
   if (explicitPath) {
     return explicitPath;
   }

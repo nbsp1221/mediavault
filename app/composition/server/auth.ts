@@ -15,15 +15,15 @@ import { InMemoryLoginAttemptGuard } from '~/modules/auth/infrastructure/securit
 import { SqliteSessionRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-session.repository';
 import { SqliteUserCredentialReaderAdapter } from '~/modules/auth/infrastructure/sqlite/sqlite-user-credential-reader.adapter';
 import { SqliteOwnedVideoCounterAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-owned-video-counter.adapter';
-import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import { CreateUserUseCase } from '~/modules/user/application/use-cases/create-user.usecase';
 import { type DeleteUserUseCaseResult, DeleteUserUseCase } from '~/modules/user/application/use-cases/delete-user.usecase';
 import { SqliteUserRepository } from '~/modules/user/infrastructure/sqlite/sqlite-user.repository';
-import { getAdminApiConfig } from '~/shared/config/admin-api.server';
+import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
+import { getAdminApiConfig } from '~/shared/config/app-config.server';
 import {
   getAuthConfig,
   getAuthCookieConfig,
-} from '~/shared/config/auth.server';
+} from '~/shared/config/app-config.server';
 import { getCookieValue, serializeCookie } from '~/shared/lib/http/cookies.server';
 import { toVideoPolicyViewer } from './video-access-viewer';
 

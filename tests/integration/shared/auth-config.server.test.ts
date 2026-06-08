@@ -3,7 +3,7 @@ import {
   getAuthConfig,
   getAuthCookieConfig,
   getAuthRateLimitConfig,
-} from '../../../app/shared/config/auth.server';
+} from '../../../app/shared/config/app-config.server';
 
 const envKeys = [
   'MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME',
@@ -51,15 +51,15 @@ describe('auth server config', () => {
     });
   });
 
-  test('falls back for blank or non-positive numeric settings', () => {
+  test('uses defaults for blank numeric settings', () => {
     process.env.NODE_ENV = 'development';
     process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME = 'client_cookie';
     process.env.MEDIAVAULT_AUTH_SESSION_COOKIE_NAME = 'session_cookie';
-    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_BLOCK_DURATION_MS = '0';
-    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS = '-1';
-    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_WINDOW_MS = 'not-a-number';
+    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_BLOCK_DURATION_MS = '';
+    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS = '   ';
+    process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_WINDOW_MS = '';
     process.env.MEDIAVAULT_AUTH_MAX_FAILED_LOGIN_ATTEMPTS = '';
-    process.env.MEDIAVAULT_AUTH_SESSION_TTL_MS = '0';
+    process.env.MEDIAVAULT_AUTH_SESSION_TTL_MS = '';
 
     expect(getAuthConfig()).toEqual(expect.objectContaining({
       failedLoginBlockDurationMs: 300_000,
@@ -69,6 +69,21 @@ describe('auth server config', () => {
       sessionCookieSecure: false,
       sessionTtlMs: 604_800_000,
     }));
+  });
+
+  test.each([
+    ['MEDIAVAULT_AUTH_FAILED_LOGIN_BLOCK_DURATION_MS', '0'],
+    ['MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS', '-1'],
+    ['MEDIAVAULT_AUTH_FAILED_LOGIN_WINDOW_MS', 'not-a-number'],
+    ['MEDIAVAULT_AUTH_SESSION_TTL_MS', '10abc'],
+    ['MEDIAVAULT_AUTH_SESSION_TTL_MS', '1.5'],
+    ['MEDIAVAULT_AUTH_MAX_FAILED_LOGIN_ATTEMPTS', '1e3'],
+  ] as const)('rejects invalid explicit numeric setting %s=%s', (key, value) => {
+    process.env.NODE_ENV = 'development';
+    process.env[key] = value;
+
+    expect(() => getAuthConfig()).toThrow(key);
+    expect(() => getAuthConfig()).not.toThrow(value);
   });
 
   test('uses secure cookies for default __Host-prefixed names', () => {
@@ -91,12 +106,18 @@ describe('auth server config', () => {
     [' false ', false],
     ['NO', false],
     ['off', false],
-    ['unexpected', false],
   ])('parses MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS=%s', (value, expected) => {
     process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS = value;
 
     expect(getAuthRateLimitConfig()).toEqual({
       trustProxyHeaders: expected,
     });
+  });
+
+  test('rejects invalid explicit MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS values', () => {
+    process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS = 'unexpected';
+
+    expect(() => getAuthRateLimitConfig()).toThrow('MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS');
+    expect(() => getAuthRateLimitConfig()).not.toThrow('unexpected');
   });
 });

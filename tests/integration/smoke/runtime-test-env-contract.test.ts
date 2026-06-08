@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { collectCriticalProductionSecretIssues } from '../../../app/modules/runtime/application/production-readiness.policy';
-import { getPlaybackConfigFromEnv } from '../../../app/shared/config/app-config.server';
+import { getPlaybackConfig } from '../../../app/shared/config/app-config.server';
 import { PUBLIC_ENV_KEYS } from '../../../app/shared/config/public-env.server';
 import {
   isWeakPlaybackJwtSecret,
@@ -29,8 +29,8 @@ describe('runtime test env contract', () => {
 
     expect(() => assertRuntimeTestEnvConfigurable(hostEnv)).not.toThrow();
     expect(() => assertRuntimeTestEnvConfigurable(dockerEnv)).not.toThrow();
-    expect(getPlaybackConfigFromEnv(hostEnv).jwtSecret).toBe(hostEnv.MEDIAVAULT_PLAYBACK_JWT_SECRET);
-    expect(getPlaybackConfigFromEnv(dockerEnv).jwtSecret).toBe(dockerEnv.MEDIAVAULT_PLAYBACK_JWT_SECRET);
+    expect(getPlaybackConfig(hostEnv).jwtSecret).toBe(hostEnv.MEDIAVAULT_PLAYBACK_JWT_SECRET);
+    expect(getPlaybackConfig(dockerEnv).jwtSecret).toBe(dockerEnv.MEDIAVAULT_PLAYBACK_JWT_SECRET);
   });
 
   test('Docker configured runtime fixture does not inherit host process-only env', () => {

@@ -213,6 +213,7 @@ describe('auth gate routes', () => {
       username: SEEDED_USERNAME,
     });
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
+    process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET = 'auth-routes-client-cookie-secret-012345';
     delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
     delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
     vi.resetModules();

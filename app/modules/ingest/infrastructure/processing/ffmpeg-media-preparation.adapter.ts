@@ -5,12 +5,12 @@ import type {
   PrepareIngestMediaCommand,
 } from '~/modules/ingest/application/ports/ingest-media-preparation.port';
 import type { ThumbnailFinalizerPort } from '~/modules/thumbnail/application/ports/thumbnail-finalizer.port';
-import type { MediaKeyDerivationConfig } from '~/shared/config/media.server';
-import type { RuntimeEnvInput } from '~/shared/config/runtime-env.server';
+import type { MediaKeyDerivationConfig } from '~/shared/config/app-config.server';
+import type { RuntimeEnvInput } from '~/shared/config/app-config.server';
 import { derivePlaybackEncryptionKey } from '~/modules/playback/infrastructure/license/derive-playback-encryption-key';
 import { generatePlaybackKeyId } from '~/modules/playback/infrastructure/license/generate-playback-key-id';
 import { ThumbnailFinalizerAdapter } from '~/modules/thumbnail/infrastructure/finalization/thumbnail-finalizer.adapter';
-import { getMediaKeyDerivationConfig, getMediaPackagingConfig } from '~/shared/config/media.server';
+import { getMediaKeyDerivationConfig, getMediaPackagingConfig } from '~/shared/config/app-config.server';
 import { getShakaPackagerPath } from '~/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '~/shared/lib/server/ffmpeg-process-manager.server';
 import { normalizeClearKeyManifest } from './normalize-clearkey-manifest';

@@ -1,10 +1,10 @@
 import { collectCriticalProductionSecretIssues } from '../../app/modules/runtime/application/production-readiness.policy';
 import {
-  getAdminApiConfigFromEnv,
-  getAuthClientIdentityConfigFromEnv,
-  getMediaKeyDerivationConfigFromEnv,
-  getPlaybackConfigFromEnv,
-  getPrimaryStorageConfigFromEnv,
+  getAdminApiConfig,
+  getAuthClientIdentityConfig,
+  getMediaKeyDerivationConfig,
+  getPlaybackConfig,
+  getPrimaryStorageConfig,
 } from '../../app/shared/config/app-config.server';
 import { PUBLIC_ENV_KEYS } from '../../app/shared/config/public-env.server';
 import { HERMETIC_TEST_ENV } from '../../scripts/hermetic-env';
@@ -128,11 +128,11 @@ export function runtimeSecretLogValues(env: RuntimeTestEnvInput): string[] {
 }
 
 export function assertRuntimeTestEnvConfigurable(env: RuntimeTestEnvInput): void {
-  getPlaybackConfigFromEnv(env);
-  getAdminApiConfigFromEnv(env);
-  getAuthClientIdentityConfigFromEnv(env);
-  getMediaKeyDerivationConfigFromEnv(env);
-  getPrimaryStorageConfigFromEnv(env);
+  getPlaybackConfig(env);
+  getAdminApiConfig(env);
+  getAuthClientIdentityConfig(env);
+  getMediaKeyDerivationConfig(env);
+  getPrimaryStorageConfig(env);
 
   const issues = collectCriticalProductionSecretIssues(env);
   if (issues.length > 0) {

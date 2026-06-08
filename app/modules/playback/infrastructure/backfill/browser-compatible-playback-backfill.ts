@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { basename } from 'node:path';
 import path from 'node:path';
-import type { MediaKeyDerivationConfig } from '~/shared/config/media.server';
+import type { MediaKeyDerivationConfig } from '~/shared/config/app-config.server';
 import { normalizeClearKeyManifest } from '~/modules/ingest/infrastructure/processing/normalize-clearkey-manifest';
 import {
   decryptThumbnailEnvelope,
@@ -10,12 +10,12 @@ import {
   looksLikeJpeg,
   validateEncryptedFormat,
 } from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
-import { getMediaKeyDerivationConfig, getMediaPackagingConfig } from '~/shared/config/media.server';
+import { getMediaKeyDerivationConfig, getMediaPackagingConfig } from '~/shared/config/app-config.server';
+import { getStoragePaths } from '~/shared/config/app-config.server';
 import { getShakaPackagerPath } from '~/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '~/shared/lib/server/ffmpeg-process-manager.server';
 import { derivePlaybackEncryptionKey } from '../license/derive-playback-encryption-key';
 import { generatePlaybackKeyId } from '../license/generate-playback-key-id';
-import { getPlaybackStoragePaths } from '../storage/playback-storage-paths.server';
 
 const HEVC_ONLY_PATTERN = /<Representation\b[^>]*codecs="(?:hev1|hvc1)[^"]*"/i;
 const AVC_PATTERN = /<Representation\b[^>]*codecs="avc1[^"]*"/i;
@@ -97,7 +97,7 @@ export async function backfillBrowserCompatiblePlayback(
   const mediaKeyConfig = input.mediaKeyConfig ?? getMediaKeyDerivationConfig();
   const segmentDuration = input.segmentDuration ?? getMediaPackagingConfig().segmentDuration;
   const requiresExplicitFixtures = Boolean(input.videoIds && input.videoIds.length > 0);
-  const videosDir = input.videosDir ?? getPlaybackStoragePaths().videosDir;
+  const videosDir = input.videosDir ?? getStoragePaths().videosDir;
   const createPackage = input.createPackage ?? ((packageInput: CreatePackageInput) => createBrowserCompatiblePlaybackPackage({
     ...packageInput,
     mediaKeyConfig,

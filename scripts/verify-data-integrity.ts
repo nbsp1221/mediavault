@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 import { existsSync, lstatSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { getPrimaryStorageConfig } from '../app/modules/storage/infrastructure/config/storage-config.server';
 import { createPrimarySqliteDatabase } from '../app/modules/storage/infrastructure/sqlite/primary-sqlite.database';
+import { getPrimaryStorageConfig } from '../app/shared/config/app-config.server';
 
 interface IntegrityFinding {
   code: string;

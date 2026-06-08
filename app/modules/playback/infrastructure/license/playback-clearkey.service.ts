@@ -1,15 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { getStoragePaths } from '~/shared/config/app-config.server';
 import type { PlaybackClearKeyService as PlaybackClearKeyServicePort } from '../../application/ports/playback-clearkey-service.port';
 import { assertValidPlaybackVideoId } from '../../domain/playback-video-id';
-import { getPlaybackStoragePaths } from '../storage/playback-storage-paths.server';
 import { generatePlaybackKeyId } from './generate-playback-key-id';
 
 export class PlaybackClearKeyService implements PlaybackClearKeyServicePort {
   async serveLicense(input: Parameters<PlaybackClearKeyServicePort['serveLicense']>[0]) {
     assertValidPlaybackVideoId(input.videoId);
 
-    const keyPath = join(getPlaybackStoragePaths().videosDir, input.videoId, 'key.bin');
+    const keyPath = join(getStoragePaths().videosDir, input.videoId, 'key.bin');
 
     let keyBuffer: Buffer;
 

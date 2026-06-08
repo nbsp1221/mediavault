@@ -114,7 +114,7 @@ Test-facing Vitest, Stryker, and runtime smoke helpers set
 `MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS=1` unless explicitly overridden so
 invalid-login verification does not spend most of its runtime waiting on the
 production slowdown. The production default remains owned by
-`app/shared/config/auth.server.ts`.
+`app/shared/config/app-config.server.ts`.
 
 Vitest uses its default file-level parallelism. Do not add a global
 `fileParallelism: false` override unless a measured concurrency defect requires a

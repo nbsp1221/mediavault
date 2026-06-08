@@ -72,6 +72,7 @@ interface PlaylistRuntimeWorkspace {
 }
 
 const ENV_KEYS_TO_RESTORE = [
+  'MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET',
   'MEDIAVAULT_DATABASE_ENCRYPTION_KEY',
   'MEDIAVAULT_STORAGE_DIR',
   'MEDIAVAULT_PLAYBACK_JWT_SECRET',
@@ -214,6 +215,7 @@ export async function createPlaylistRuntimeTestWorkspace(
     process.env[key] = value;
   }
 
+  process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET = 'playlist-runtime-client-cookie-secret-012345';
   process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = TEST_DATABASE_ENCRYPTION_KEY;
   process.env.MEDIAVAULT_STORAGE_DIR = workspace.storageDir;
   delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;

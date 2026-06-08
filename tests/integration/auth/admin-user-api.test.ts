@@ -83,7 +83,7 @@ async function loginOwner(input: {
 }
 
 async function insertOwnedVideo() {
-  const { getPrimaryStorageConfig } = await import('../../../app/modules/storage/infrastructure/config/storage-config.server');
+  const { getPrimaryStorageConfig } = await import('../../../app/shared/config/app-config.server');
   const { createMigratedPrimarySqliteDatabase } = await import('../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database');
   const database = await createMigratedPrimarySqliteDatabase({
     dbPath: getPrimaryStorageConfig().databasePath,
@@ -131,11 +131,13 @@ describe('admin user API', () => {
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     process.env.MEDIAVAULT_ADMIN_API_MODE = 'bootstrap';
     process.env.MEDIAVAULT_ADMIN_API_TOKEN = 'admin-token';
+    process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET = 'admin-user-api-client-cookie-secret-012345';
     process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS = '1';
     vi.resetModules();
   });
 
   afterEach(async () => {
+    delete process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET;
     delete process.env.MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS;
     delete process.env.MEDIAVAULT_ADMIN_API_MODE;
     delete process.env.MEDIAVAULT_ADMIN_API_TOKEN;

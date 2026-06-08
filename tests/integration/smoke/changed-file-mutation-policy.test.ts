@@ -57,8 +57,7 @@ describe('changed-file mutation filtering policy', () => {
     expect(isMutationEligibleChangedProductionFile('app/modules/library/application/use-cases/update-library-video.usecase.ts')).toBe(true);
     expect(isMutationEligibleChangedProductionFile('app/widgets/home/ui/HomeLibraryWidget.tsx')).toBe(true);
     expect(isMutationEligibleChangedProductionFile('app/shared/lib/format-display-date.ts')).toBe(true);
-    expect(isMutationEligibleChangedProductionFile('app/shared/config/runtime-env.server.ts')).toBe(true);
-    expect(isMutationEligibleChangedProductionFile('app/modules/storage/infrastructure/config/storage-config.server.ts')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/shared/config/app-config.server.ts')).toBe(true);
     expect(isMutationEligibleChangedProductionFile('app/modules/playback/infrastructure/license/derive-playback-encryption-key.ts')).toBe(true);
     expect(isMutationEligibleChangedProductionFile('app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager.ts')).toBe(true);
   });
@@ -72,7 +71,7 @@ describe('changed-file mutation filtering policy', () => {
       'app/composition/server/library.ts',
       'app/routes/player.$id.tsx',
       'app/routes/videos.$videoId.token.ts',
-      'app/modules/storage/infrastructure/config/storage-config.server.ts',
+      'app/shared/config/app-config.server.ts',
       'app/modules/playback/infrastructure/license/derive-playback-encryption-key.ts',
       'app/modules/library/domain/video-tag.test.ts',
       'app/modules/library/domain/video-tag.spec.ts',
@@ -91,7 +90,7 @@ describe('changed-file mutation filtering policy', () => {
       'app/modules/library/application/use-cases/update-library-video.usecase.ts',
       'app/modules/library/domain/video-tag.ts',
       'app/modules/playback/infrastructure/license/derive-playback-encryption-key.ts',
-      'app/modules/storage/infrastructure/config/storage-config.server.ts',
+      'app/shared/config/app-config.server.ts',
     ]);
   });
 
@@ -261,8 +260,7 @@ describe('changed-file mutation package and contract policy', () => {
     expect(strykerConfig).not.toContain('\'app/**/*.{ts,tsx}\'');
     expect(isMutationEligibleChangedProductionFile('app/widgets/home/ui/HomeLibraryWidget.tsx')).toBe(true);
     expect(isMutationEligibleChangedProductionFile('app/features/upload/ui/UploadDropzone.tsx')).toBe(true);
-    expect(isMutationEligibleChangedProductionFile('app/shared/config/runtime-env.server.ts')).toBe(true);
-    expect(isMutationEligibleChangedProductionFile('app/modules/storage/infrastructure/config/storage-config.server.ts')).toBe(true);
+    expect(isMutationEligibleChangedProductionFile('app/shared/config/app-config.server.ts')).toBe(true);
     expect(isMutationEligibleChangedProductionFile('app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter.ts')).toBe(false);
     expect(isMutationEligibleChangedProductionFile('app/composition/server/auth.ts')).toBe(false);
   });

@@ -1,7 +1,7 @@
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
 import type { OwnedVideoCounterPort } from '~/modules/user/application/ports/owned-video-counter.port';
-import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
 import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
 
 interface SqliteOwnedVideoCounterAdapterOptions {
   createDatabase?: CreateMigratedPrimarySqliteDatabase;

@@ -73,7 +73,7 @@ describe('video tools config', () => {
     expect(getShakaPackagerPath({ SHAKA_PACKAGER_PATH: explicitPath })).toBe(explicitPath);
   });
 
-  test('prefers an existing SHAKA_PACKAGER_PATH over local binaries and the system fallback', async () => {
+  test('prefers an existing SHAKA_PACKAGER_PATH over local binaries and the system command default', async () => {
     rootDir = await mkdtemp(path.join(tmpdir(), 'local-streamer-video-tools-'));
     vi.spyOn(process, 'cwd').mockReturnValue(rootDir);
     await mkdir(path.join(rootDir, 'binaries'), { recursive: true });

@@ -8,21 +8,12 @@ interface HermeticViolation {
 }
 
 const APP_ENV_ACCESS_ALLOWLIST = new Set([
-  'app/shared/config/admin-api.server.ts',
   'app/shared/config/app-config.server.ts',
-  'app/shared/config/auth.server.ts',
-  'app/shared/config/media.server.ts',
-  'app/shared/config/playback.server.ts',
-  'app/shared/config/runtime-env.server.ts',
-  'app/shared/config/storage-paths.server.ts',
-  'app/shared/config/storage.server.ts',
-  'app/shared/config/video-tools.server.ts',
 ]);
 
 const SCAN_SKIP_PATHS = new Set([
   'tests/integration/smoke/browser-smoke-fixture-contract.test.ts',
   'tests/integration/smoke/hermetic-test-inputs.test.ts',
-  'tests/integration/shared/playback-storage-paths.server.test.ts',
   'tests/integration/shared/runtime-env.server.test.ts',
   'tests/integration/shared/storage-paths.server.test.ts',
   'tests/integration/thumbnail/pbkdf2-thumbnail-key-manager.test.ts',

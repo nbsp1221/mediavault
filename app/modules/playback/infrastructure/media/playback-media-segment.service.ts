@@ -1,9 +1,9 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { getStoragePaths } from '~/shared/config/app-config.server';
 import type { PlaybackMediaSegmentService as PlaybackMediaSegmentServicePort } from '../../application/ports/playback-media-segment-service.port';
 import { assertValidPlaybackVideoId } from '../../domain/playback-video-id';
-import { getPlaybackStoragePaths } from '../storage/playback-storage-paths.server';
 import {
   createPlaybackMediaError,
   getPlaybackSegmentContentType,
@@ -20,7 +20,7 @@ export class PlaybackMediaSegmentService implements PlaybackMediaSegmentServiceP
     }
 
     const filePath = join(
-      getPlaybackStoragePaths().videosDir,
+      getStoragePaths().videosDir,
       input.videoId,
       input.mediaType,
       input.filename,

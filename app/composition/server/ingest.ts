@@ -13,7 +13,7 @@ import { FilesystemIngestStagedUploadStorageAdapter } from '~/modules/ingest/inf
 import { SqliteIngestStagedUploadRepositoryAdapter } from '~/modules/ingest/infrastructure/staging/sqlite-ingest-staged-upload-repository.adapter';
 import { BunStreamingMultipartUploadAdapter } from '~/modules/ingest/infrastructure/upload/bun-streaming-multipart-upload.adapter';
 import { SqliteCanonicalVideoMetadataAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter';
-import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
+import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
 
 export interface ServerIngestServices {
   commitStagedUploadToLibrary: CommitStagedUploadToLibraryUseCase;

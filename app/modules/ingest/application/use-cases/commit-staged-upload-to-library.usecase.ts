@@ -4,7 +4,7 @@ import path from 'node:path';
 import { selectIngestMediaPreparationStrategy } from '~/modules/ingest/domain/media-preparation-policy';
 import { normalizeVideoTags } from '~/modules/library/domain/video-tag';
 import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from '~/modules/library/domain/video-taxonomy';
-import { getStoragePaths } from '~/shared/config/storage-paths.server';
+import { getStoragePaths } from '~/shared/config/app-config.server';
 import type { IngestMediaPreparationPort } from '../ports/ingest-media-preparation.port';
 import type { IngestStagedUploadRepositoryPort } from '../ports/ingest-staged-upload-repository.port';
 import type { IngestStagedUploadStoragePort } from '../ports/ingest-staged-upload-storage.port';

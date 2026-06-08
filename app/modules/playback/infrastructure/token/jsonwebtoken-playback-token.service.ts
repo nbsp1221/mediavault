@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import jwt, { type SignOptions } from 'jsonwebtoken';
-import { getPlaybackConfig } from '~/shared/config/playback.server';
+import { getPlaybackConfig } from '~/shared/config/app-config.server';
 import type {
   PlaybackTokenIssueInput,
   PlaybackTokenPayload,

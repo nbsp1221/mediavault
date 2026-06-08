@@ -1,5 +1,5 @@
 import type { LibraryVideoMutationPort } from '~/modules/library/application/ports/library-video-mutation.port';
-import { getPrimaryStorageConfig } from '~/modules/storage/infrastructure/config/storage-config.server';
+import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
 import { SqliteLibraryVideoMetadataRepository } from './sqlite-library-video-metadata.repository';
 
 type SqliteLibraryVideoMutationAdapterRepository = Pick<

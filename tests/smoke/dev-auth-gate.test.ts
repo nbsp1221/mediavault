@@ -220,7 +220,7 @@ describe('Dev auth gate smoke', () => {
 
   test('does not anonymously serve repo-local server source in dev', async () => {
     const sensitivePaths: Array<[string, string]> = [
-      ['/app/shared/config/auth.server.ts', 'DEFAULT_FAILED_LOGIN_BLOCK_DURATION_MS'],
+      ['/app/shared/config/app-config.server.ts', 'DEFAULT_FAILED_LOGIN_BLOCK_DURATION_MS'],
       ['/app/composition/server/playback.ts', 'getServerPlaybackServices'],
       [
         '/app/modules/auth/infrastructure/password/argon2-password-hash.service.ts',

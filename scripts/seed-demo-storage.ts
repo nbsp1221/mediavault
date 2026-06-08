@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createServerIngestServices } from '../app/composition/server/ingest';
 import { SqliteLibraryVideoMetadataRepository } from '../app/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
-import { getPrimaryStorageConfig } from '../app/modules/storage/infrastructure/config/storage-config.server';
 import { createMigratedPrimarySqliteDatabase } from '../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { getPrimaryStorageConfig } from '../app/shared/config/app-config.server';
 import { getFFmpegPath } from '../app/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '../app/shared/lib/server/ffmpeg-process-manager.server';
 
