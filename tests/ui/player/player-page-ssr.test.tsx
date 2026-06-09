@@ -1,6 +1,10 @@
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+
+vi.mock('~/shared/hooks/use-root-user', () => ({
+  useRootUser: () => null,
+}));
 
 describe('PlayerPage SSR safety', () => {
   test('renders a server-safe loading shell for protected playback sources', async () => {
@@ -24,6 +28,9 @@ describe('PlayerPage SSR safety', () => {
 
     expect(html).toContain('Preparing secure playback');
     expect(html).toContain('Fixture player video');
+    expect(html).toContain('Product sidebar');
+    expect(html).toContain('Mediavault home');
+    expect(html.match(/<main/g) ?? []).toHaveLength(1);
     expect(html).not.toContain('Protected playback');
     expect(html).not.toContain('Vault player');
   });

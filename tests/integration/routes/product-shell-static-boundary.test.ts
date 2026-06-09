@@ -6,8 +6,10 @@ const shellBackedFiles = [
   'app/routes/add-videos.tsx',
   'app/routes/playlists._index.tsx',
   'app/routes/playlists.$id.tsx',
+  'app/routes/player.$id.tsx',
   'app/routes/videos.$videoId.edit.tsx',
   'app/pages/add-videos/ui/AddVideosPage.tsx',
+  'app/pages/player/ui/PlayerPage.tsx',
   'app/pages/playlist-detail/ui/PlaylistDetailPage.tsx',
   'app/pages/playlists/ui/PlaylistsPage.tsx',
   'app/pages/video-details/ui/VideoDetailsPage.tsx',
@@ -50,13 +52,11 @@ describe('product shell static boundaries', () => {
     }
   });
 
-  test('login and player routes stay outside ProductShell', () => {
-    for (const path of ['app/routes/login.tsx', 'app/routes/player.$id.tsx']) {
-      const source = read(path);
+  test('login route stays outside ProductShell', () => {
+    const source = read('app/routes/login.tsx');
 
-      expect(source, `${path} must not import ProductShell`).not.toContain('ProductShell');
-      expect(source, `${path} must not import product-shell widget`).not.toContain('widgets/product-shell');
-    }
+    expect(source, 'login route must not import ProductShell').not.toContain('ProductShell');
+    expect(source, 'login route must not import product-shell widget').not.toContain('widgets/product-shell');
   });
 
   test('product shell UI does not copy prototype raw color classes', () => {

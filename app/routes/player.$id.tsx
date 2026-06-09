@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
 import { AlertTriangle, ShieldAlert, VideoOff } from 'lucide-react';
 import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
@@ -7,8 +6,7 @@ import { resolvePublicVideoAccess } from '~/composition/server/auth';
 import { getServerPlaybackServices } from '~/composition/server/playback';
 import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import { PlayerPage } from '~/pages/player/ui/PlayerPage';
-import { Button } from '~/shared/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/shared/ui/card';
+import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 
 interface SerializedVideo extends Omit<PlaybackCatalogVideo, 'createdAt'> {
   createdAt: string;
@@ -98,9 +96,11 @@ export function ErrorBoundary() {
   if (isRouteErrorResponse(error)) {
     if (error.status === 404) {
       return (
-        <RouteStatusCard
-          description="The video might have been removed or the link could be incorrect."
-          icon={<VideoOff className="h-6 w-6" aria-hidden />}
+        <ProductRouteErrorView
+          actions={[{ label: 'Go to library', to: '/' }]}
+          activeRoute="videos"
+          description={<p>The video might have been removed or the link could be incorrect.</p>}
+          icon={<VideoOff className="size-6" aria-hidden />}
           title="We can’t find that video"
         />
       );
@@ -108,9 +108,11 @@ export function ErrorBoundary() {
 
     if (error.status === 400) {
       return (
-        <RouteStatusCard
-          description="The link is missing some information. Check the address and try again."
-          icon={<ShieldAlert className="h-6 w-6" aria-hidden />}
+        <ProductRouteErrorView
+          actions={[{ label: 'Go to library', to: '/' }]}
+          activeRoute="videos"
+          description={<p>The link is missing some information. Check the address and try again.</p>}
+          icon={<ShieldAlert className="size-6" aria-hidden />}
           title="Invalid video request"
         />
       );
@@ -118,42 +120,13 @@ export function ErrorBoundary() {
   }
 
   return (
-    <RouteStatusCard
-      description={error instanceof Error ? error.message : 'Something unexpected happened while loading the video.'}
-      icon={<AlertTriangle className="h-6 w-6" aria-hidden />}
+    <ProductRouteErrorView
+      actions={[{ label: 'Go to library', to: '/' }]}
+      activeRoute="videos"
+      description={<p>{error instanceof Error ? error.message : 'Something unexpected happened while loading the video.'}</p>}
+      icon={<AlertTriangle className="size-6" aria-hidden />}
+      tone="critical"
       title="We couldn’t load the player"
     />
-  );
-}
-
-function RouteStatusCard({
-  description,
-  icon,
-  title,
-}: {
-  description: string;
-  icon: ReactNode;
-  title: string;
-}) {
-  return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-lg">
-        <CardHeader className="space-y-3 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            {icon}
-          </div>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center gap-3">
-          <Button asChild variant="default">
-            <a href="/">Go to library</a>
-          </Button>
-          <Button asChild variant="outline">
-            <a href="/playlists">Browse playlists</a>
-          </Button>
-        </CardContent>
-      </Card>
-    </main>
   );
 }

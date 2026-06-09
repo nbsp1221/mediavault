@@ -9,11 +9,8 @@ import {
   defaultLayoutIcons,
   DefaultVideoLayout,
 } from '@vidstack/react/player/layouts/default';
-import { ArrowLeft } from 'lucide-react';
 import { useRef, useSyncExternalStore } from 'react';
-import { Link } from 'react-router';
 import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
-import { Button } from '~/shared/ui/button';
 import { configureDashPlaybackProvider } from '../lib/configure-dash-playback-provider';
 import { usePlayerSurfaceView } from '../model/usePlayerSurfaceView';
 import { useProtectedPlaybackSession } from '../model/useProtectedPlaybackSession';
@@ -42,50 +39,41 @@ export function PlayerSurface({ video, relatedVideos }: PlayerSurfaceProps) {
   } = usePlayerSurfaceView({ relatedVideos, video });
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Button asChild size="sm" variant="ghost">
-              <Link to="/">
-                <ArrowLeft />
-                Library
-              </Link>
-            </Button>
+    <div
+      className="mx-auto flex w-full max-w-[104rem] flex-col gap-6 lg:gap-8"
+      data-testid="watch-surface"
+    >
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-start xl:gap-8">
+        <section className="flex min-w-0 flex-col gap-4 lg:gap-5">
+          <div
+            className="overflow-hidden rounded-lg bg-black shadow-sm ring-1 ring-border/70"
+            data-testid="player-viewport"
+          >
+            <PlaybackViewport video={video} />
           </div>
-        </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-          <section className="flex flex-col gap-4 lg:col-span-2 lg:gap-6">
-            <div className="overflow-hidden rounded-lg bg-black" data-testid="player-viewport">
-              <PlaybackViewport video={video} />
-            </div>
-
-            <PlayerVideoDetails
-              clearTagFilter={clearTagFilter}
-              createdAtLabel={createdAtLabel}
-              description={video.description}
-              durationLabel={durationLabel}
-              hasTagFilter={hasTagFilter}
-              tagItems={tagItems}
-              title={video.title}
-              toggleTagFilter={toggleTagFilter}
-            />
-          </section>
-
-          <PlayerRelatedVideos
-            activeTag={activeTag}
-            emptyMessage={relatedEmptyMessage}
+          <PlayerVideoDetails
+            clearTagFilter={clearTagFilter}
+            createdAtLabel={createdAtLabel}
+            description={video.description}
+            durationLabel={durationLabel}
             hasTagFilter={hasTagFilter}
-            onClearTagFilter={clearTagFilter}
-            onTagClick={toggleTagFilter}
-            videos={filteredRelatedVideos}
+            tagItems={tagItems}
+            title={video.title}
+            toggleTagFilter={toggleTagFilter}
           />
-        </div>
+        </section>
+
+        <PlayerRelatedVideos
+          activeTag={activeTag}
+          emptyMessage={relatedEmptyMessage}
+          hasTagFilter={hasTagFilter}
+          onClearTagFilter={clearTagFilter}
+          onTagClick={toggleTagFilter}
+          videos={filteredRelatedVideos}
+        />
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -104,7 +92,7 @@ function PlaybackViewport({ video }: { video: PlaybackCatalogVideo }) {
     videoId: video.id,
     videoUrl: video.videoUrl,
   });
-  const providerConfigKey = `${video.id}:${token ?? 'public'}:${drmConfig?.keyId ?? 'clear'}`;
+  const providerConfigKey = JSON.stringify([video.id, token, drmConfig?.keyId]);
 
   const handleProviderChange = (detail: MediaProviderAdapter | null) => {
     if (!isDASHProvider(detail)) {

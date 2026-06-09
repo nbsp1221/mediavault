@@ -21,7 +21,7 @@ export function PlayerRelatedVideos({
   videos,
 }: PlayerRelatedVideosProps) {
   return (
-    <aside className="flex flex-col gap-3 lg:gap-4">
+    <aside aria-label="Related videos" className="flex min-w-0 flex-col gap-3 lg:gap-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h2 className="text-base font-semibold lg:text-lg">Related videos</h2>

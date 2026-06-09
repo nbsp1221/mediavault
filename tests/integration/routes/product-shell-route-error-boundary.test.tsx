@@ -9,6 +9,11 @@ vi.mock('react-router', async () => {
 
   return {
     ...actual,
+    isRouteErrorResponse: (error: unknown) => (
+      typeof error === 'object' &&
+      error !== null &&
+      Reflect.get(error, 'isRouteErrorResponse') === true
+    ),
     useRouteError: () => useRouteErrorMock(),
   };
 });
@@ -27,6 +32,10 @@ async function importHomeRoute() {
 
 async function importAddVideosRoute() {
   return import('../../../app/routes/add-videos');
+}
+
+async function importPlayerRoute() {
+  return import('../../../app/routes/player.$id');
 }
 
 describe('product shell route error boundaries', () => {
@@ -68,6 +77,29 @@ describe('product shell route error boundaries', () => {
     expect(markup).toContain('aria-current="page"');
     expect(markup).toContain('Unable to load upload');
     expect(markup).toContain('metadata vocabulary unavailable');
+    expect(markup.match(/<main/g)).toHaveLength(1);
+  });
+
+  test('renders player not-found failures inside the videos shell state', async () => {
+    useRouteErrorMock.mockReturnValue({
+      data: 'Video not found',
+      isRouteErrorResponse: true,
+      status: 404,
+    });
+    const { ErrorBoundary } = await importPlayerRoute();
+
+    const markup = renderToString(
+      <MemoryRouter initialEntries={['/player/missing']}>
+        <ErrorBoundary />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain('<header');
+    expect(markup).toContain('Product navigation');
+    expect(markup).toContain('aria-current="page"');
+    expect(markup).toContain('We can’t find that video');
+    expect(markup).toContain('Go to library');
+    expect(markup).not.toContain('Browse playlists');
     expect(markup.match(/<main/g)).toHaveLength(1);
   });
 });

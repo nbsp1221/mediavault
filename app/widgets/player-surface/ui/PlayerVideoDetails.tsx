@@ -28,10 +28,10 @@ export function PlayerVideoDetails({
   toggleTagFilter,
 }: PlayerVideoDetailsProps) {
   return (
-    <div className="flex flex-col gap-4 lg:gap-5">
-      <h1 className="text-xl font-bold leading-tight lg:text-2xl">
+    <section aria-label="Video details" className="flex flex-col gap-4 lg:gap-5">
+      <h2 className="text-xl font-bold leading-tight lg:text-2xl">
         {title}
-      </h1>
+      </h2>
 
       <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <span className="font-medium">Duration:</span>
@@ -84,6 +84,6 @@ export function PlayerVideoDetails({
           )}
         </div>
       </section>
-    </div>
+    </section>
   );
 }

@@ -146,6 +146,7 @@ test.describe('product shell smoke', () => {
       '/add-videos',
       '/playlists',
       playlistPath,
+      `/player/${OWNER_PRIVATE_VIDEO_ID}`,
       `/videos/${OWNER_PRIVATE_VIDEO_ID}/edit`,
     ];
 
@@ -188,6 +189,11 @@ test.describe('product shell smoke', () => {
             if (route === '/playlists') {
               await expect(page.getByRole('banner').getByRole('button', { name: 'New Playlist' })).toBeVisible();
             }
+          }
+          else if (route.startsWith('/player/')) {
+            await expect(productNavigation.getByRole('link', { name: 'Videos' })).toHaveAttribute('aria-current', 'page');
+            await expect(page.getByTestId('player-viewport')).toBeVisible();
+            await expect(page.getByRole('complementary', { name: 'Related videos' })).toBeVisible();
           }
           else {
             await expect(productNavigation.getByRole('link', { name: 'Videos' })).toHaveAttribute('aria-current', 'page');
@@ -237,16 +243,38 @@ test.describe('product shell smoke', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('keeps login and player routes outside the product shell', async ({ page }) => {
+  test('keeps login outside the product shell and player routes inside the watch shell', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByRole('navigation', { name: 'Product navigation' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Account menu' })).toHaveCount(0);
+
+    await loginToPath(page, {
+      expectedUrl: new RegExp(`/player/${OTHER_PUBLIC_VIDEO_ID}$`),
+      redirectTo: `/player/${OTHER_PUBLIC_VIDEO_ID}`,
+    });
 
     for (const width of [320, 375, 768, 1024, 1280]) {
       await page.setViewportSize({ height: 900, width });
       await page.goto(`/player/${OTHER_PUBLIC_VIDEO_ID}`);
       await expect(page.getByTestId('player-viewport')).toBeVisible();
-      await expect(page.getByRole('navigation', { name: 'Product navigation' })).toHaveCount(0);
+      await expect(page.locator('main')).toHaveCount(1);
+      await expect(page.getByRole('complementary', { name: 'Related videos' })).toBeVisible();
+      if (width < 768) {
+        const menuButton = page.getByRole('button', { name: 'Open navigation menu' });
+
+        await expect(menuButton).toBeVisible();
+        await menuButton.click();
+
+        const drawer = page.getByRole('dialog', { name: 'Navigation menu' });
+
+        await expect(drawer.getByRole('link', { name: 'Videos' })).toHaveAttribute('aria-current', 'page');
+      }
+      else {
+        const productNavigation = page.getByRole('navigation', { name: 'Product navigation' });
+
+        await expect(productNavigation).toBeVisible();
+        await expect(productNavigation.getByRole('link', { name: 'Videos' })).toHaveAttribute('aria-current', 'page');
+      }
       await expectNoHorizontalOverflow(page);
     }
   });

@@ -224,4 +224,20 @@ describe('ProductShell', () => {
     expect(screen.getByRole('button', { name: 'Account menu' }).closest('div')).toHaveClass('hidden md:block');
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
   });
+
+  test('supports a full-width watch context while keeping Videos active', () => {
+    rootUserMock.mockReturnValue({ id: 'owner-1', role: 'admin', username: 'owner' });
+    renderShell('/player/video-1', {
+      activeRoute: 'videos',
+      contentWidth: 'full',
+      description: '90 seconds • Added Mar 9, 2026',
+      headerMode: 'context',
+      title: 'Watch fixture',
+    });
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Watch fixture' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Videos' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Open navigation menu' })).toBeInTheDocument();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
 });
