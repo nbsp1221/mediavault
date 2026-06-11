@@ -21,7 +21,6 @@ const SCAN_SKIP_PATHS = new Set([
 
 const RUNTIME_FIXTURE_AUTHORITY_PATHS = new Set([
   'tests/support/runtime-test-env.ts',
-  'tests/support/create-runtime-test-env.ts',
   'tests/support/database-encryption-key.ts',
 ]);
 

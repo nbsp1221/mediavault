@@ -21,7 +21,6 @@
     "test:modules": "bun --no-env-file ./scripts/run-vitest.ts run --project modules",
     "test:mutation": "bun --no-env-file ./scripts/run-mutation.ts",
     "test:mutation:changed": "bun --no-env-file ./scripts/test-mutation-changed.ts",
-    "test:run": "bun run test",
     "test:coverage": "bun run test:coverage:collect && bun run test:coverage:regression && bun run test:coverage:changed",
     "test:coverage:collect": "bun --no-env-file ./scripts/run-vitest.ts run --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary",
     "test:coverage:regression": "bun --no-env-file ./scripts/check-coverage-regression.ts",

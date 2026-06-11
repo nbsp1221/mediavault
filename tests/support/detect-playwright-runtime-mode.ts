@@ -5,7 +5,7 @@ export const PLAYWRIGHT_SMOKE_SPEC_PATHS = [
   'tests/e2e/playlist-owner-smoke.spec.ts',
   'tests/e2e/product-shell-smoke.spec.ts',
   'tests/e2e/player-layout.spec.ts',
-  'tests/e2e/player-playback-compatibility.spec.ts',
+  'tests/e2e/player-browser-playback.spec.ts',
 ] as const;
 
 export type PlaywrightRuntimeMode = 'developer-full' | 'hermetic-smoke';

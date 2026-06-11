@@ -48,7 +48,6 @@ If a change is both storage-sensitive and runtime-sensitive, run both
 
 - `test` is the canonical non-watch Vitest command. It does not run Bun runtime
   smoke tests.
-- `test:run` is a temporary compatibility alias for `bun run test`.
 - `test:coverage` is the canonical coverage gate. It runs
   `test:coverage:collect`, `test:coverage:regression`, and
   `test:coverage:changed`.
@@ -162,7 +161,6 @@ The authoritative commands for the current repo state are:
 - `bun run lint`
 - `bun run typecheck`
 - `bun run test`
-- `bun run test:run`
 - `bun run test:coverage`
 - `bun run test:coverage:collect`
 - `bun run test:coverage:regression`

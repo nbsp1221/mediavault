@@ -37,8 +37,8 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('HomePage loader bootstrap', () => {
-  test('applies loader bootstrap filters to the visible catalog', () => {
+describe('HomePage initial filters', () => {
+  test('applies loader-provided filters to the visible catalog', () => {
     render(
       <MemoryRouter>
         <HomePage
@@ -65,7 +65,7 @@ describe('HomePage loader bootstrap', () => {
     expect(screen.queryByText('Second Fixture')).not.toBeInTheDocument();
   });
 
-  test('hydrates the same bootstrap output without SSR mismatch warnings', async () => {
+  test('hydrates the same initial output without SSR mismatch warnings', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const props = {
       initialFilters: {

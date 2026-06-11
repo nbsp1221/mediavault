@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createRuntimeTestEnv, RUNTIME_TEST_SECRETS } from '../../support/create-runtime-test-env';
+import { createRuntimeTestEnv, RUNTIME_TEST_SECRETS } from '../../support/runtime-test-env';
 
 describe('createRuntimeTestEnv', () => {
   test('builds a deterministic runtime test env without ambient auth or playback secrets', () => {

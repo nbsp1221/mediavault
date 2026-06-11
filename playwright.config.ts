@@ -1,10 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
-import { createRuntimeTestEnv } from './tests/support/create-runtime-test-env';
 import { createRuntimeTestWorkspace } from './tests/support/create-runtime-test-workspace';
 import {
   type PlaywrightRuntimeMode,
   detectPlaywrightRuntimeMode,
 } from './tests/support/detect-playwright-runtime-mode';
+import { createRuntimeTestEnv } from './tests/support/runtime-test-env';
 
 const port = 4173;
 const runtimeMode = detectPlaywrightRuntimeMode(process.argv);

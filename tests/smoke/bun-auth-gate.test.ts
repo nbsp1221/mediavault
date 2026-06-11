@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { createNoEnvFileBunCommand } from '../../scripts/no-env-file-bun';
 import { toRequestCookieHeader } from '../helpers/cookies';
 import { E2E_AUTH_PASSWORD, E2E_AUTH_USERNAME, seedRuntimeAuthUser } from '../support/auth-account';
-import { createRuntimeTestEnv } from '../support/create-runtime-test-env';
+import { createRuntimeTestEnv } from '../support/runtime-test-env';
 import { seedLibraryVideoMetadata } from '../support/seed-library-video-metadata';
 
 const repoRoot = process.cwd();

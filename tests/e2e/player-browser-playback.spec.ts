@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { loginToPlayer } from './support/player-auth';
 
 const playbackFixtureVideoId = '68e5f819-15e8-41ef-90ee-8a96769311b7';
-test.describe('player playback compatibility', () => {
-  test('boots anonymous public playback without dash.js DRM bootstrap errors and fetches encrypted video', async ({ page }) => {
+test.describe('player browser playback', () => {
+  test('boots anonymous public playback without dash.js DRM setup errors and fetches encrypted video', async ({ page }) => {
     const consoleMessages: string[] = [];
     const requests: Array<{ headers: Record<string, string>; url: string }> = [];
 

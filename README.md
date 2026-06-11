@@ -253,7 +253,6 @@ The test suite is split by scope:
 - `bun run test:ui-dom`: jsdom + React Testing Library component tests
 - `bun run vitest:ui`: interactive Vitest UI for local debugging only
 - `bun run test`: all Vitest projects
-- `bun run test:run`: temporary compatibility alias for `bun run test`
 - `bun run test:runtime:smoke`: runtime smoke against the dev server and built Bun server
 - `bun run check:fast`: quick local check for iteration, not a completion gate
 - `bun run check`: hermetic lint + typecheck + calibrated coverage + changed-file mutation + runtime smoke

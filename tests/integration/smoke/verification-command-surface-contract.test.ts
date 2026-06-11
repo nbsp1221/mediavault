@@ -23,7 +23,7 @@ const expectCommandNotToRun = (command: string, scriptName: string) => {
   expect(command).not.toMatch(new RegExp(`(?:^|&&\\s*)bun run ${scriptName}(?:\\s|&&|$)`));
 };
 
-describe('CI parity contract', () => {
+describe('verification command surface contract', () => {
   test('pins GitHub Actions Bun setup to the repo packageManager contract', async () => {
     const workflow = await readFile('.github/workflows/ci.yml', 'utf8');
     const dockerfile = await readFile('Dockerfile', 'utf8');
@@ -39,7 +39,7 @@ describe('CI parity contract', () => {
     const scripts = await readPackageScripts();
 
     expect(scripts.test).toBe('bun --no-env-file ./scripts/run-vitest.ts run');
-    expect(scripts['test:run']).toBe('bun run test');
+    expect(scripts['test:run']).toBeUndefined();
     expect(scripts['test:coverage']).toBe(
       'bun run test:coverage:collect && bun run test:coverage:regression && bun run test:coverage:changed',
     );
@@ -212,7 +212,7 @@ describe('CI parity contract', () => {
     expect(packageJson).not.toContain('./scripts/verify-bun-version.ts && bun --no-env-file ./scripts/run-playwright.ts');
   });
 
-  test('keeps executable parity contracts on code and config surfaces only', async () => {
+  test('keeps executable verification contracts on code and config surfaces only', async () => {
     const playwrightConfig = await readFile('playwright.config.ts', 'utf8');
 
     expect(playwrightConfig).toContain('detectPlaywrightRuntimeMode(process.argv)');

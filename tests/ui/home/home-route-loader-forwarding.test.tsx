@@ -25,7 +25,7 @@ vi.mock('~/pages/home/ui/HomePage', () => ({
   HomePage: (props: unknown) => homePageMock(props),
 }));
 
-describe('HomeRoute bootstrap forwarding', () => {
+describe('HomeRoute loader forwarding', () => {
   test('passes initialFilters and videos through to the new HomePage owner', async () => {
     useLoaderDataMock.mockReturnValue({
       contentTypes: [{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }],
