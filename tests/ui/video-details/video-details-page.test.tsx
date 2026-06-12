@@ -535,14 +535,19 @@ describe('VideoDetailsPage', () => {
 
     await user.clear(screen.getByLabelText('Title'));
     await user.type(screen.getByLabelText('Title'), 'Logout Draft');
+    await user.tab();
+    await waitFor(() => expect(screen.getByLabelText('Title')).not.toHaveFocus());
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Logout' }));
+    expect(await screen.findByRole('menu')).toBeInTheDocument();
+    await user.click(await screen.findByRole('menuitem', { name: 'Logout' }));
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
-    expect(screen.getByRole('dialog', { name: 'Discard unsaved changes?' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'Discard unsaved changes?' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/videos/video-1/edit');
     await user.click(screen.getByRole('button', { name: 'Discard changes' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/api/auth/logout'), { timeout: 5_000 });
+    expect(await screen.findByText('Logout route')).toBeInTheDocument();
   });
 
   test('guards unsaved metadata changes before watch navigation and browser unload', async () => {
