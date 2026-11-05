@@ -1,3 +1,39 @@
-import { flatRoutes } from '@react-router/fs-routes';
+import { type RouteConfig, index, route } from '@react-router/dev/routes';
 
-export default flatRoutes();
+export default [
+  index('routes/_index.tsx'),
+  route('login', 'routes/login.tsx'),
+  route('add-videos', 'routes/add-videos.tsx'),
+  route('player/:id', 'routes/player.$id.tsx'),
+  route('videos/:videoId/edit', 'routes/videos.$videoId.edit.tsx'),
+  route('playlists', 'routes/playlists.tsx', [
+    index('routes/playlists._index.tsx'),
+    route(':id', 'routes/playlists.$id.tsx'),
+  ]),
+  route('api/auth/login', 'routes/api.auth.login.ts'),
+  route('api/auth/logout', 'routes/api.auth.logout.ts'),
+  route('api/auth/me', 'routes/api.auth.me.ts'),
+  route('api/admin/users', 'routes/api.admin.users.ts'),
+  route('api/admin/users/:username', 'routes/api.admin.users.$username.ts'),
+  route('api/uploads', 'routes/api.uploads.ts'),
+  route('api/uploads/:stagingId', 'routes/api.uploads.$stagingId.ts'),
+  route('api/uploads/:stagingId/commit', 'routes/api.uploads.$stagingId.commit.ts'),
+  route('api/ingest-jobs', 'routes/api.ingest-jobs.ts'),
+  route('api/ingest-jobs/:jobId', 'routes/api.ingest-jobs.$jobId.ts'),
+  route('api/ingest-jobs/:jobId/retry', 'routes/api.ingest-jobs.$jobId.retry.ts'),
+  route('api/ingest-jobs/:jobId/cancel', 'routes/api.ingest-jobs.$jobId.cancel.ts'),
+  route('api/update/:id', 'routes/api.update.$id.ts'),
+  route('api/delete/:id', 'routes/api.delete.$id.ts'),
+  route('api/visibility/:id', 'routes/api.visibility.$id.ts'),
+  route('api/thumbnail/:id', 'routes/api.thumbnail.$id.ts'),
+  route('api/playlists', 'routes/api.playlists.ts'),
+  route('api/playlists/:id', 'routes/api.playlists.$id.ts'),
+  route('api/playlists/:id/items', 'routes/api.playlists.$id.items.ts'),
+  route('api/playlists/:id/items/:videoId', 'routes/api.playlists.$id.items.$videoId.ts'),
+  route('videos/:videoId/token', 'routes/videos.$videoId.token.ts'),
+  route('videos/:videoId/manifest.mpd', 'routes/videos.$videoId.manifest[.]mpd.ts'),
+  route('videos/:videoId/clearkey', 'routes/videos.$videoId.clearkey.ts'),
+  route('videos/:videoId/audio/:filename', 'routes/videos.$videoId.audio.$filename.ts'),
+  route('videos/:videoId/video/:filename', 'routes/videos.$videoId.video.$filename.ts'),
+  route('health/ready', 'routes/health.ready.ts'),
+] satisfies RouteConfig;

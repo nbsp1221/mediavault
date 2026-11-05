@@ -1,104 +1,47 @@
-# Dependencies
-node_modules
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-bun.lock.backup
+# Dependencies and generated output
+node_modules/
+.pnpm-store/
+build/
+.react-router/
+.vite/
+coverage/
+playwright-report/
+test-results/
+.playwright-mcp/
+.claude/
 
-# Production build (exclude from build context, created in container)
-build
-.react-router
-.output
-
-# Development
-.vite
-.next
-.nuxt
-.turbo
-.DS_Store
-
-# Environment files (use docker-compose env instead)
+# Never send operator secrets or local data to the Docker builder.
 .env
-.env.local
-.env.development.local
-.env.test.local  
-.env.production.local
-
-# IDE and editor files
-.vscode
-.idea
-*.swp
-*.swo
-*~
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Git
-.git
-.gitignore
-
-# Testing
-coverage
-.nyc_output
-*.lcov
-tests/
-
-# Logs
-logs
-*.log
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Documentation and markdown files
-README.md
-docs/
-*.md
-!package.json
-
-# Development configuration files
-.eslintrc*
-.prettierrc*
-jest.config*
-vitest.config*
-tailwind.config*
-
-# Docker files (exclude from build context)
-Dockerfile*
-docker-compose*.yml
-.dockerignore
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# Legacy local data paths (retired runtime layout; never build into images)
+.env.*
+.npmrc
+storage/
 data/
 incoming/
 
-# Current local storage path (mounted at runtime)
-storage/
-
-# Generated media tool binaries (download inside Docker builds)
+# Download media tools in the build stage, not from developer installations.
 binaries/
 .ffmpeg-download-temp/
 .shaka-download-temp/
 
-# Keep essential files for build process
-!package.json
-!bun.lock
-!app/
-!public/
-!scripts/
-!react-router.config.ts
-!vite.config.ts
-!tsconfig.json
+# Tests, documentation, editor state, and Git are not deployment inputs.
+tests/
+docs/
+.github/
+.vscode/
+.idea/
+.git/
+*.md
+*.log
+*.pid
+*.pid.lock
+*.tmp
+*.swp
+*.swo
+*.code-workspace
+.DS_Store
+tmp/
+temp/
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore

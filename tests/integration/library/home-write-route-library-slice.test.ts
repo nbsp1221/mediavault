@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { UpdateLibraryVideoUseCase } from '../../../app/modules/library/application/use-cases/update-library-video.usecase';
+import { routeArgs } from '../../helpers/route-args';
 
 const requireProtectedApiSessionValueMock = vi.fn();
 const updateLibraryVideoExecuteMock = vi.fn();
@@ -30,23 +31,19 @@ vi.mock('~/composition/server/library', () => ({
 }));
 
 async function importUpdateRoute() {
-  return import('../../../app/routes/api.update.$id');
+  return import('../../../app/routes/.server/update-video-action');
 }
 
 async function importDeleteRoute() {
-  return import('../../../app/routes/api.delete.$id');
+  return import('../../../app/routes/.server/delete-video-action');
 }
 
 async function importVisibilityRoute() {
-  return import('../../../app/routes/api.visibility.$id');
+  return import('../../../app/routes/.server/change-video-visibility-action');
 }
 
 function createActionArgs(request: Request, params: { id?: string }): ActionFunctionArgs {
-  return {
-    context: {},
-    params,
-    request,
-  } as ActionFunctionArgs;
+  return routeArgs({ params, request });
 }
 
 describe('home write route library slice adapters', () => {
@@ -84,22 +81,24 @@ describe('home write route library slice adapters', () => {
     const response = await createUpdateVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/update/video-1', {
-        body: JSON.stringify({
-          contentTypeSlug: 'home_video',
-          description: 'Updated description',
-          genreSlugs: ['documentary'],
-          tags: ['Action', 'Neo'],
-          title: 'Updated title',
+    })(
+      createActionArgs(
+        new Request('http://localhost/api/update/video-1', {
+          body: JSON.stringify({
+            contentTypeSlug: 'home_video',
+            description: 'Updated description',
+            genreSlugs: ['documentary'],
+            tags: ['Action', 'Neo'],
+            title: 'Updated title',
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'PUT',
         }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'PUT',
-      }),
-      { id: 'video-1' },
-    ));
+        { id: 'video-1' },
+      ),
+    );
 
     expect(requireProtectedApiSessionValueMock).toHaveBeenCalledOnce();
     expect(getServerLibraryServicesMock).toHaveBeenCalledOnce();
@@ -163,19 +162,21 @@ describe('home write route library slice adapters', () => {
     await createUpdateVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/update/video-1', {
-        body: JSON.stringify({
-          tags: ['Neo'],
-          title: 'Updated title',
+    })(
+      createActionArgs(
+        new Request('http://localhost/api/update/video-1', {
+          body: JSON.stringify({
+            tags: ['Neo'],
+            title: 'Updated title',
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'PATCH',
         }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'PATCH',
-      }),
-      { id: 'video-1' },
-    ));
+        { id: 'video-1' },
+      ),
+    );
 
     expect(updateLibraryVideoExecuteMock).toHaveBeenCalledWith({
       tags: ['Neo'],
@@ -203,12 +204,14 @@ describe('home write route library slice adapters', () => {
     const response = await createDeleteVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/delete/video-1', {
-        method: 'DELETE',
-      }),
-      { id: 'video-1' },
-    ));
+    })(
+      createActionArgs(
+        new Request('http://localhost/api/delete/video-1', {
+          method: 'DELETE',
+        }),
+        { id: 'video-1' },
+      ),
+    );
 
     expect(requireProtectedApiSessionValueMock).toHaveBeenCalledOnce();
     expect(getServerLibraryServicesMock).toHaveBeenCalledOnce();
@@ -252,18 +255,20 @@ describe('home write route library slice adapters', () => {
     const response = await createChangeVisibilityAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/visibility/video-1', {
-        body: JSON.stringify({
-          visibility: 'public',
+    })(
+      createActionArgs(
+        new Request('http://localhost/api/visibility/video-1', {
+          body: JSON.stringify({
+            visibility: 'public',
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'PUT',
         }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'PUT',
-      }),
-      { id: 'video-1' },
-    ));
+        { id: 'video-1' },
+      ),
+    );
 
     expect(changeLibraryVideoVisibilityExecuteMock).toHaveBeenCalledWith({
       viewer: {
@@ -300,19 +305,23 @@ describe('home write route library slice adapters', () => {
   });
 
   test('returns auth gate response without touching library services when unauthorized', async () => {
-    requireProtectedApiSessionValueMock.mockResolvedValue(new Response('unauthorized', { status: 401 }));
+    requireProtectedApiSessionValueMock.mockResolvedValue(
+      new Response('unauthorized', { status: 401 }),
+    );
     const routeModule = await importUpdateRoute();
     const { createUpdateVideoAction } = routeModule;
 
     const response = await createUpdateVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/update/video-1', {
-        method: 'PUT',
-      }),
-      { id: 'video-1' },
-    ));
+    })(
+      createActionArgs(
+        new Request('http://localhost/api/update/video-1', {
+          method: 'PUT',
+        }),
+        { id: 'video-1' },
+      ),
+    );
 
     expect(response.status).toBe(401);
     await expect(response.text()).resolves.toBe('unauthorized');
@@ -325,10 +334,11 @@ describe('home write route library slice adapters', () => {
     const response = await createUpdateVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/update/video-1', { method: 'POST' }),
-      { id: 'video-1' },
-    ));
+    })(
+      createActionArgs(new Request('http://localhost/api/update/video-1', { method: 'POST' }), {
+        id: 'video-1',
+      }),
+    );
 
     expect(response.status).toBe(405);
     await expect(response.json()).resolves.toEqual({
@@ -344,17 +354,20 @@ describe('home write route library slice adapters', () => {
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     });
 
-    const methodResponse = await action(createActionArgs(
-      new Request('http://localhost/api/visibility/video-1', { method: 'POST' }),
-      { id: 'video-1' },
-    ));
-    const missingIdResponse = await action(createActionArgs(
-      new Request('http://localhost/api/visibility', {
-        body: JSON.stringify({ visibility: 'public' }),
-        method: 'PUT',
+    const methodResponse = await action(
+      createActionArgs(new Request('http://localhost/api/visibility/video-1', { method: 'POST' }), {
+        id: 'video-1',
       }),
-      {},
-    ));
+    );
+    const missingIdResponse = await action(
+      createActionArgs(
+        new Request('http://localhost/api/visibility', {
+          body: JSON.stringify({ visibility: 'public' }),
+          method: 'PUT',
+        }),
+        {},
+      ),
+    );
 
     expect(methodResponse.status).toBe(405);
     await expect(methodResponse.json()).resolves.toEqual({
@@ -370,22 +383,26 @@ describe('home write route library slice adapters', () => {
   });
 
   test('visibility route returns auth gate response without touching library services when unauthorized', async () => {
-    requireProtectedApiSessionValueMock.mockResolvedValue(new Response('unauthorized', { status: 401 }));
+    requireProtectedApiSessionValueMock.mockResolvedValue(
+      new Response('unauthorized', { status: 401 }),
+    );
     const { createChangeVisibilityAction } = await importVisibilityRoute();
 
     const response = await createChangeVisibilityAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/visibility/video-1', {
-        body: JSON.stringify({ visibility: 'public' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'PUT',
-      }),
-      { id: 'video-1' },
-    ));
+    })(
+      createActionArgs(
+        new Request('http://localhost/api/visibility/video-1', {
+          body: JSON.stringify({ visibility: 'public' }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'PUT',
+        }),
+        { id: 'video-1' },
+      ),
+    );
 
     expect(response.status).toBe(401);
     await expect(response.text()).resolves.toBe('unauthorized');
@@ -399,10 +416,7 @@ describe('home write route library slice adapters', () => {
     const response = await createDeleteVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/delete', { method: 'DELETE' }),
-      {},
-    ));
+    })(createActionArgs(new Request('http://localhost/api/delete', { method: 'DELETE' }), {}));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
@@ -428,28 +442,32 @@ describe('home write route library slice adapters', () => {
     const updateResponse = await createUpdateVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/update/video-1', {
-        body: JSON.stringify({
-          tags: ['Action'],
-          title: 'Updated title',
+    })(
+      createActionArgs(
+        new Request('http://localhost/api/update/video-1', {
+          body: JSON.stringify({
+            tags: ['Action'],
+            title: 'Updated title',
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'PUT',
         }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'PUT',
-      }),
-      { id: 'video-1' },
-    ));
+        { id: 'video-1' },
+      ),
+    );
     const deleteResponse = await createDeleteVideoAction({
       getServerLibraryServices: getServerLibraryServicesMock,
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/delete/video-1', {
-        method: 'DELETE',
-      }),
-      { id: 'video-1' },
-    ));
+    })(
+      createActionArgs(
+        new Request('http://localhost/api/delete/video-1', {
+          method: 'DELETE',
+        }),
+        { id: 'video-1' },
+      ),
+    );
 
     expect(updateResponse.status).toBe(404);
     expect(deleteResponse.status).toBe(404);
@@ -492,16 +510,17 @@ describe('home write route library slice adapters', () => {
         reason: 'UPDATE_FAILED' as const,
       });
 
-    const request = () => createActionArgs(
-      new Request('http://localhost/api/visibility/video-1', {
-        body: JSON.stringify({ visibility: 'private' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'PATCH',
-      }),
-      { id: 'video-1' },
-    );
+    const request = () =>
+      createActionArgs(
+        new Request('http://localhost/api/visibility/video-1', {
+          body: JSON.stringify({ visibility: 'private' }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'PATCH',
+        }),
+        { id: 'video-1' },
+      );
 
     const forbidden = await action(request());
     const notFound = await action(request());
@@ -528,19 +547,21 @@ describe('home write route library slice adapters', () => {
         }),
       }),
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
-    })(createActionArgs(
-      new Request('http://localhost/api/update/video-1', {
-        body: JSON.stringify({
-          description: 'Updated description',
-          tags: ['Action'],
+    })(
+      createActionArgs(
+        new Request('http://localhost/api/update/video-1', {
+          body: JSON.stringify({
+            description: 'Updated description',
+            tags: ['Action'],
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'PUT',
         }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'PUT',
-      }),
-      { id: 'video-1' },
-    ));
+        { id: 'video-1' },
+      ),
+    );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({

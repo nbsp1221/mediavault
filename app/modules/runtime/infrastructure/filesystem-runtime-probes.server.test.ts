@@ -5,10 +5,10 @@ import path from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 import {
   DATABASE_READY_SENTINEL,
+  STORAGE_READY_SENTINEL,
   probeConfiguredStorage,
   probeDatabasePathWritable,
   probeStorageRootWritable,
-  STORAGE_READY_SENTINEL,
 } from './filesystem-runtime-probes.server';
 
 const tempRoots: string[] = [];
@@ -20,7 +20,7 @@ async function createTempRoot(): Promise<string> {
 }
 
 afterEach(async () => {
-  await Promise.all(tempRoots.splice(0).map(root => rm(root, { force: true, recursive: true })));
+  await Promise.all(tempRoots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
 });
 
 describe('filesystem runtime probes', () => {
@@ -66,7 +66,9 @@ describe('filesystem runtime probes', () => {
     const blockedParent = path.join(root, 'blocked');
     await writeFile(blockedParent, 'not a directory');
 
-    await expect(probeDatabasePathWritable(path.join(blockedParent, 'db.sqlite'))).resolves.toMatchObject({
+    await expect(
+      probeDatabasePathWritable(path.join(blockedParent, 'db.sqlite')),
+    ).resolves.toMatchObject({
       ok: false,
       target: 'database-path',
     });
@@ -96,8 +98,8 @@ describe('filesystem runtime probes', () => {
 
     expect(results).toHaveLength(2);
     expect(results).toContainEqual({ ok: true, target: 'storage-root' });
-    expect(results).toEqual(expect.arrayContaining([
-      expect.objectContaining({ ok: false, target: 'database-path' }),
-    ]));
+    expect(results).toEqual(
+      expect.arrayContaining([expect.objectContaining({ ok: false, target: 'database-path' })]),
+    );
   });
 });

@@ -12,11 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from '~/shared/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '~/shared/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '~/shared/ui/popover';
 
 interface VideoTaxonomySingleSelectProps {
   ariaLabel: string;
@@ -37,7 +33,7 @@ interface VideoTaxonomyMultiSelectProps {
 }
 
 function getOptionLabel(options: VideoTaxonomyItem[], slug: string) {
-  return options.find(option => option.slug === slug)?.label ?? slug;
+  return options.find((option) => option.slug === slug)?.label ?? slug;
 }
 
 export function VideoTaxonomySingleSelect({
@@ -63,7 +59,9 @@ export function VideoTaxonomySingleSelect({
           type="button"
           variant="outline"
         >
-          <span className={cn('truncate text-sm', !value && 'text-muted-foreground')}>{selectedLabel}</span>
+          <span className={cn('truncate text-sm', !value && 'text-muted-foreground')}>
+            {selectedLabel}
+          </span>
           <ChevronsUpDown data-icon="inline-end" />
         </Button>
       </PopoverTrigger>
@@ -83,7 +81,7 @@ export function VideoTaxonomySingleSelect({
                 <Check className={cn(!value ? 'opacity-100' : 'opacity-0')} />
                 No selection
               </CommandItem>
-              {options.map(option => (
+              {options.map((option) => (
                 <CommandItem
                   key={option.slug}
                   value={option.slug}
@@ -113,25 +111,34 @@ export function VideoTaxonomyMultiSelect({
   value,
 }: VideoTaxonomyMultiSelectProps) {
   const [open, setOpen] = useState(false);
-  const selectedLabels = useMemo(() => value.map(slug => getOptionLabel(options, slug)), [options, value]);
+  const selectedLabels = useMemo(
+    () => value.map((slug) => getOptionLabel(options, slug)),
+    [options, value],
+  );
 
   const toggleValue = (slug: string) => {
-    onChange(value.includes(slug)
-      ? value.filter(existingSlug => existingSlug !== slug)
-      : [...value, slug]);
+    onChange(
+      value.includes(slug)
+        ? value.filter((existingSlug) => existingSlug !== slug)
+        : [...value, slug],
+    );
   };
 
   return (
     <div className="flex flex-col gap-2">
       {value.length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          {value.map(slug => (
-            <Badge key={slug} variant="secondary" className="h-6 gap-1 rounded-md px-2 text-xs font-medium">
+          {value.map((slug) => (
+            <Badge
+              key={slug}
+              variant="secondary"
+              className="h-6 gap-1 rounded-md px-2 text-xs font-medium"
+            >
               {getOptionLabel(options, slug)}
               <Button
                 aria-label={`Remove ${getOptionLabel(options, slug)} genre`}
                 disabled={disabled}
-                onClick={() => onChange(value.filter(existingSlug => existingSlug !== slug))}
+                onClick={() => onChange(value.filter((existingSlug) => existingSlug !== slug))}
                 size="sm"
                 type="button"
                 variant="ghost"
@@ -167,13 +174,15 @@ export function VideoTaxonomyMultiSelect({
             <CommandList>
               <CommandEmpty>No options found.</CommandEmpty>
               <CommandGroup>
-                {options.map(option => (
+                {options.map((option) => (
                   <CommandItem
                     key={option.slug}
                     value={option.slug}
                     onSelect={() => toggleValue(option.slug)}
                   >
-                    <Check className={cn(value.includes(option.slug) ? 'opacity-100' : 'opacity-0')} />
+                    <Check
+                      className={cn(value.includes(option.slug) ? 'opacity-100' : 'opacity-0')}
+                    />
                     {option.label}
                   </CommandItem>
                 ))}

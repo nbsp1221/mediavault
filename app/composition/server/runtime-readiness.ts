@@ -15,14 +15,14 @@ import {
   type RuntimeStorageProbeConfig,
   probeConfiguredStorage,
 } from '~/modules/runtime/infrastructure/filesystem-runtime-probes.server';
-import {
-  probeMediaTools,
-} from '~/modules/runtime/infrastructure/media-tool-runtime-probes.server';
-import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { probeMediaTools } from '~/modules/runtime/infrastructure/media-tool-runtime-probes.server';
+import { createInitializedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { SqliteUserRepository } from '~/modules/user/infrastructure/sqlite/sqlite-user.repository';
-import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
-import { getAdminApiConfig } from '~/shared/config/app-config.server';
-import { getRuntimeEnvInput } from '~/shared/config/app-config.server';
+import {
+  getAdminApiConfig,
+  getPrimaryStorageConfig,
+  getRuntimeEnvInput,
+} from '~/shared/config/app-config.server';
 
 interface RuntimeReadinessLogger {
   error: (message: string) => void;
@@ -49,24 +49,24 @@ const DEFAULT_MEDIA_PROBE_CACHE_TTL_MS = 5_000;
 
 function defaultLogger(): RuntimeReadinessLogger {
   return {
-    error: message => console.error(message),
-    warn: message => console.warn(message),
+    error: (message) => console.error(message),
+    warn: (message) => console.warn(message),
   };
 }
 
 function createIssueSignature(issues: ProductionReadinessIssue[]): string {
   return issues
-    .map(issue => `${issue.code}:${issue.subject}:${issue.severity}`)
+    .map((issue) => `${issue.code}:${issue.subject}:${issue.severity}`)
     .sort()
     .join('|');
 }
 
 function formatIssueSummary(issues: ProductionReadinessIssue[]): string {
-  return issues.map(issue => issue.message).join('; ');
+  return issues.map((issue) => issue.message).join('; ');
 }
 
 async function runDefaultDatabaseStartupProbe(databasePath: string): Promise<void> {
-  await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+  await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
 }
 
 async function countDefaultAuthUsers(databasePath: string): Promise<number> {
@@ -104,9 +104,7 @@ export function createRuntimeReadinessServices(
   const countAuthUsers = input.countAuthUsers ?? countDefaultAuthUsers;
   const runDatabaseStartupProbe = input.runDatabaseStartupProbe ?? runDefaultDatabaseStartupProbe;
   const mediaProbeCacheTtlMs = input.mediaProbeCacheTtlMs ?? DEFAULT_MEDIA_PROBE_CACHE_TTL_MS;
-  let cachedMediaProbe:
-    | { expiresAt: number; results: MediaToolProbeResult[] }
-    | null = null;
+  let cachedMediaProbe: { expiresAt: number; results: MediaToolProbeResult[] } | null = null;
   let inFlightMediaProbe: Promise<MediaToolProbeResult[]> | null = null;
   let lastLoggedReadinessIssueSignature = '';
 
@@ -158,8 +156,7 @@ export function createRuntimeReadinessServices(
         adminApiConfig,
         authUserCount: await countAuthUsers(storageConfig.databasePath),
       });
-    }
-    catch {
+    } catch {
       return [createDatabaseStartupIssue()];
     }
   }
@@ -205,15 +202,13 @@ export function createRuntimeReadinessServices(
             adminApiConfig: getAdminApiConfig(env),
             authUserCount: await countAuthUsers(storageConfig.databasePath),
           });
-        }
-        catch {
+        } catch {
           authAccountIssues = [createDatabaseStartupIssue()];
         }
       }
       const startupIssues = [...storageIssues, ...authAccountIssues];
-      const mediaIssues = startupIssues.length > 0
-        ? []
-        : classifyMediaToolProbeResults(await checkMediaTools());
+      const mediaIssues =
+        startupIssues.length > 0 ? [] : classifyMediaToolProbeResults(await checkMediaTools());
       const report = createProductionReadinessReport({
         issues: [...startupIssues, ...mediaIssues],
       });
@@ -224,8 +219,7 @@ export function createRuntimeReadinessServices(
           logger.warn(formatIssueSummary(report.issues));
           lastLoggedReadinessIssueSignature = signature;
         }
-      }
-      else {
+      } else {
         lastLoggedReadinessIssueSignature = '';
       }
 
@@ -239,5 +233,4 @@ const defaultRuntimeReadinessServices = createRuntimeReadinessServices();
 export const assertProductionStartupPreflight =
   defaultRuntimeReadinessServices.assertProductionStartupPreflight;
 
-export const checkProductionReadiness =
-  defaultRuntimeReadinessServices.checkProductionReadiness;
+export const checkProductionReadiness = defaultRuntimeReadinessServices.checkProductionReadiness;

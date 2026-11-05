@@ -1,91 +1,43 @@
-# Browser QA Contract
+# Browser QA contract
 
-This document defines when browser QA is required, what level of browser validation is expected, and how browser verification should be executed without relying on hidden local state.
+Browser QA proves outcomes that module tests and HTTP responses cannot: real cookie behavior, navigation, rendered controls, upload/management state, and decoded playback. It complements the [verification gates](verification-contract.md), not replaces them.
 
-## Purpose
+## When it is required
 
-Use browser QA to validate behavior that HTTP-only checks cannot prove:
+- Browser-visible work requires `pnpm test:e2e:smoke` in addition to its base gates.
+- Runtime-sensitive and browser-visible changes require Playwright MCP or equivalent isolated personal browser QA when HTTP checks and the standard smoke suite cannot establish the changed success condition. Login/logout, session-dependent navigation, playback wiring, and rendered owner workflows are common cases.
+- Pure server policies with sufficient lower-layer coverage and documentation-only changes do not independently require a new personal browser session. Their other required gates still apply.
 
-- real navigation and redirected page flows
-- authenticated browser cookie behavior
-- player surface rendering
-- browser-driven playback request wiring
-- user-visible regressions in owner flows
+Run deterministic lower-layer checks first, then required browser smoke, then the focused personal flow. The [E2E guide](E2E_TESTING_GUIDE.md) explains the supported browser entrypoints.
 
-## Decision Rules
+## Isolation and credential safety
 
-### Browser QA is required when a change touches:
+Use test-owned temporary storage, explicit fixture environment, tracked/generated media, a dedicated server address, and a clean browser context. Every repository Playwright invocation creates isolated state; there is no developer-vault mode or existing-server reuse. Coordinate ports with other verification work instead of taking over a running server.
 
-- login or logout UI
-- protected page navigation
-- `player` route layout or player shell behavior
-- thumbnail, manifest, token, or media requests that depend on browser session state
-- browser-visible route wiring regressions
-- flows where the success condition must be observed in rendered UI
+Do not use the real local environment file, ignored uploaded videos, an existing account/session, cached browser storage, or arbitrary files from a developer vault as hidden inputs. Never delete local data or clear another user's browser profile to make QA reproducible. Keep keys, databases, and sources out of static assets.
 
-### Browser QA is optional when a change touches:
+Tracing stays off: authenticated requests and licenses contain cookies, bearer tokens, and ClearKey material. Do not collect raw HARs, request/response bodies, auth headers, session dumps, or key-bearing traces. Read fixture credentials inside the QA process, never print them. Mask sensitive UI when taking screenshots and keep sanitized evidence outside Git.
 
-- pure server-side policies already covered by module or integration tests
-- internal application code with no user-visible path changes
-- documentation-only changes
+## Observe the actual outcome
 
-### Playwright MCP or manual browser QA is required when:
+| Changed flow              | Direct browser evidence                                                                                                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Login/logout and sessions | Sign in through the form, navigate to the intended protected page, sign out, and observe denied/revoked access as relevant                                                                                 |
+| Navigation/shell/layout   | Use visible links and controls, verify the destination and rendered state, and inspect relevant narrow/desktop viewports                                                                                   |
+| Upload/processing         | Transfer a tracked fixture, accept metadata, observe server-backed job state, and distinguish acceptance from successful publication; reload/navigation must retain the job                                |
+| Owner management          | Perform the actual edit/visibility/playlist/destructive confirmation flow and observe persisted results or the correct denial/error                                                                        |
+| Playback                  | Start the real encrypted asset, observe advancing playback time **and** increasing decoded-frame evidence or rendered video-frame callbacks; test relevant seek, controls, and source/playlist transitions |
 
-- the changed flow is runtime-sensitive and browser-visible
-- the required confidence cannot be reached with HTTP-level checks plus the standard browser smoke suite
-- the task changes cookies, navigation, playback request wiring, or rendered owner workflows
+A mounted player, HTTP `200`, successful license exchange, nonzero metadata dimensions, `canplay`, or a vanished loading label alone does not prove decoded video. A playable public video also does not prove private/other-owner denial or session revocation. Exercise the corresponding negative path when authorization changes.
 
-## Expected QA Order
+Check sanitized console/network outcomes for failures, unexpected destinations, and repeated engine/source initialization. Token refresh should not reset the active media engine. Do not disable authorization, encryption, or browser security to manufacture a pass. Distinguish an unsupported browser/codec/EME environment from an application defect; do not claim unsupported devices were validated.
 
-1. Run the default verification contract first.
-2. Run HTTP-level or integration checks next when they can prove most of the behavior deterministically.
-3. Run the required browser smoke command when the change is browser-visible:
+## Tools and fallback
 
-```bash
-bun run test:e2e:smoke
-```
+Prefer Playwright MCP when available for personal QA; an equivalent browser automation tool or an isolated manually operated browser is acceptable when it observes the same outcome. If MCP is unavailable, run the required smoke suite, use the isolated fallback for any remaining browser-only condition, and report the tool/path and limitation. Do not silently skip the condition or substitute an HTTP-only check.
 
-4. Escalate to Playwright MCP or manual browser QA when the changed flow still depends on real browser state or rendered UI confirmation.
+For fixture-dependent changes, verify the flow from a clean export or equivalent tracked-input proof as well as the working tree. [Playback](playback.md) documents engine, codec, and encryption limits.
 
-## Isolation Rules
+## Handoff evidence
 
-- Do not rely on repo-local auth DB state, repo-local uploaded files, or repo-local browser storage as hidden fixtures.
-- Do not rely on ambient `.env` values. Seed the required environment explicitly.
-- Prefer isolated temporary workspaces for runtime QA when the flow touches auth or storage.
-- Prefer checked-in test fixtures or generated temporary fixtures over ad-hoc local machine state.
-- For playback/browser smoke, do not use ignored `storage/` assets as fixture sources. Use tracked test-owned fixtures or generators that run inside the same authority scripts and CI provisioning path.
-
-## Playwright MCP Expectations
-
-When Playwright MCP is used, the QA pass should verify the user-visible success condition directly, not just navigation side effects.
-
-Typical expectations:
-
-- confirm login succeeds in-browser
-- confirm protected navigation lands on the intended page
-- confirm the target flow shows the expected success or error state
-- inspect browser console or network activity when playback or route wiring is involved
-
-## Fallback When Playwright MCP Is Unavailable
-
-If Playwright MCP is unavailable or unstable:
-
-- do not silently skip browser QA
-- fall back to the required browser smoke suite first
-- if higher confidence is still needed, run an isolated built-server or dev-server manual QA flow with explicit seeded environment and temporary runtime state
-- report that the fallback path was used and why
-
-## Reporting Contract
-
-A browser QA report should state:
-
-- which flow was exercised
-- whether Playwright MCP or fallback QA was used
-- which success condition was directly observed
-- whether any blocker or important browser-visible issue remains
-- whether the exercised runtime state came from tracked fixtures or another explicitly documented hermetic seed path
-
-## Relationship To Other Docs
-
-- `docs/verification-contract.md` defines the base verification bundle and escalation matrix.
-- `docs/E2E_TESTING_GUIDE.md` documents the practical test layers and workflow details.
+Report the flow, tool/fallback, fixture provenance, directly observed success condition, negative cases checked, and unresolved issues. Keep a failed or unverified browser condition explicit even when lower layers pass. Do not put execution reports, drifting test counts, secret values, or QA artifacts into permanent product documentation.

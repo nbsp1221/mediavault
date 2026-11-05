@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import type { UpdateLibraryVideoMetadataInput } from '../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
 
 describe('sqlite library video mutation adapter', () => {
   beforeEach(() => {
@@ -21,22 +22,23 @@ describe('sqlite library video mutation adapter', () => {
       videoUrl: '/videos/video-1/manifest.mpd',
       visibility: 'private' as const,
     }));
-    const update = vi.fn(async (videoId: string, input: Record<string, unknown>) => ({
-      contentTypeSlug: input.contentTypeSlug as string | undefined,
+    const update = vi.fn(async (videoId: string, input: UpdateLibraryVideoMetadataInput) => ({
+      contentTypeSlug: input.contentTypeSlug ?? undefined,
       createdAt: new Date('2026-03-10T00:00:00.000Z'),
-      description: input.description as string,
+      description: input.description,
       duration: 95,
-      genreSlugs: input.genreSlugs as string[],
+      genreSlugs: input.genreSlugs,
       id: videoId,
       ownerId: 'owner-1',
-      tags: input.tags as string[],
+      tags: input.tags ?? ['Action', 'Drama'],
       thumbnailUrl: '/api/thumbnail/video-1',
-      title: input.title as string,
+      title: input.title ?? 'Fixture Video',
       videoUrl: '/videos/video-1/manifest.mpd',
       visibility: 'private' as const,
     }));
 
-    const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
+    const { SqliteLibraryVideoMutationAdapter } =
+      await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
     const adapter = new SqliteLibraryVideoMutationAdapter({
       repository: {
         delete: vi.fn(),
@@ -47,27 +49,35 @@ describe('sqlite library video mutation adapter', () => {
       },
     });
 
-    await expect(adapter.findOwnedLibraryVideoById({
-      ownerId: 'owner-1',
-      videoId: 'video-1',
-    })).resolves.toEqual(expect.objectContaining({
-      id: 'video-1',
-      title: 'Fixture Video',
-    }));
-    await expect(adapter.updateLibraryVideo({
-      contentTypeSlug: 'home_video',
-      description: 'Updated description',
-      genreSlugs: ['documentary'],
-      tags: ['Neo'],
-      title: 'Updated title',
-      videoId: 'video-1',
-    })).resolves.toEqual(expect.objectContaining({
-      description: 'Updated description',
-      genreSlugs: ['documentary'],
-      id: 'video-1',
-      tags: ['Neo'],
-      title: 'Updated title',
-    }));
+    await expect(
+      adapter.findOwnedLibraryVideoById({
+        ownerId: 'owner-1',
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'video-1',
+        title: 'Fixture Video',
+      }),
+    );
+    await expect(
+      adapter.updateLibraryVideo({
+        contentTypeSlug: 'home_video',
+        description: 'Updated description',
+        genreSlugs: ['documentary'],
+        tags: ['Neo'],
+        title: 'Updated title',
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        description: 'Updated description',
+        genreSlugs: ['documentary'],
+        id: 'video-1',
+        tags: ['Neo'],
+        title: 'Updated title',
+      }),
+    );
 
     expect(findById).toHaveBeenCalledWith('video-1', 'owner-1');
     expect(update).toHaveBeenCalledWith('video-1', {
@@ -81,22 +91,23 @@ describe('sqlite library video mutation adapter', () => {
 
   test('preserves structured metadata omission semantics at the repository boundary', async () => {
     const findById = vi.fn();
-    const update = vi.fn(async (videoId: string, input: Record<string, unknown>) => ({
-      contentTypeSlug: input.contentTypeSlug as string | undefined,
+    const update = vi.fn(async (videoId: string, input: UpdateLibraryVideoMetadataInput) => ({
+      contentTypeSlug: input.contentTypeSlug ?? undefined,
       createdAt: new Date('2026-03-10T00:00:00.000Z'),
-      description: input.description as string,
+      description: input.description,
       duration: 95,
-      genreSlugs: input.genreSlugs as string[] | undefined ?? ['action'],
+      genreSlugs: input.genreSlugs ?? ['action'],
       id: videoId,
       ownerId: 'owner-1',
-      tags: input.tags as string[],
+      tags: input.tags ?? ['Action', 'Drama'],
       thumbnailUrl: '/api/thumbnail/video-1',
-      title: input.title as string,
+      title: input.title ?? 'Fixture Video',
       videoUrl: '/videos/video-1/manifest.mpd',
       visibility: 'private' as const,
     }));
 
-    const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
+    const { SqliteLibraryVideoMutationAdapter } =
+      await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
     const adapter = new SqliteLibraryVideoMutationAdapter({
       repository: {
         delete: vi.fn(),
@@ -178,19 +189,28 @@ describe('sqlite library video mutation adapter', () => {
       ownerId: 'owner-2',
     };
     const findById = vi.fn(async (videoId: string) => {
-      if (videoId === 'owner-video') return ownerVideo;
-      if (videoId === 'public-other') return publicOtherVideo;
-      if (videoId === 'private-other') return privateOtherVideo;
+      if (videoId === 'owner-video') {
+        return ownerVideo;
+      }
+      if (videoId === 'public-other') {
+        return publicOtherVideo;
+      }
+      if (videoId === 'private-other') {
+        return privateOtherVideo;
+      }
       return null;
     });
-    const updateVisibility = vi.fn(async (videoId: string, ownerId: string, visibility: 'private' | 'public') => ({
-      ...ownerVideo,
-      id: videoId,
-      ownerId,
-      visibility,
-    }));
+    const updateVisibility = vi.fn(
+      async (videoId: string, ownerId: string, visibility: 'private' | 'public') => ({
+        ...ownerVideo,
+        id: videoId,
+        ownerId,
+        visibility,
+      }),
+    );
 
-    const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
+    const { SqliteLibraryVideoMutationAdapter } =
+      await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
     const adapter = new SqliteLibraryVideoMutationAdapter({
       repository: {
         delete: vi.fn(),
@@ -201,33 +221,45 @@ describe('sqlite library video mutation adapter', () => {
       },
     });
 
-    await expect(adapter.resolveVisibilityManagementTarget({
-      requesterId: 'owner-1',
-      videoId: 'owner-video',
-    })).resolves.toEqual({
+    await expect(
+      adapter.resolveVisibilityManagementTarget({
+        requesterId: 'owner-1',
+        videoId: 'owner-video',
+      }),
+    ).resolves.toEqual({
       type: 'owned',
       video: ownerVideo,
     });
-    await expect(adapter.resolveVisibilityManagementTarget({
-      requesterId: 'owner-1',
-      videoId: 'public-other',
-    })).resolves.toEqual({ type: 'public_non_owner' });
-    await expect(adapter.resolveVisibilityManagementTarget({
-      requesterId: 'owner-1',
-      videoId: 'private-other',
-    })).resolves.toEqual({ type: 'not_found_or_private_inaccessible' });
-    await expect(adapter.resolveVisibilityManagementTarget({
-      requesterId: 'owner-1',
-      videoId: 'missing-video',
-    })).resolves.toEqual({ type: 'not_found_or_private_inaccessible' });
-    await expect(adapter.updateLibraryVideoVisibility({
-      ownerId: 'owner-1',
-      videoId: 'owner-video',
-      visibility: 'public',
-    })).resolves.toEqual(expect.objectContaining({
-      id: 'owner-video',
-      visibility: 'public',
-    }));
+    await expect(
+      adapter.resolveVisibilityManagementTarget({
+        requesterId: 'owner-1',
+        videoId: 'public-other',
+      }),
+    ).resolves.toEqual({ type: 'public_non_owner' });
+    await expect(
+      adapter.resolveVisibilityManagementTarget({
+        requesterId: 'owner-1',
+        videoId: 'private-other',
+      }),
+    ).resolves.toEqual({ type: 'not_found_or_private_inaccessible' });
+    await expect(
+      adapter.resolveVisibilityManagementTarget({
+        requesterId: 'owner-1',
+        videoId: 'missing-video',
+      }),
+    ).resolves.toEqual({ type: 'not_found_or_private_inaccessible' });
+    await expect(
+      adapter.updateLibraryVideoVisibility({
+        ownerId: 'owner-1',
+        videoId: 'owner-video',
+        visibility: 'public',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'owner-video',
+        visibility: 'public',
+      }),
+    );
     expect(updateVisibility).toHaveBeenCalledWith('owner-video', 'owner-1', 'public');
   });
 
@@ -246,12 +278,10 @@ describe('sqlite library video mutation adapter', () => {
         visibility: 'private' as const,
       })
       .mockResolvedValueOnce(null);
-    const remove = vi
-      .fn()
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false);
+    const remove = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
-    const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
+    const { SqliteLibraryVideoMutationAdapter } =
+      await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
     const adapter = new SqliteLibraryVideoMutationAdapter({
       repository: {
         delete: remove,

@@ -9,12 +9,11 @@ const originalStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
 
 afterEach(async () => {
   vi.resetModules();
-  await Promise.all(cleanupTasks.splice(0).map(task => task()));
+  await Promise.all(cleanupTasks.splice(0).map((task) => task()));
 
   if (originalStorageDir === undefined) {
     delete process.env.MEDIAVAULT_STORAGE_DIR;
-  }
-  else {
+  } else {
     process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
   }
 });
@@ -51,26 +50,27 @@ describe('active SQLite metadata path resolution', () => {
     process.env.MEDIAVAULT_STORAGE_DIR = storageOne;
     vi.resetModules();
 
-    const { SqliteCanonicalVideoMetadataAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter');
+    const { SqliteCanonicalVideoMetadataAdapter } =
+      await import('../../../app/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter');
     const firstAdapter = new SqliteCanonicalVideoMetadataAdapter();
 
-    await expect(firstAdapter.listLibraryVideos({
-      ownerId: 'seeded-owner-1',
-      type: 'public_or_owned',
-    })).resolves.toEqual([
-      expect.objectContaining({ id: 'workspace-one-video' }),
-    ]);
+    await expect(
+      firstAdapter.listLibraryVideos({
+        ownerId: 'seeded-owner-1',
+        type: 'public_or_owned',
+      }),
+    ).resolves.toEqual([expect.objectContaining({ id: 'workspace-one-video' })]);
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageTwo;
 
     const secondAdapter = new SqliteCanonicalVideoMetadataAdapter();
 
-    await expect(secondAdapter.listLibraryVideos({
-      ownerId: 'seeded-owner-1',
-      type: 'public_or_owned',
-    })).resolves.toEqual([
-      expect.objectContaining({ id: 'workspace-two-video' }),
-    ]);
+    await expect(
+      secondAdapter.listLibraryVideos({
+        ownerId: 'seeded-owner-1',
+        type: 'public_or_owned',
+      }),
+    ).resolves.toEqual([expect.objectContaining({ id: 'workspace-two-video' })]);
   });
 
   test('SqliteLibraryVideoMutationAdapter follows the current workspace when instantiated after env changes', async () => {
@@ -87,26 +87,27 @@ describe('active SQLite metadata path resolution', () => {
     process.env.MEDIAVAULT_STORAGE_DIR = storageOne;
     vi.resetModules();
 
-    const { SqliteLibraryVideoMutationAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
+    const { SqliteLibraryVideoMutationAdapter } =
+      await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.adapter');
     const firstAdapter = new SqliteLibraryVideoMutationAdapter();
 
-    await expect(firstAdapter.findOwnedLibraryVideoById({
-      ownerId: 'seeded-owner-1',
-      videoId: 'mutation-one-video',
-    })).resolves.toEqual(
-      expect.objectContaining({ id: 'mutation-one-video' }),
-    );
+    await expect(
+      firstAdapter.findOwnedLibraryVideoById({
+        ownerId: 'seeded-owner-1',
+        videoId: 'mutation-one-video',
+      }),
+    ).resolves.toEqual(expect.objectContaining({ id: 'mutation-one-video' }));
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageTwo;
 
     const secondAdapter = new SqliteLibraryVideoMutationAdapter();
 
-    await expect(secondAdapter.findOwnedLibraryVideoById({
-      ownerId: 'seeded-owner-1',
-      videoId: 'mutation-two-video',
-    })).resolves.toEqual(
-      expect.objectContaining({ id: 'mutation-two-video' }),
-    );
+    await expect(
+      secondAdapter.findOwnedLibraryVideoById({
+        ownerId: 'seeded-owner-1',
+        videoId: 'mutation-two-video',
+      }),
+    ).resolves.toEqual(expect.objectContaining({ id: 'mutation-two-video' }));
   });
 
   test('ignores previous videos.json when SQLite is empty', async () => {
@@ -117,29 +118,40 @@ describe('active SQLite metadata path resolution', () => {
     const dataDir = path.join(storageDir, 'data');
     const sqlitePath = path.join(storageDir, 'db.sqlite');
     await mkdir(dataDir, { recursive: true });
-    await writeFile(path.join(dataDir, 'videos.json'), JSON.stringify([
-      {
-        addedAt: '2026-03-24T00:00:00.000Z',
-        duration: 90,
-        id: 'previous-json-video',
-        tags: ['vault'],
-        title: 'previous-json-video',
-        videoUrl: '/videos/previous-json-video/manifest.mpd',
-      },
-    ], null, 2));
+    await writeFile(
+      path.join(dataDir, 'videos.json'),
+      JSON.stringify(
+        [
+          {
+            addedAt: '2026-03-24T00:00:00.000Z',
+            duration: 90,
+            id: 'previous-json-video',
+            tags: ['vault'],
+            title: 'previous-json-video',
+            videoUrl: '/videos/previous-json-video/manifest.mpd',
+          },
+        ],
+        null,
+        2,
+      ),
+    );
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     vi.resetModules();
 
-    const { SqliteCanonicalVideoMetadataAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter');
-    const { SqliteLibraryVideoMetadataRepository } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository');
+    const { SqliteCanonicalVideoMetadataAdapter } =
+      await import('../../../app/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter');
+    const { SqliteLibraryVideoMetadataRepository } =
+      await import('../../../app/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository');
 
     const adapter = new SqliteCanonicalVideoMetadataAdapter();
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath: sqlitePath });
 
-    await expect(adapter.listLibraryVideos({
-      type: 'public_only',
-    })).resolves.toEqual([]);
+    await expect(
+      adapter.listLibraryVideos({
+        type: 'public_only',
+      }),
+    ).resolves.toEqual([]);
     await expect(repository.count()).resolves.toBe(0);
   });
 });

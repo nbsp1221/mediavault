@@ -33,10 +33,7 @@ interface ChangeLibraryVideoVisibilityUseCaseDependencies {
   videoMutation: LibraryVideoVisibilityMutationPort;
 }
 
-function canManageVisibility(input: {
-  existingVideo: LibraryVideo;
-  viewer: VideoViewer;
-}) {
+function canManageVisibility(input: { existingVideo: LibraryVideo; viewer: VideoViewer }) {
   return VideoAccessPolicy.evaluate({
     operation: 'manage_visibility',
     ownerId: input.existingVideo.ownerId,
@@ -50,11 +47,11 @@ function formatVisibilityLabel(visibility: VideoVisibility) {
 }
 
 export class ChangeLibraryVideoVisibilityUseCase {
-  constructor(
-    private readonly deps: ChangeLibraryVideoVisibilityUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: ChangeLibraryVideoVisibilityUseCaseDependencies) {}
 
-  async execute(input: ChangeLibraryVideoVisibilityInput): Promise<ChangeLibraryVideoVisibilityUseCaseResult> {
+  async execute(
+    input: ChangeLibraryVideoVisibilityInput,
+  ): Promise<ChangeLibraryVideoVisibilityUseCaseResult> {
     const videoId = input.videoId.trim();
 
     if (videoId.length === 0) {

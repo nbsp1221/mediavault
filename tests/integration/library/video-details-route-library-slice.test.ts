@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { routeArgs } from '../../helpers/route-args';
 
 const resolveRequestViewerMock = vi.fn();
 const loadOwnedVideoDetailsExecuteMock = vi.fn();
@@ -55,10 +56,14 @@ describe('video details route library slice adapter', () => {
     });
     const { loader } = await importVideoDetailsRoute();
 
-    const response = await loader({
-      params: { videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/edit?redirectTo=%2F%3Fq%3DAction%26tag%3DNeo'),
-    } as never);
+    const response = await loader(
+      routeArgs({
+        params: { videoId: 'video-1' },
+        request: new Request(
+          'http://localhost/videos/video-1/edit?redirectTo=%2F%3Fq%3DAction%26tag%3DNeo',
+        ),
+      }),
+    );
 
     expect(resolveRequestViewerMock).toHaveBeenCalledOnce();
     expect(getServerLibraryServicesMock).toHaveBeenCalledOnce();
@@ -69,14 +74,17 @@ describe('video details route library slice adapter', () => {
       },
       videoId: 'video-1',
     });
-    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
-    expect(response.headers.get('Referrer-Policy')).toBe('no-referrer');
-    expect(response.headers.get('Vary')).toBe('Cookie');
-    await expect(response.json()).resolves.toEqual({
+    const headers = new Headers(response.init?.headers);
+    expect(headers.get('Cache-Control')).toBe('private, no-store');
+    expect(headers.get('Referrer-Policy')).toBe('no-referrer');
+    expect(headers.get('Vary')).toBe('Cookie');
+    const body = response.data;
+    expect(Object.keys(body).sort()).toEqual(['contentTypes', 'genres', 'redirectTo', 'video']);
+    expect(body).toMatchObject({
       contentTypes: [{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }],
       genres: [{ active: true, label: 'Action', slug: 'action', sortOrder: 10 }],
       redirectTo: '/?q=Action&tag=Neo',
-      video: expect.objectContaining({
+      video: {
         createdAt: '2026-03-11T00:00:00.000Z',
         id: 'video-1',
         isPrivate: true,
@@ -86,17 +94,21 @@ describe('video details route library slice adapter', () => {
           canManageVisibility: true,
         },
         title: 'Catalog Fixture',
-      }),
+      },
     });
   });
 
   test('rejects missing route params before hitting the library service', async () => {
     const { loader } = await importVideoDetailsRoute();
 
-    await expect(loader({
-      params: {},
-      request: new Request('http://localhost/videos//edit'),
-    } as never)).rejects.toMatchObject({
+    await expect(
+      loader(
+        routeArgs({
+          params: {},
+          request: new Request('http://localhost/videos//edit'),
+        }),
+      ),
+    ).rejects.toMatchObject({
       status: 400,
     });
 
@@ -106,17 +118,47 @@ describe('video details route library slice adapter', () => {
   test('builds route metadata from loaded video titles when available', async () => {
     const { meta } = await importVideoDetailsRoute();
 
-    expect(meta({
-      data: {
-        video: {
-          title: 'Catalog Fixture',
-        },
+    const loaderData = {
+      contentTypes: [],
+      genres: [],
+      redirectTo: '/',
+      video: {
+        id: 'video-1',
+        title: 'Catalog Fixture',
+        createdAt: '2026-03-11T00:00:00.000Z',
+        duration: 180,
+        isPrivate: true,
+        permissions: { canEdit: true, canDelete: true, canManageVisibility: true },
+        tags: [],
+        videoUrl: '/videos/video-1/manifest.mpd',
       },
-    } as never)).toEqual([
+    };
+    const context: Parameters<typeof meta>[0] = {
+      loaderData,
+      location: {
+        pathname: '/videos/video-1/edit',
+        search: '',
+        hash: '',
+        state: null,
+        key: 'test',
+      },
+      matches: [
+        { id: 'root', pathname: '/', params: {}, meta: [], loaderData: { user: null } },
+        {
+          id: 'routes/videos.$videoId.edit',
+          pathname: '/videos/video-1/edit',
+          params: { videoId: 'video-1' },
+          meta: [],
+          loaderData,
+        },
+      ],
+      params: { videoId: 'video-1' },
+    };
+    expect(meta(context)).toEqual([
       { title: 'Catalog Fixture - Video details' },
       { name: 'description', content: 'Manage video details' },
     ]);
-    expect(meta({ data: undefined } as never)).toEqual([
+    expect(meta({ ...context, loaderData: undefined })).toEqual([
       { title: 'Video details' },
       { name: 'description', content: 'Manage video details' },
     ]);
@@ -135,10 +177,14 @@ describe('video details route library slice adapter', () => {
       new Request('http://localhost/videos/other-public-video/edit'),
       new Request('http://localhost/videos/missing-video/edit'),
     ]) {
-      await expect(loader({
-        params: { videoId: request.url.split('/videos/')[1].split('/edit')[0] },
-        request,
-      } as never)).rejects.toMatchObject({
+      await expect(
+        loader(
+          routeArgs({
+            params: { videoId: request.url.split('/videos/')[1].split('/edit')[0] },
+            request,
+          }),
+        ),
+      ).rejects.toMatchObject({
         status: 404,
       });
     }
@@ -152,10 +198,14 @@ describe('video details route library slice adapter', () => {
       reason: 'VIDEO_DETAILS_SOURCE_UNAVAILABLE',
     });
 
-    await expect(loader({
-      params: { videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/edit'),
-    } as never)).rejects.toMatchObject({
+    await expect(
+      loader(
+        routeArgs({
+          params: { videoId: 'video-1' },
+          request: new Request('http://localhost/videos/video-1/edit'),
+        }),
+      ),
+    ).rejects.toMatchObject({
       status: 500,
     });
   });
@@ -180,13 +230,17 @@ describe('video details route library slice adapter', () => {
     });
     const { loader } = await importVideoDetailsRoute();
 
-    const response = await loader({
-      params: { videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/edit?redirectTo=https%3A%2F%2Fexample.com'),
-    } as never);
+    const response = await loader(
+      routeArgs({
+        params: { videoId: 'video-1' },
+        request: new Request(
+          'http://localhost/videos/video-1/edit?redirectTo=https%3A%2F%2Fexample.com',
+        ),
+      }),
+    );
 
-    await expect(response.json()).resolves.toEqual(expect.objectContaining({
+    expect(response.data).toMatchObject({
       redirectTo: '/',
-    }));
+    });
   });
 });

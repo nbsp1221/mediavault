@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { createPlaylistRuntimeTestWorkspace, PLAYLIST_OWNER_ID } from '../../support/create-playlist-runtime-test-workspace';
+import type * as AuthComposition from '~/composition/server/auth';
+import { routeArgs } from '../../helpers/route-args';
+import {
+  PLAYLIST_OWNER_ID,
+  createPlaylistRuntimeTestWorkspace,
+} from '../../support/create-playlist-runtime-test-workspace';
 
 const requireProtectedApiSessionValueMock = vi.fn();
 
@@ -46,14 +51,21 @@ describe('playlist composition ownership boundary', () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.doMock('~/composition/server/auth', async () => {
-      const actual = await vi.importActual<typeof import('~/composition/server/auth')>('~/composition/server/auth');
+      const actual = await vi.importActual<typeof AuthComposition>('~/composition/server/auth');
 
       return {
         ...actual,
         requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
+        resolvePublicVideoAccess: async () => ({
+          headers: new Headers({ 'Cache-Control': 'private, no-store' }),
+          viewer: { type: 'authenticated', userId: PLAYLIST_OWNER_ID },
+        }),
       };
     });
-    requireProtectedApiSessionValueMock.mockResolvedValue({ id: 'session-1', userId: PLAYLIST_OWNER_ID });
+    requireProtectedApiSessionValueMock.mockResolvedValue({
+      id: 'session-1',
+      userId: PLAYLIST_OWNER_ID,
+    });
   });
 
   afterEach(async () => {
@@ -65,26 +77,30 @@ describe('playlist composition ownership boundary', () => {
     }
   });
 
-  test('playlist detail resolves videos from the active metadata store without videos.json bootstrap data', async () => {
+  test('playlist detail resolves ready videos from canonical metadata', async () => {
     const { loader } = await importPlaylistDetailApiRoute();
 
-    const response = await loader({
-      params: { id: 'playlist-owned-private' },
-      request: new Request('http://localhost/api/playlists/playlist-owned-private?includeVideos=true&includeStats=true'),
-    } as never);
+    const response = await loader(
+      routeArgs({
+        params: { id: 'playlist-owned-private' },
+        request: new Request(
+          'http://localhost/api/playlists/playlist-owned-private?includeVideos=true',
+        ),
+      }),
+    );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual(expect.objectContaining({
-      playlist: expect.objectContaining({
+    await expect(response.json()).resolves.toMatchObject({
+      playlist: {
         id: 'playlist-owned-private',
-        videos: expect.arrayContaining([
-          expect.objectContaining({
+        videos: [
+          {
             id: 'playlist-video-1',
             title: 'Playlist Fixture One',
-          }),
-        ]),
-      }),
+          },
+        ],
+      },
       success: true,
-    }));
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { ensureMediaTools } from './lib/runtime/ensure-media-tools';
 
 const E2E_SMOKE_SPECS = [
   'tests/e2e/anonymous-public-access.spec.ts',
@@ -36,15 +37,14 @@ function runRequired(command: string, args: string[], env?: NodeJS.ProcessEnv) {
   }
 }
 
-runRequired('bun', ['run', 'check:hermetic-inputs']);
-runRequired('bun', ['run', 'download:ffmpeg']);
-runRequired('bun', ['run', 'download:shaka']);
+runRequired('pnpm', ['check:hermetic-inputs']);
+ensureMediaTools((name) => runRequired('pnpm', [name]));
 
-const installBrowserArgs = ['playwright', 'install'];
+const installBrowserArgs = ['exec', 'playwright', 'install'];
 if (process.env.LOCAL_STREAMER_PLAYWRIGHT_INSTALL_DEPS === 'true') {
   installBrowserArgs.push('--with-deps');
 }
 installBrowserArgs.push('chromium');
 
-runRequired('bunx', installBrowserArgs);
-runRequired('bun', ['run', 'test:e2e', '--', ...E2E_SMOKE_SPECS]);
+runRequired('pnpm', installBrowserArgs);
+runRequired('pnpm', ['test:e2e', ...E2E_SMOKE_SPECS]);

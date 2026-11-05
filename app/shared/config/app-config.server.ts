@@ -2,11 +2,44 @@ import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
-import type { AdminApiConfig, AuthClientIdentityConfig, AuthConfig, AuthCookieConfig, AuthRateLimitConfig, MediaKeyDerivationConfig, MediaPackagingConfig, PlaybackConfig, PrimaryStorageConfig, RuntimeConfig, RuntimeEnvInput, StoragePaths, VideoToolOverridesConfig } from './app-config.types';
+import type {
+  AdminApiConfig,
+  AuthClientIdentityConfig,
+  AuthConfig,
+  AuthCookieConfig,
+  AuthRateLimitConfig,
+  MediaKeyDerivationConfig,
+  MediaPackagingConfig,
+  PlaybackConfig,
+  PrimaryStorageConfig,
+  RuntimeConfig,
+  RuntimeEnvInput,
+  StoragePaths,
+  VideoToolOverridesConfig,
+} from './app-config.types';
 import { PUBLIC_ENV_KEYS } from './public-env.server';
-import { getWeakPlaybackJwtSecretMessage, isWeakPlaybackJwtSecret } from './runtime-config-contract.server';
+import {
+  getWeakPlaybackJwtSecretMessage,
+  isWeakPlaybackJwtSecret,
+} from './runtime-config-contract.server';
 
-export type { AdminApiConfig, AdminApiMode, AuthClientIdentityConfig, AuthConfig, AuthCookieConfig, AuthRateLimitConfig, MediaKeyDerivationConfig, MediaPackagingConfig, PlaybackConfig, PrimaryStorageConfig, RuntimeConfig, RuntimeEnvInput, RuntimeMode, StoragePaths, VideoToolOverridesConfig } from './app-config.types';
+export type {
+  AdminApiConfig,
+  AdminApiMode,
+  AuthClientIdentityConfig,
+  AuthConfig,
+  AuthCookieConfig,
+  AuthRateLimitConfig,
+  MediaKeyDerivationConfig,
+  MediaPackagingConfig,
+  PlaybackConfig,
+  PrimaryStorageConfig,
+  RuntimeConfig,
+  RuntimeEnvInput,
+  RuntimeMode,
+  StoragePaths,
+  VideoToolOverridesConfig,
+} from './app-config.types';
 
 const DEFAULT_FAILED_LOGIN_BLOCK_DURATION_MS = 5 * 60 * 1000;
 const DEFAULT_FAILED_LOGIN_DELAY_MS = 750;
@@ -27,90 +60,208 @@ function blankStringToUndefined(value: unknown): unknown {
 
 const optionalRawString = () => z.preprocess(blankStringToUndefined, z.string().optional());
 
-const optionalTrimmedString = () => z.preprocess(blankStringToUndefined, z.string().trim().optional());
+const optionalTrimmedString = () =>
+  z.preprocess(blankStringToUndefined, z.string().trim().optional());
 
 function booleanSetting(key: string, defaultValue: boolean) {
-  return z.preprocess((value) => {
-    const nonBlankValue = blankStringToUndefined(value);
-    if (typeof nonBlankValue !== 'string') {
-      return nonBlankValue;
-    }
-
-    const normalized = nonBlankValue.trim().toLowerCase();
-    if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-      return true;
-    }
-    if (['0', 'false', 'no', 'off'].includes(normalized)) {
-      return false;
-    }
-    return nonBlankValue;
-  }, z.boolean({ error: `Invalid ${key}. Expected true or false.` }).optional().default(defaultValue));
-}
-
-function positiveIntegerSetting(key: string, defaultValue: number) {
   return z.preprocess(
-    blankStringToUndefined,
-    z.string()
-      .trim()
-      .regex(/^[1-9]\d*$/, `Invalid ${key}. Expected a positive integer.`)
-      .refine(value => Number.isSafeInteger(Number(value)), `Invalid ${key}. Expected a safe positive integer.`)
-      .transform(value => Number(value))
+    (value) => {
+      const nonBlankValue = blankStringToUndefined(value);
+      if (typeof nonBlankValue !== 'string') {
+        return nonBlankValue;
+      }
+
+      const normalized = nonBlankValue.trim().toLowerCase();
+      if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+        return true;
+      }
+      if (['0', 'false', 'no', 'off'].includes(normalized)) {
+        return false;
+      }
+      return nonBlankValue;
+    },
+    z
+      .boolean({ error: `Invalid ${key}. Expected true or false.` })
       .optional()
       .default(defaultValue),
   );
 }
 
+function positiveIntegerSetting(key: string, defaultValue: number) {
+  return z.preprocess(
+    blankStringToUndefined,
+    z
+      .string()
+      .trim()
+      .regex(/^[1-9]\d*$/, `Invalid ${key}. Expected a positive integer.`)
+      .refine(
+        (value) => Number.isSafeInteger(Number(value)),
+        `Invalid ${key}. Expected a safe positive integer.`,
+      )
+      .transform((value) => Number(value))
+      .optional()
+      .default(defaultValue),
+  );
+}
+
+const publicOriginSetting = z.preprocess(
+  blankStringToUndefined,
+  z
+    .string()
+    .trim()
+    .pipe(
+      z.url({ protocol: /^https?$/, error: 'MEDIAVAULT_PUBLIC_ORIGIN must be an HTTP(S) origin.' }),
+    )
+    .transform((value, context) => {
+      const url = new URL(value);
+      if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+        context.addIssue({
+          code: 'custom',
+          message: 'MEDIAVAULT_PUBLIC_ORIGIN must contain only scheme, host, and optional port.',
+        });
+        return z.NEVER;
+      }
+      return url.origin;
+    })
+    .optional(),
+);
+
 const configEnvSchema = z.object({
   [PUBLIC_ENV_KEYS.adminApiMode]: z.preprocess(
     blankStringToUndefined,
-    z.string().trim().pipe(z.enum(['always', 'bootstrap', 'disabled'], {
-      error: `Invalid ${PUBLIC_ENV_KEYS.adminApiMode}. Expected disabled, bootstrap, or always.`,
-    })).optional().default('disabled'),
+    z
+      .string()
+      .trim()
+      .pipe(
+        z.enum(['always', 'bootstrap', 'disabled'], {
+          error: `Invalid ${PUBLIC_ENV_KEYS.adminApiMode}. Expected disabled, bootstrap, or always.`,
+        }),
+      )
+      .optional()
+      .default('disabled'),
   ),
   [PUBLIC_ENV_KEYS.adminApiToken]: optionalTrimmedString(),
-  [PUBLIC_ENV_KEYS.authClientCookieName]: optionalRawString().default(DEFAULT_MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME),
+  [PUBLIC_ENV_KEYS.authClientCookieName]: optionalRawString().default(
+    DEFAULT_MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME,
+  ),
   [PUBLIC_ENV_KEYS.authClientCookieSecret]: optionalTrimmedString(),
-  [PUBLIC_ENV_KEYS.authFailedLoginBlockDurationMs]: positiveIntegerSetting(PUBLIC_ENV_KEYS.authFailedLoginBlockDurationMs, DEFAULT_FAILED_LOGIN_BLOCK_DURATION_MS),
-  [PUBLIC_ENV_KEYS.authFailedLoginDelayMs]: positiveIntegerSetting(PUBLIC_ENV_KEYS.authFailedLoginDelayMs, DEFAULT_FAILED_LOGIN_DELAY_MS),
-  [PUBLIC_ENV_KEYS.authFailedLoginWindowMs]: positiveIntegerSetting(PUBLIC_ENV_KEYS.authFailedLoginWindowMs, DEFAULT_FAILED_LOGIN_WINDOW_MS),
-  [PUBLIC_ENV_KEYS.authMaxFailedLoginAttempts]: positiveIntegerSetting(PUBLIC_ENV_KEYS.authMaxFailedLoginAttempts, DEFAULT_MAX_FAILED_LOGIN_ATTEMPTS),
+  [PUBLIC_ENV_KEYS.authFailedLoginBlockDurationMs]: positiveIntegerSetting(
+    PUBLIC_ENV_KEYS.authFailedLoginBlockDurationMs,
+    DEFAULT_FAILED_LOGIN_BLOCK_DURATION_MS,
+  ),
+  [PUBLIC_ENV_KEYS.authFailedLoginDelayMs]: positiveIntegerSetting(
+    PUBLIC_ENV_KEYS.authFailedLoginDelayMs,
+    DEFAULT_FAILED_LOGIN_DELAY_MS,
+  ),
+  [PUBLIC_ENV_KEYS.authFailedLoginWindowMs]: positiveIntegerSetting(
+    PUBLIC_ENV_KEYS.authFailedLoginWindowMs,
+    DEFAULT_FAILED_LOGIN_WINDOW_MS,
+  ),
+  [PUBLIC_ENV_KEYS.authMaxFailedLoginAttempts]: positiveIntegerSetting(
+    PUBLIC_ENV_KEYS.authMaxFailedLoginAttempts,
+    DEFAULT_MAX_FAILED_LOGIN_ATTEMPTS,
+  ),
   [PUBLIC_ENV_KEYS.authSessionCookieName]: optionalRawString().default(DEFAULT_SESSION_COOKIE_NAME),
-  [PUBLIC_ENV_KEYS.authSessionTtlMs]: positiveIntegerSetting(PUBLIC_ENV_KEYS.authSessionTtlMs, DEFAULT_SESSION_TTL_MS),
-  [PUBLIC_ENV_KEYS.authTrustProxyHeaders]: booleanSetting(PUBLIC_ENV_KEYS.authTrustProxyHeaders, false),
+  [PUBLIC_ENV_KEYS.authSessionTtlMs]: positiveIntegerSetting(
+    PUBLIC_ENV_KEYS.authSessionTtlMs,
+    DEFAULT_SESSION_TTL_MS,
+  ),
+  [PUBLIC_ENV_KEYS.authTrustProxyHeaders]: booleanSetting(
+    PUBLIC_ENV_KEYS.authTrustProxyHeaders,
+    false,
+  ),
   [PUBLIC_ENV_KEYS.databaseEncryptionKey]: optionalRawString(),
-  [PUBLIC_ENV_KEYS.dashSegmentDuration]: positiveIntegerSetting(PUBLIC_ENV_KEYS.dashSegmentDuration, DEFAULT_SEGMENT_DURATION),
+  [PUBLIC_ENV_KEYS.dashSegmentDuration]: positiveIntegerSetting(
+    PUBLIC_ENV_KEYS.dashSegmentDuration,
+    DEFAULT_SEGMENT_DURATION,
+  ),
   [PUBLIC_ENV_KEYS.ffmpegPath]: optionalTrimmedString(),
   [PUBLIC_ENV_KEYS.ffprobePath]: optionalTrimmedString(),
-  [PUBLIC_ENV_KEYS.mediaKeyDerivationSalt]: optionalRawString().default(DEFAULT_MEDIA_KEY_DERIVATION_SALT),
+  [PUBLIC_ENV_KEYS.mediaKeyDerivationSalt]: optionalRawString().default(
+    DEFAULT_MEDIA_KEY_DERIVATION_SALT,
+  ),
   [PUBLIC_ENV_KEYS.mediaKeyDerivationSecret]: optionalRawString(),
   [PUBLIC_ENV_KEYS.nodeEnv]: z.preprocess(
     blankStringToUndefined,
-    z.enum(['development', 'production', 'test'], {
-      error: `Invalid ${PUBLIC_ENV_KEYS.nodeEnv}. Expected development, test, or production.`,
-    }).optional(),
+    z
+      .enum(['development', 'production', 'test'], {
+        error: `Invalid ${PUBLIC_ENV_KEYS.nodeEnv}. Expected development, test, or production.`,
+      })
+      .optional(),
   ),
   [PUBLIC_ENV_KEYS.playbackJwtSecret]: optionalTrimmedString(),
+  [PUBLIC_ENV_KEYS.publicOrigin]: publicOriginSetting,
   [PUBLIC_ENV_KEYS.shakaPackagerPath]: optionalTrimmedString(),
   [PUBLIC_ENV_KEYS.storageDir]: optionalTrimmedString(),
 });
 
-const runtimeConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.nodeEnv]: true });
-const adminApiConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.adminApiMode]: true, [PUBLIC_ENV_KEYS.adminApiToken]: true });
-const authCookieConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.authClientCookieName]: true, [PUBLIC_ENV_KEYS.authSessionCookieName]: true, [PUBLIC_ENV_KEYS.authSessionTtlMs]: true, [PUBLIC_ENV_KEYS.nodeEnv]: true });
-const authRateLimitConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.authTrustProxyHeaders]: true });
-const authConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.authClientCookieName]: true, [PUBLIC_ENV_KEYS.authFailedLoginBlockDurationMs]: true, [PUBLIC_ENV_KEYS.authFailedLoginDelayMs]: true, [PUBLIC_ENV_KEYS.authFailedLoginWindowMs]: true, [PUBLIC_ENV_KEYS.authMaxFailedLoginAttempts]: true, [PUBLIC_ENV_KEYS.authSessionCookieName]: true, [PUBLIC_ENV_KEYS.authSessionTtlMs]: true, [PUBLIC_ENV_KEYS.authTrustProxyHeaders]: true, [PUBLIC_ENV_KEYS.nodeEnv]: true });
-const authClientIdentityConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.authClientCookieName]: true, [PUBLIC_ENV_KEYS.authClientCookieSecret]: true, [PUBLIC_ENV_KEYS.authSessionCookieName]: true, [PUBLIC_ENV_KEYS.authSessionTtlMs]: true, [PUBLIC_ENV_KEYS.nodeEnv]: true });
-const mediaKeyDerivationConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.mediaKeyDerivationSalt]: true, [PUBLIC_ENV_KEYS.mediaKeyDerivationSecret]: true });
-const mediaPackagingConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.dashSegmentDuration]: true });
+const runtimeConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.nodeEnv]: true,
+  [PUBLIC_ENV_KEYS.publicOrigin]: true,
+});
+const publicOriginConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.publicOrigin]: true });
+const adminApiConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.adminApiMode]: true,
+  [PUBLIC_ENV_KEYS.adminApiToken]: true,
+});
+const authCookieConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.authClientCookieName]: true,
+  [PUBLIC_ENV_KEYS.authSessionCookieName]: true,
+  [PUBLIC_ENV_KEYS.authSessionTtlMs]: true,
+  [PUBLIC_ENV_KEYS.nodeEnv]: true,
+});
+const authRateLimitConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.authTrustProxyHeaders]: true,
+});
+const authConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.authClientCookieName]: true,
+  [PUBLIC_ENV_KEYS.authFailedLoginBlockDurationMs]: true,
+  [PUBLIC_ENV_KEYS.authFailedLoginDelayMs]: true,
+  [PUBLIC_ENV_KEYS.authFailedLoginWindowMs]: true,
+  [PUBLIC_ENV_KEYS.authMaxFailedLoginAttempts]: true,
+  [PUBLIC_ENV_KEYS.authSessionCookieName]: true,
+  [PUBLIC_ENV_KEYS.authSessionTtlMs]: true,
+  [PUBLIC_ENV_KEYS.authTrustProxyHeaders]: true,
+  [PUBLIC_ENV_KEYS.nodeEnv]: true,
+});
+const authClientIdentityConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.authClientCookieName]: true,
+  [PUBLIC_ENV_KEYS.authClientCookieSecret]: true,
+  [PUBLIC_ENV_KEYS.authSessionCookieName]: true,
+  [PUBLIC_ENV_KEYS.authSessionTtlMs]: true,
+  [PUBLIC_ENV_KEYS.nodeEnv]: true,
+});
+const mediaKeyDerivationConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.mediaKeyDerivationSalt]: true,
+  [PUBLIC_ENV_KEYS.mediaKeyDerivationSecret]: true,
+});
+const mediaPackagingConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.dashSegmentDuration]: true,
+});
 const playbackConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.playbackJwtSecret]: true });
-const primaryStorageConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.databaseEncryptionKey]: true, [PUBLIC_ENV_KEYS.nodeEnv]: true, [PUBLIC_ENV_KEYS.storageDir]: true });
-const videoToolOverridesConfigSchema = configEnvSchema.pick({ [PUBLIC_ENV_KEYS.ffmpegPath]: true, [PUBLIC_ENV_KEYS.ffprobePath]: true, [PUBLIC_ENV_KEYS.shakaPackagerPath]: true });
+const primaryStorageConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.databaseEncryptionKey]: true,
+  [PUBLIC_ENV_KEYS.nodeEnv]: true,
+  [PUBLIC_ENV_KEYS.storageDir]: true,
+});
+const videoToolOverridesConfigSchema = configEnvSchema.pick({
+  [PUBLIC_ENV_KEYS.ffmpegPath]: true,
+  [PUBLIC_ENV_KEYS.ffprobePath]: true,
+  [PUBLIC_ENV_KEYS.shakaPackagerPath]: true,
+});
 
-function readConfigEnv<Schema extends z.ZodType>(schema: Schema, env: RuntimeEnvInput = process.env): z.infer<Schema> {
+function readConfigEnv<Schema extends z.ZodType>(
+  schema: Schema,
+  env: RuntimeEnvInput = process.env,
+): z.infer<Schema> {
   return schema.parse(env);
 }
 
-function requireNonBlankValue(key: string, value: string | undefined, message = `${key} is required`): string {
+function requireNonBlankValue(
+  key: string,
+  value: string | undefined,
+  message = `${key} is required`,
+): string {
   if (value === undefined || value.trim().length === 0) {
     throw new Error(message);
   }
@@ -119,7 +270,10 @@ function requireNonBlankValue(key: string, value: string | undefined, message = 
 
 function getDefaultStorageDir(isDevelopmentRuntime: boolean): string {
   if (isDevelopmentRuntime) {
-    const workspaceHash = createHash('sha256').update(path.resolve(process.cwd())).digest('hex').slice(0, 12);
+    const workspaceHash = createHash('sha256')
+      .update(path.resolve(process.cwd()))
+      .digest('hex')
+      .slice(0, 12);
 
     return path.join(os.tmpdir(), 'mediavault-dev-storage', workspaceHash);
   }
@@ -135,14 +289,26 @@ export function getRuntimeEnvInput(env?: RuntimeEnvInput): RuntimeEnvInput {
   return env ?? process.env;
 }
 
+export function getPublicOrigin(env?: RuntimeEnvInput): string | undefined {
+  return readConfigEnv(publicOriginConfigSchema, getRuntimeEnvInput(env))[
+    PUBLIC_ENV_KEYS.publicOrigin
+  ];
+}
+
 export function getRuntimeConfig(env?: RuntimeEnvInput): RuntimeConfig {
   const configEnv = readConfigEnv(runtimeConfigSchema, getRuntimeEnvInput(env));
-  return { isProductionRuntime: configEnv[PUBLIC_ENV_KEYS.nodeEnv] === 'production', nodeEnv: configEnv[PUBLIC_ENV_KEYS.nodeEnv] };
+  return {
+    isProductionRuntime: configEnv[PUBLIC_ENV_KEYS.nodeEnv] === 'production',
+    nodeEnv: configEnv[PUBLIC_ENV_KEYS.nodeEnv],
+  };
 }
 
 export function getAdminApiConfig(env?: RuntimeEnvInput): AdminApiConfig {
   const configEnv = readConfigEnv(adminApiConfigSchema, getRuntimeEnvInput(env));
-  return { mode: configEnv[PUBLIC_ENV_KEYS.adminApiMode], token: configEnv[PUBLIC_ENV_KEYS.adminApiToken] ?? null };
+  return {
+    mode: configEnv[PUBLIC_ENV_KEYS.adminApiMode],
+    token: configEnv[PUBLIC_ENV_KEYS.adminApiToken] ?? null,
+  };
 }
 
 export function getAuthCookieConfig(env?: RuntimeEnvInput): AuthCookieConfig {
@@ -154,7 +320,8 @@ export function getAuthCookieConfig(env?: RuntimeEnvInput): AuthCookieConfig {
     clientCookieName,
     sessionCookieName,
     sessionCookiePath: '/',
-    sessionCookieSecure: configEnv[PUBLIC_ENV_KEYS.nodeEnv] === 'production' ||
+    sessionCookieSecure:
+      configEnv[PUBLIC_ENV_KEYS.nodeEnv] === 'production' ||
       requiresSecureCookiePrefix(clientCookieName) ||
       requiresSecureCookiePrefix(sessionCookieName),
     sessionTtlMs: configEnv[PUBLIC_ENV_KEYS.authSessionTtlMs],
@@ -162,7 +329,11 @@ export function getAuthCookieConfig(env?: RuntimeEnvInput): AuthCookieConfig {
 }
 
 export function getAuthRateLimitConfig(env?: RuntimeEnvInput): AuthRateLimitConfig {
-  return { trustProxyHeaders: readConfigEnv(authRateLimitConfigSchema, getRuntimeEnvInput(env))[PUBLIC_ENV_KEYS.authTrustProxyHeaders] };
+  return {
+    trustProxyHeaders: readConfigEnv(authRateLimitConfigSchema, getRuntimeEnvInput(env))[
+      PUBLIC_ENV_KEYS.authTrustProxyHeaders
+    ],
+  };
 }
 
 export function getAuthConfig(env?: RuntimeEnvInput): AuthConfig {
@@ -177,7 +348,8 @@ export function getAuthConfig(env?: RuntimeEnvInput): AuthConfig {
     maxFailedLoginAttempts: configEnv[PUBLIC_ENV_KEYS.authMaxFailedLoginAttempts],
     sessionCookieName,
     sessionCookiePath: '/',
-    sessionCookieSecure: configEnv[PUBLIC_ENV_KEYS.nodeEnv] === 'production' ||
+    sessionCookieSecure:
+      configEnv[PUBLIC_ENV_KEYS.nodeEnv] === 'production' ||
       requiresSecureCookiePrefix(clientCookieName) ||
       requiresSecureCookiePrefix(sessionCookieName),
     sessionTtlMs: configEnv[PUBLIC_ENV_KEYS.authSessionTtlMs],
@@ -199,7 +371,8 @@ export function getAuthClientIdentityConfig(env?: RuntimeEnvInput): AuthClientId
     ),
     sessionCookieName,
     sessionCookiePath: '/',
-    sessionCookieSecure: configEnv[PUBLIC_ENV_KEYS.nodeEnv] === 'production' ||
+    sessionCookieSecure:
+      configEnv[PUBLIC_ENV_KEYS.nodeEnv] === 'production' ||
       requiresSecureCookiePrefix(clientCookieName) ||
       requiresSecureCookiePrefix(sessionCookieName),
     sessionTtlMs: configEnv[PUBLIC_ENV_KEYS.authSessionTtlMs],
@@ -219,7 +392,11 @@ export function getMediaKeyDerivationConfig(env?: RuntimeEnvInput): MediaKeyDeri
 }
 
 export function getMediaPackagingConfig(env?: RuntimeEnvInput): MediaPackagingConfig {
-  return { segmentDuration: readConfigEnv(mediaPackagingConfigSchema, getRuntimeEnvInput(env))[PUBLIC_ENV_KEYS.dashSegmentDuration] };
+  return {
+    segmentDuration: readConfigEnv(mediaPackagingConfigSchema, getRuntimeEnvInput(env))[
+      PUBLIC_ENV_KEYS.dashSegmentDuration
+    ],
+  };
 }
 
 export function getPlaybackConfig(env?: RuntimeEnvInput): PlaybackConfig {
@@ -250,7 +427,10 @@ export function getPrimaryStorageConfig(env?: RuntimeEnvInput): PrimaryStorageCo
   const stagingDir = path.join(storageDir, 'staging');
 
   return {
-    databaseEncryptionKey: requireNonBlankValue(PUBLIC_ENV_KEYS.databaseEncryptionKey, configEnv[PUBLIC_ENV_KEYS.databaseEncryptionKey]),
+    databaseEncryptionKey: requireNonBlankValue(
+      PUBLIC_ENV_KEYS.databaseEncryptionKey,
+      configEnv[PUBLIC_ENV_KEYS.databaseEncryptionKey],
+    ),
     databasePath: path.join(storageDir, 'db.sqlite'),
     stagingDir,
     stagingTempDir: path.join(stagingDir, 'temp'),

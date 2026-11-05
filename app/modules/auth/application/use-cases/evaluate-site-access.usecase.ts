@@ -1,5 +1,5 @@
 import type { AuthSession } from '../../domain/auth-session';
-import { type SiteSurface, SiteAccessPolicy } from '../../domain/policies/SiteAccessPolicy';
+import { SiteAccessPolicy, type SiteSurface } from '../../domain/policies/SiteAccessPolicy';
 
 interface ResolveAuthSessionPort {
   execute: (input: { now: Date; sessionId: string | null }) => Promise<AuthSession | null>;

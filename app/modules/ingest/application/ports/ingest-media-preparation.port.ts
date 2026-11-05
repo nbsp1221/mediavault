@@ -5,6 +5,8 @@ import type {
 
 export interface PrepareIngestMediaCommand {
   analysis: IngestMediaAnalysis;
+  onPhase?: (phase: 'packaging' | 'preparing' | 'thumbnail' | 'verifying') => Promise<void>;
+  signal?: AbortSignal;
   sourcePath: string;
   strategy: IngestMediaPreparationStrategy;
   title: string;
@@ -17,12 +19,6 @@ export interface PrepareIngestMediaResult {
   message: string;
 }
 
-export interface FinalizeSuccessfulPreparedMediaCommand {
-  title: string;
-  videoId: string;
-}
-
 export interface IngestMediaPreparationPort {
-  finalizeSuccessfulVideo(command: FinalizeSuccessfulPreparedMediaCommand): Promise<void>;
   prepareMedia(command: PrepareIngestMediaCommand): Promise<PrepareIngestMediaResult>;
 }

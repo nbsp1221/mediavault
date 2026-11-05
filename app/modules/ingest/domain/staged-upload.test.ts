@@ -6,13 +6,14 @@ import {
 } from './staged-upload';
 
 describe('IngestStagedUpload', () => {
-  test('defines the persisted staged-upload row contract', () => {
+  test('defines the creator-owned persisted staged-upload row contract', () => {
     const stagedUpload: IngestStagedUpload = {
       committedVideoId: undefined,
       createdAt: new Date('2026-04-20T00:00:00.000Z'),
       expiresAt: new Date('2026-04-21T00:00:00.000Z'),
       filename: 'fixture-video.mp4',
       mimeType: 'video/mp4',
+      ownerId: 'owner-1',
       size: 1_024,
       stagingId: 'staging-123',
       status: 'uploaded',
@@ -25,6 +26,7 @@ describe('IngestStagedUpload', () => {
       expiresAt: new Date('2026-04-21T00:00:00.000Z'),
       filename: 'fixture-video.mp4',
       mimeType: 'video/mp4',
+      ownerId: 'owner-1',
       size: 1_024,
       stagingId: 'staging-123',
       status: 'uploaded',
@@ -32,9 +34,9 @@ describe('IngestStagedUpload', () => {
     });
   });
 
-  test('limits persisted staged-upload statuses to uploaded, committing, and committed', () => {
+  test('defines source receipt, processing pin, committed and removal states', () => {
     const statuses: IngestStagedUploadStatus[] = [...PERSISTED_STAGED_UPLOAD_STATUSES];
 
-    expect(statuses).toEqual(['uploaded', 'committing', 'committed']);
+    expect(statuses).toEqual(['uploaded', 'committing', 'committed', 'removing']);
   });
 });

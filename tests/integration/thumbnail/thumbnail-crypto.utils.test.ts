@@ -30,17 +30,16 @@ describe('thumbnail crypto utils', () => {
   });
 
   test('validateEncryptedFormat rejects plaintext jpeg input', async () => {
-    const { validateEncryptedFormat } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+    const { validateEncryptedFormat } =
+      await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
 
     expect(validateEncryptedFormat(payload)).toBe(false);
   });
 
   test('decryptThumbnailEnvelope rejects envelopes bound to a different video id', async () => {
-    const {
-      decryptThumbnailEnvelope,
-      encryptThumbnailEnvelope,
-    } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+    const { decryptThumbnailEnvelope, encryptThumbnailEnvelope } =
+      await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
     const key = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
     const encrypted = encryptThumbnailEnvelope({
@@ -49,18 +48,18 @@ describe('thumbnail crypto utils', () => {
       videoId: '00000000-0000-4000-8000-000000000123',
     });
 
-    expect(() => decryptThumbnailEnvelope({
-      encryptedBuffer: encrypted,
-      key,
-      videoId: '00000000-0000-4000-8000-000000000124',
-    })).toThrow(/Failed to authenticate thumbnail envelope/);
+    expect(() =>
+      decryptThumbnailEnvelope({
+        encryptedBuffer: encrypted,
+        key,
+        videoId: '00000000-0000-4000-8000-000000000124',
+      }),
+    ).toThrow(/Failed to authenticate thumbnail envelope/);
   });
 
   test('decryptThumbnailEnvelope rejects tampered ciphertext or auth tag bytes', async () => {
-    const {
-      decryptThumbnailEnvelope,
-      encryptThumbnailEnvelope,
-    } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+    const { decryptThumbnailEnvelope, encryptThumbnailEnvelope } =
+      await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
     const key = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
     const videoId = '00000000-0000-4000-8000-000000000123';
@@ -71,20 +70,25 @@ describe('thumbnail crypto utils', () => {
     tamperedCiphertext[tamperedCiphertext.length - 1] ^= 0x01;
     tamperedAuthTag[5 + 12] ^= 0x01;
 
-    expect(() => decryptThumbnailEnvelope({
-      encryptedBuffer: tamperedCiphertext,
-      key,
-      videoId,
-    })).toThrow(/Failed to authenticate thumbnail envelope/);
-    expect(() => decryptThumbnailEnvelope({
-      encryptedBuffer: tamperedAuthTag,
-      key,
-      videoId,
-    })).toThrow(/Failed to authenticate thumbnail envelope/);
+    expect(() =>
+      decryptThumbnailEnvelope({
+        encryptedBuffer: tamperedCiphertext,
+        key,
+        videoId,
+      }),
+    ).toThrow(/Failed to authenticate thumbnail envelope/);
+    expect(() =>
+      decryptThumbnailEnvelope({
+        encryptedBuffer: tamperedAuthTag,
+        key,
+        videoId,
+      }),
+    ).toThrow(/Failed to authenticate thumbnail envelope/);
   });
 
   test('looksLikeJpeg accepts the tracked fixture and rejects malformed data', async () => {
-    const { looksLikeJpeg } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+    const { looksLikeJpeg } =
+      await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
 
     expect(looksLikeJpeg(payload)).toBe(true);

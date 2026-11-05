@@ -9,7 +9,7 @@ export const CRITICAL_PRODUCTION_SECRET_KEYS = [
   PUBLIC_ENV_KEYS.authClientCookieSecret,
 ] as const;
 
-export type CriticalProductionSecretKey = typeof CRITICAL_PRODUCTION_SECRET_KEYS[number];
+export type CriticalProductionSecretKey = (typeof CRITICAL_PRODUCTION_SECRET_KEYS)[number];
 
 export function getWeakPlaybackJwtSecretMessage(): string {
   return `${PUBLIC_ENV_KEYS.playbackJwtSecret} must be at least ${MIN_PLAYBACK_JWT_SECRET_LENGTH} characters`;

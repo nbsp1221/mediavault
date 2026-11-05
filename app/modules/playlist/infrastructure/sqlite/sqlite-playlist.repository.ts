@@ -1,8 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { z } from 'zod';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
-import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import {
+  type CreateInitializedPrimarySqliteDatabase,
+  createInitializedPrimarySqliteDatabase,
+} from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
 import type {
   CreatePlaylistPortInput,
@@ -18,7 +22,7 @@ import type {
 } from '../../domain/playlist';
 
 interface SqlitePlaylistRepositoryOptions {
-  createDatabase?: CreateMigratedPrimarySqliteDatabase;
+  createDatabase?: CreateInitializedPrimarySqliteDatabase;
   dbPath?: string;
 }
 
@@ -52,8 +56,32 @@ function nameKey(name: string): string {
   return name.trim().toLowerCase();
 }
 
-function parseJson<T>(value: string | null): T | undefined {
-  return value ? JSON.parse(value) as T : undefined;
+const metadataSchema = z.object({
+  seriesName: z.string().optional(),
+  seasonNumber: z.number().optional(),
+  episodeCount: z.number().optional(),
+  genre: z.array(z.string()).optional(),
+  year: z.number().optional(),
+  status: z.enum(['ongoing', 'completed', 'hiatus']).optional(),
+  parentPlaylistId: z.string().optional(),
+  originalLanguage: z.string().optional(),
+  studio: z.string().optional(),
+  rating: z.string().optional(),
+}) satisfies z.ZodType<PlaylistMetadata>;
+const episodeSchema = z.object({
+  episodeNumber: z.number().optional(),
+  episodeTitle: z.string().optional(),
+  watchProgress: z.number().optional(),
+  duration: z.number().optional(),
+  notes: z.string().optional(),
+});
+
+function parseJson<T>(value: string | null, schema: z.ZodType<T>): T | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed: unknown = JSON.parse(value);
+  return schema.parse(parsed);
 }
 
 function stringifyJson(value: unknown): string | null {
@@ -66,7 +94,7 @@ function mapPlaylistRow(row: PlaylistRow, videoIds: string[]): Playlist {
     description: row.description ?? undefined,
     id: row.id,
     isPublic: row.is_public === 1,
-    metadata: parseJson<PlaylistMetadata>(row.metadata_json),
+    metadata: parseJson(row.metadata_json, metadataSchema),
     name: row.name,
     ownerId: row.owner_id,
     thumbnailUrl: row.thumbnail_path ?? undefined,
@@ -80,7 +108,7 @@ function mapPlaylistItemRow(row: PlaylistItemRow): PlaylistItem {
   return {
     addedAt: new Date(row.added_at),
     addedBy: row.added_by,
-    episodeMetadata: parseJson<PlaylistItem['episodeMetadata']>(row.episode_metadata_json),
+    episodeMetadata: parseJson(row.episode_metadata_json, episodeSchema),
     playlistId: row.playlist_id,
     position: row.position + 1,
     videoId: row.video_id,
@@ -88,7 +116,7 @@ function mapPlaylistItemRow(row: PlaylistItemRow): PlaylistItem {
 }
 
 export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
-  private readonly createDatabase: CreateMigratedPrimarySqliteDatabase;
+  private readonly createDatabase: CreateInitializedPrimarySqliteDatabase;
   private readonly dbPath: string;
   private databasePromise: Promise<SqliteDatabaseAdapter> | null = null;
 
@@ -96,7 +124,7 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
     const dbPath = options.dbPath ?? getPrimaryStorageConfig().databasePath;
 
     mkdirSync(dirname(dbPath), { recursive: true });
-    this.createDatabase = options.createDatabase ?? createMigratedPrimarySqliteDatabase;
+    this.createDatabase = options.createDatabase ?? createInitializedPrimarySqliteDatabase;
     this.dbPath = dbPath;
   }
 
@@ -108,7 +136,10 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
     return this.databasePromise;
   }
 
-  private async getVideoIds(database: SqliteDatabaseAdapter, playlistId: string): Promise<string[]> {
+  private async getVideoIds(
+    database: SqliteDatabaseAdapter,
+    playlistId: string,
+  ): Promise<string[]> {
     const rows = await database
       .prepare<PlaylistVideoIdRow>(`
         SELECT video_id
@@ -118,7 +149,7 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
       `)
       .all(playlistId);
 
-    return rows.map(row => row.video_id);
+    return rows.map((row) => row.video_id);
   }
 
   private async mapPlaylist(database: SqliteDatabaseAdapter, row: PlaylistRow): Promise<Playlist> {
@@ -143,11 +174,9 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
         WHERE playlist_id = ?
       `)
       .all(playlist.id);
-    const existingByVideoId = new Map(existingRows.map(row => [row.video_id, row]));
+    const existingByVideoId = new Map(existingRows.map((row) => [row.video_id, row]));
 
-    await database
-      .prepare('DELETE FROM playlist_items WHERE playlist_id = ?')
-      .run(playlist.id);
+    await database.prepare('DELETE FROM playlist_items WHERE playlist_id = ?').run(playlist.id);
 
     for (const [index, videoId] of playlist.videoIds.entries()) {
       const existing = existingByVideoId.get(videoId);
@@ -168,9 +197,14 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
           playlist.id,
           videoId,
           index,
-          (override?.addedAt ?? (existing ? new Date(existing.added_at) : playlist.updatedAt)).toISOString(),
+          (
+            override?.addedAt ?? (existing ? new Date(existing.added_at) : playlist.updatedAt)
+          ).toISOString(),
           override?.addedBy ?? existing?.added_by ?? playlist.ownerId,
-          stringifyJson(override?.episodeMetadata ?? parseJson<PlaylistItem['episodeMetadata']>(existing?.episode_metadata_json ?? null)),
+          stringifyJson(
+            override?.episodeMetadata ??
+              parseJson(existing?.episode_metadata_json ?? null, episodeSchema),
+          ),
         );
     }
   }
@@ -198,8 +232,7 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
 
       if (position !== undefined && position >= 0 && position <= nextIds.length) {
         nextIds.splice(position, 0, videoId);
-      }
-      else {
+      } else {
         nextIds.push(videoId);
       }
 
@@ -282,9 +315,7 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
 
   async delete(id: string): Promise<boolean> {
     const database = await this.getDatabase();
-    const result = await database
-      .prepare('DELETE FROM playlists WHERE id = ?')
-      .run(id);
+    const result = await database.prepare('DELETE FROM playlists WHERE id = ?').run(id);
 
     return result.changes > 0;
   }
@@ -294,7 +325,10 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
     return this.findByIdWithDatabase(database, id);
   }
 
-  private async findByIdWithDatabase(database: SqliteDatabaseAdapter, id: string): Promise<Playlist | null> {
+  private async findByIdWithDatabase(
+    database: SqliteDatabaseAdapter,
+    id: string,
+  ): Promise<Playlist | null> {
     const row = await database
       .prepare<PlaylistRow>(`
         SELECT
@@ -337,7 +371,7 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
       `)
       .all(seriesName);
 
-    return Promise.all(rows.map(row => this.mapPlaylist(database, row)));
+    return Promise.all(rows.map((row) => this.mapPlaylist(database, row)));
   }
 
   async findWithFilters(filters: PlaylistFilters): Promise<Playlist[]> {
@@ -359,7 +393,7 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
         ORDER BY created_at DESC, id ASC
       `)
       .all();
-    const playlists = await Promise.all(rows.map(row => this.mapPlaylist(database, row)));
+    const playlists = await Promise.all(rows.map((row) => this.mapPlaylist(database, row)));
 
     return playlists.filter((playlist) => {
       if (filters.type && playlist.type !== filters.type) {
@@ -376,7 +410,7 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
 
       if (filters.genre?.length) {
         const genres = playlist.metadata?.genre ?? [];
-        if (!genres.some(genre => filters.genre!.includes(genre))) {
+        if (!genres.some((genre) => filters.genre?.includes(genre))) {
           return false;
         }
       }
@@ -395,7 +429,7 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
           playlist.name,
           playlist.description ?? '',
           ...(playlist.metadata?.genre ?? []),
-        ].some(value => value.toLowerCase().includes(query));
+        ].some((value) => value.toLowerCase().includes(query));
 
         if (!matches) {
           return false;
@@ -459,7 +493,7 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
       const updated = {
         ...playlist,
         updatedAt: new Date(),
-        videoIds: playlist.videoIds.filter(id => id !== videoId),
+        videoIds: playlist.videoIds.filter((id) => id !== videoId),
       };
       await this.updatePlaylistRow(transactionDatabase, updated);
       await this.replacePlaylistItems(transactionDatabase, updated);
@@ -479,7 +513,12 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
       const currentSet = new Set(playlist.videoIds);
       const nextSet = new Set(newOrder);
 
-      if (currentSet.size !== nextSet.size || [...currentSet].some(videoId => !nextSet.has(videoId))) {
+      if (
+        newOrder.length !== playlist.videoIds.length ||
+        nextSet.size !== newOrder.length ||
+        currentSet.size !== nextSet.size ||
+        [...currentSet].some((videoId) => !nextSet.has(videoId))
+      ) {
         throw new Error('New order must contain exactly the same videos as current playlist');
       }
 
@@ -521,7 +560,10 @@ export class SqlitePlaylistRepository implements PlaylistRepositoryPort {
     });
   }
 
-  private async updatePlaylistRow(database: SqliteDatabaseAdapter, playlist: Playlist): Promise<void> {
+  private async updatePlaylistRow(
+    database: SqliteDatabaseAdapter,
+    playlist: Playlist,
+  ): Promise<void> {
     await database
       .prepare(`
         UPDATE playlists

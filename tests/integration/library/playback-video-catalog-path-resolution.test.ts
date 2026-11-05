@@ -12,13 +12,12 @@ const ownerReadScope = {
 };
 
 afterEach(async () => {
-  await Promise.all(cleanupTasks.splice(0).map(task => task()));
+  await Promise.all(cleanupTasks.splice(0).map((task) => task()));
   vi.resetModules();
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
     delete process.env.MEDIAVAULT_STORAGE_DIR;
-  }
-  else {
+  } else {
     process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
   }
 });
@@ -54,24 +53,24 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
     process.env.MEDIAVAULT_STORAGE_DIR = storageOne;
     vi.resetModules();
 
-    const { PlaybackVideoCatalogAdapter: FirstPlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
+    const { PlaybackVideoCatalogAdapter: FirstPlaybackVideoCatalogAdapter } =
+      await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
     const firstAdapter = new FirstPlaybackVideoCatalogAdapter();
 
-    await expect(firstAdapter.getPlayerVideo('workspace-one-video', ownerReadScope)).resolves.toEqual({
-      relatedVideos: [],
-      video: expect.objectContaining({ id: 'workspace-one-video' }),
-    });
+    const firstResult = await firstAdapter.getPlayerVideo('workspace-one-video', ownerReadScope);
+    expect(firstResult?.relatedVideos).toEqual([]);
+    expect(firstResult?.video).toMatchObject({ id: 'workspace-one-video' });
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageTwo;
     vi.resetModules();
 
-    const { PlaybackVideoCatalogAdapter: SecondPlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
+    const { PlaybackVideoCatalogAdapter: SecondPlaybackVideoCatalogAdapter } =
+      await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
     const secondAdapter = new SecondPlaybackVideoCatalogAdapter();
 
-    await expect(secondAdapter.getPlayerVideo('workspace-two-video', ownerReadScope)).resolves.toEqual({
-      relatedVideos: [],
-      video: expect.objectContaining({ id: 'workspace-two-video' }),
-    });
+    const secondResult = await secondAdapter.getPlayerVideo('workspace-two-video', ownerReadScope);
+    expect(secondResult?.relatedVideos).toEqual([]);
+    expect(secondResult?.video).toMatchObject({ id: 'workspace-two-video' });
   });
 
   test('does not read player metadata from videos.json when SQLite is empty', async () => {
@@ -81,23 +80,33 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
     const storageDir = join(workspace, 'storage');
     const dataDir = join(storageDir, 'data');
     await mkdir(dataDir, { recursive: true });
-    await writeFile(join(dataDir, 'videos.json'), JSON.stringify([
-      {
-        addedAt: '2026-03-24T00:00:00.000Z',
-        duration: 90,
-        id: 'previous-catalog-video',
-        tags: ['vault'],
-        title: 'previous-catalog-video',
-        videoUrl: '/videos/previous-catalog-video/manifest.mpd',
-      },
-    ], null, 2));
+    await writeFile(
+      join(dataDir, 'videos.json'),
+      JSON.stringify(
+        [
+          {
+            addedAt: '2026-03-24T00:00:00.000Z',
+            duration: 90,
+            id: 'previous-catalog-video',
+            tags: ['vault'],
+            title: 'previous-catalog-video',
+            videoUrl: '/videos/previous-catalog-video/manifest.mpd',
+          },
+        ],
+        null,
+        2,
+      ),
+    );
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     vi.resetModules();
 
-    const { PlaybackVideoCatalogAdapter } = await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
+    const { PlaybackVideoCatalogAdapter } =
+      await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
     const adapter = new PlaybackVideoCatalogAdapter();
 
-    await expect(adapter.getPlayerVideo('previous-catalog-video', ownerReadScope)).resolves.toBeNull();
+    await expect(
+      adapter.getPlayerVideo('previous-catalog-video', ownerReadScope),
+    ).resolves.toBeNull();
   });
 });

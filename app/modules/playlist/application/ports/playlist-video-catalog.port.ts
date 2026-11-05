@@ -18,6 +18,12 @@ export interface PlaylistCatalogVideo {
 }
 
 export interface PlaylistVideoCatalogPort {
-  findById(videoId: string, scope: VideoReadAccessScope): Promise<PlaylistCatalogVideoSummary | null>;
-  getPlaylistVideos(items: PlaylistItem[], scope: VideoReadAccessScope): Promise<PlaylistCatalogVideo[]>;
+  findById(
+    videoId: string,
+    scope: VideoReadAccessScope,
+  ): Promise<PlaylistCatalogVideoSummary | null>;
+  getPlaylistVideos(
+    items: PlaylistItem[],
+    scope: VideoReadAccessScope,
+  ): Promise<PlaylistCatalogVideo[]>;
 }

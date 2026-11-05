@@ -1,16 +1,17 @@
-import { describe, expect, test, vi } from 'vitest';
+import { type Mock, describe, expect, test, vi } from 'vitest';
 import type { PasswordHashService } from '../ports/password-hash-service.port';
 import type { UserRepository } from '../ports/user-repository.port';
 import { CreateUserUseCase } from './create-user.usecase';
 
-function createRepository(overrides: Partial<UserRepository> = {}): UserRepository {
+type RepositoryMock = { [Method in keyof UserRepository]: Mock<UserRepository[Method]> };
+
+function createRepository(overrides: Partial<RepositoryMock> = {}): RepositoryMock {
   return {
     count: vi.fn(async () => 0),
-    create: vi.fn(async input => ({
+    create: vi.fn<UserRepository['create']>(async (input) => ({
       createdAt: input.createdAt,
       id: input.id,
       passwordHash: input.passwordHash,
-      role: input.role,
       username: input.username,
       usernameKey: input.usernameKey,
     })),
@@ -21,10 +22,10 @@ function createRepository(overrides: Partial<UserRepository> = {}): UserReposito
   };
 }
 
-function createPasswordHashService(): PasswordHashService {
+function createPasswordHashService() {
   return {
-    hash: vi.fn(async password => `hashed:${password}`),
-  };
+    hash: vi.fn(async (password: string) => `hashed:${password}`),
+  } satisfies PasswordHashService;
 }
 
 describe('CreateUserUseCase', () => {
@@ -49,7 +50,6 @@ describe('CreateUserUseCase', () => {
         createdAt: new Date('2026-05-16T00:00:00.000Z'),
         id: 'user-1',
         passwordHash: 'hashed:correct-password',
-        role: 'admin',
         username: 'Owner',
         usernameKey: 'owner',
       },
@@ -60,7 +60,6 @@ describe('CreateUserUseCase', () => {
         createdAt: new Date('2026-05-16T00:00:00.000Z'),
         id: 'user-1',
         passwordHash: 'hashed:correct-password',
-        role: 'admin',
         username: 'Owner',
         usernameKey: 'owner',
       },
@@ -79,18 +78,22 @@ describe('CreateUserUseCase', () => {
       userRepository: repository,
     });
 
-    await expect(useCase.execute({
-      password: 'correct-password',
-      username: '../owner',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        password: 'correct-password',
+        username: '../owner',
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'INVALID_USERNAME',
     });
 
-    await expect(useCase.execute({
-      password: 'abc',
-      username: 'owner',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        password: 'abc',
+        username: 'owner',
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'INVALID_PASSWORD',
     });
@@ -105,7 +108,6 @@ describe('CreateUserUseCase', () => {
         createdAt: new Date('2026-05-16T00:00:00.000Z'),
         id: 'existing-user',
         passwordHash: '$argon2id$existing',
-        role: 'admin' as const,
         username: 'Owner',
         usernameKey: 'owner',
       })),
@@ -117,10 +119,12 @@ describe('CreateUserUseCase', () => {
       userRepository: repository,
     });
 
-    await expect(useCase.execute({
-      password: 'correct-password',
-      username: ' owner ',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        password: 'correct-password',
+        username: ' owner ',
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'USERNAME_ALREADY_EXISTS',
     });
@@ -139,11 +143,13 @@ describe('CreateUserUseCase', () => {
       userRepository: repository,
     });
 
-    await expect(useCase.execute({
-      password: 'correct-password',
-      requireFirstUser: true,
-      username: 'Owner',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        password: 'correct-password',
+        requireFirstUser: true,
+        username: 'Owner',
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'AUTH_USERS_ALREADY_EXIST',
     });

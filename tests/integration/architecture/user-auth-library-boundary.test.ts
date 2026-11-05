@@ -1,4 +1,4 @@
-import { access, readdir, readFile } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
@@ -39,10 +39,7 @@ const LIBRARY_DOMAIN_APPLICATION_ROOTS = [
   'app/modules/library/application',
 ] as const;
 
-const ROUTE_AND_PLAYBACK_ROOTS = [
-  'app/routes',
-  'app/modules/playback',
-] as const;
+const ROUTE_AND_PLAYBACK_ROOTS = ['app/routes', 'app/modules/playback'] as const;
 
 const LIBRARY_FORBIDDEN_IMPORT_PATTERNS = [
   /(?:from|import\s*\(|require\s*\()\s*['"]~\/modules\/auth(?:\/|['"])/,
@@ -79,39 +76,40 @@ async function pathExists(file: string) {
   try {
     await access(resolve(PROJECT_ROOT, file));
     return true;
-  }
-  catch {
+  } catch {
     return false;
   }
 }
 
 async function listSourceFiles(root: string): Promise<string[]> {
   const entries = await readdir(resolve(PROJECT_ROOT, root), { withFileTypes: true });
-  const files = await Promise.all(entries.map(async (entry) => {
-    const child = `${root}/${entry.name}`;
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const child = `${root}/${entry.name}`;
 
-    if (entry.isDirectory()) {
-      return listSourceFiles(child);
-    }
+      if (entry.isDirectory()) {
+        return listSourceFiles(child);
+      }
 
-    if (
-      (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
-      !entry.name.endsWith('.test.ts') &&
-      !entry.name.endsWith('.test.tsx') &&
-      !entry.name.endsWith('.spec.ts') &&
-      !entry.name.endsWith('.spec.tsx')
-    ) {
-      return [child];
-    }
+      if (
+        (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
+        !entry.name.endsWith('.test.ts') &&
+        !entry.name.endsWith('.test.tsx') &&
+        !entry.name.endsWith('.spec.ts') &&
+        !entry.name.endsWith('.spec.tsx')
+      ) {
+        return [child];
+      }
 
-    return [];
-  }));
+      return [];
+    }),
+  );
 
   return files.flat();
 }
 
 async function listSourceFilesFromRoots(roots: readonly string[]) {
-  const files = await Promise.all(roots.map(root => listSourceFiles(root)));
+  const files = await Promise.all(roots.map((root) => listSourceFiles(root)));
 
   return files.flat().sort();
 }
@@ -150,7 +148,10 @@ describe('user/auth/library architecture boundary', () => {
     }
 
     const createSessionSource = await readFile(
-      resolve(PROJECT_ROOT, 'app/modules/auth/application/use-cases/create-auth-session.usecase.ts'),
+      resolve(
+        PROJECT_ROOT,
+        'app/modules/auth/application/use-cases/create-auth-session.usecase.ts',
+      ),
       'utf8',
     );
     expect(createSessionSource).toContain('UserCredentialReader');
@@ -169,8 +170,12 @@ describe('user/auth/library architecture boundary', () => {
   test('library domain and application do not import auth or user infrastructure', async () => {
     const files = await listSourceFilesFromRoots(LIBRARY_DOMAIN_APPLICATION_ROOTS);
 
-    expect(files).toContain('app/modules/library/application/use-cases/update-library-video.usecase.ts');
-    expect(files).toContain('app/modules/library/application/use-cases/delete-library-video.usecase.ts');
+    expect(files).toContain(
+      'app/modules/library/application/use-cases/update-library-video.usecase.ts',
+    );
+    expect(files).toContain(
+      'app/modules/library/application/use-cases/delete-library-video.usecase.ts',
+    );
 
     for (const file of files) {
       const source = await readFile(resolve(PROJECT_ROOT, file), 'utf8');
@@ -199,7 +204,10 @@ describe('user/auth/library architecture boundary', () => {
 
   test('library infrastructure may implement the user-owned video counter port only as an adapter', async () => {
     const source = await readFile(
-      resolve(PROJECT_ROOT, 'app/modules/library/infrastructure/sqlite/sqlite-owned-video-counter.adapter.ts'),
+      resolve(
+        PROJECT_ROOT,
+        'app/modules/library/infrastructure/sqlite/sqlite-owned-video-counter.adapter.ts',
+      ),
       'utf8',
     );
 

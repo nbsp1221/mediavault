@@ -1,5 +1,5 @@
 import type { LibraryVideo } from './library-video';
-import { normalizeVideoTags } from './video-tag';
+import { normalizeVideoSearchText, normalizeVideoTags } from './video-tag';
 import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from './video-taxonomy';
 
 type FilterableLibraryVideo = Pick<
@@ -26,9 +26,9 @@ export interface LibraryHomeFilters {
 
 export function createLibraryHomeFilters(input: LibraryHomeFiltersInput): LibraryHomeFilters {
   const displayQuery = input.rawQuery ?? '';
-  const normalizedQuery = displayQuery.trim().toLowerCase();
+  const normalizedQuery = normalizeVideoSearchText(displayQuery);
   const contentTypeSlug = input.rawContentTypeSlug
-    ? normalizeTaxonomySlug(input.rawContentTypeSlug) ?? undefined
+    ? (normalizeTaxonomySlug(input.rawContentTypeSlug) ?? undefined)
     : undefined;
 
   return {
@@ -47,20 +47,21 @@ export function doesLibraryVideoMatchHomeFilters(
 ): boolean {
   const normalizedVideoTags = normalizeVideoTags(video.tags);
   const normalizedVideoGenres = normalizeTaxonomySlugs(video.genreSlugs ?? []);
-  const normalizedTitle = video.title.toLowerCase();
-  const matchesQuery = filters.normalizedQuery.length === 0 ||
+  const normalizedTitle = normalizeVideoSearchText(video.title);
+  const matchesQuery =
+    filters.normalizedQuery.length === 0 ||
     normalizedTitle.includes(filters.normalizedQuery) ||
-    normalizedVideoTags.some(tag => tag.includes(filters.normalizedQuery));
+    normalizedVideoTags.some((tag) => tag.includes(filters.normalizedQuery));
 
   if (!matchesQuery) {
     return false;
   }
 
-  if (filters.includeTags.some(tag => !normalizedVideoTags.includes(tag))) {
+  if (filters.includeTags.some((tag) => !normalizedVideoTags.includes(tag))) {
     return false;
   }
 
-  if (filters.excludeTags.some(tag => normalizedVideoTags.includes(tag))) {
+  if (filters.excludeTags.some((tag) => normalizedVideoTags.includes(tag))) {
     return false;
   }
 
@@ -70,7 +71,7 @@ export function doesLibraryVideoMatchHomeFilters(
 
   if (
     filters.genreSlugs.length > 0 &&
-    !filters.genreSlugs.some(slug => normalizedVideoGenres.includes(slug))
+    !filters.genreSlugs.some((slug) => normalizedVideoGenres.includes(slug))
   ) {
     return false;
   }

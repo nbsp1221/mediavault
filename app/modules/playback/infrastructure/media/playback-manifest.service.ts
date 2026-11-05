@@ -16,8 +16,7 @@ export class PlaybackManifestService implements PlaybackManifestServicePort {
 
     try {
       body = await readFile(manifestPath, 'utf8');
-    }
-    catch (error) {
+    } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
         throw Object.assign(new Error('Playback manifest not found'), {
           name: 'NotFoundError',
@@ -30,8 +29,7 @@ export class PlaybackManifestService implements PlaybackManifestServicePort {
 
     try {
       await access(keyPath);
-    }
-    catch (error) {
+    } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
         throw Object.assign(new Error('Video encryption key not found'), {
           name: 'NotFoundError',

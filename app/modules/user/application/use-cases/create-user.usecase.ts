@@ -20,13 +20,13 @@ interface CreateUserUseCaseInput {
 export type CreateUserUseCaseResult =
   | { ok: true; user: User }
   | {
-    ok: false;
-    reason:
-      | 'INVALID_PASSWORD'
-      | 'INVALID_USERNAME'
-      | 'AUTH_USERS_ALREADY_EXIST'
-      | 'USERNAME_ALREADY_EXISTS';
-  };
+      ok: false;
+      reason:
+        | 'INVALID_PASSWORD'
+        | 'INVALID_USERNAME'
+        | 'AUTH_USERS_ALREADY_EXIST'
+        | 'USERNAME_ALREADY_EXISTS';
+    };
 
 export class CreateUserUseCase {
   constructor(private readonly deps: CreateUserUseCaseDependencies) {}
@@ -57,16 +57,18 @@ export class CreateUserUseCase {
     }
 
     const passwordHash = await this.deps.passwordHashService.hash(input.password);
-    const user = await this.deps.userRepository.create({
-      createdAt: input.now ?? new Date(),
-      id: this.deps.createUserId(),
-      passwordHash,
-      role: 'admin',
-      username: username.username,
-      usernameKey: username.usernameKey,
-    }, {
-      requireFirstUser: input.requireFirstUser,
-    });
+    const user = await this.deps.userRepository.create(
+      {
+        createdAt: input.now ?? new Date(),
+        id: this.deps.createUserId(),
+        passwordHash,
+        username: username.username,
+        usernameKey: username.usernameKey,
+      },
+      {
+        requireFirstUser: input.requireFirstUser,
+      },
+    );
 
     if (!user) {
       return {

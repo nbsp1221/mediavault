@@ -1,20 +1,23 @@
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
 import type { OwnedVideoCounterPort } from '~/modules/user/application/ports/owned-video-counter.port';
-import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import {
+  type CreateInitializedPrimarySqliteDatabase,
+  createInitializedPrimarySqliteDatabase,
+} from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
 
 interface SqliteOwnedVideoCounterAdapterOptions {
-  createDatabase?: CreateMigratedPrimarySqliteDatabase;
+  createDatabase?: CreateInitializedPrimarySqliteDatabase;
   dbPath?: string;
 }
 
 export class SqliteOwnedVideoCounterAdapter implements OwnedVideoCounterPort {
-  private readonly createDatabase: CreateMigratedPrimarySqliteDatabase;
+  private readonly createDatabase: CreateInitializedPrimarySqliteDatabase;
   private readonly dbPath: string;
   private databasePromise: Promise<SqliteDatabaseAdapter> | null = null;
 
   constructor(options: SqliteOwnedVideoCounterAdapterOptions = {}) {
-    this.createDatabase = options.createDatabase ?? createMigratedPrimarySqliteDatabase;
+    this.createDatabase = options.createDatabase ?? createInitializedPrimarySqliteDatabase;
     this.dbPath = options.dbPath ?? getPrimaryStorageConfig().databasePath;
   }
 
@@ -30,11 +33,13 @@ export class SqliteOwnedVideoCounterAdapter implements OwnedVideoCounterPort {
 
   async countOwnedVideos(userId: string): Promise<number> {
     const database = await this.getDatabase();
-    const row = await database.prepare<{ count: number }>(`
+    const row = await database
+      .prepare<{ count: number }>(`
       SELECT COUNT(*) AS count
       FROM videos
       WHERE owner_id = ?
-    `).get(userId);
+    `)
+      .get(userId);
 
     return row?.count ?? 0;
   }

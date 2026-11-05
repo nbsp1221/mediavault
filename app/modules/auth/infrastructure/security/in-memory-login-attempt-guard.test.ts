@@ -12,23 +12,24 @@ describe('InMemoryLoginAttemptGuard', () => {
       maxFailures: 5,
       windowMs: 100,
     });
-    const guardState = guard as unknown as {
-      records: Map<string, unknown>;
-    };
+    const records: unknown = Reflect.get(guard, 'records');
+    if (!(records instanceof Map)) {
+      throw new Error('Expected bounded attempt records');
+    }
 
     guard.registerFailure({
       key: 'stale',
       now: new Date('2026-03-08T00:00:00.000Z'),
     });
 
-    expect(guardState.records.has('stale')).toBe(true);
+    expect(records.has('stale')).toBe(true);
 
     guard.evaluate({
       key: 'fresh',
       now: new Date('2026-03-08T00:00:01.000Z'),
     });
 
-    expect(guardState.records.has('stale')).toBe(false);
+    expect(records.has('stale')).toBe(false);
   });
 
   test('evicts idle mutexes after they are no longer protecting live state', async () => {
@@ -40,13 +41,14 @@ describe('InMemoryLoginAttemptGuard', () => {
       maxFailures: 5,
       windowMs: 100,
     });
-    const guardState = guard as unknown as {
-      mutexes: Map<string, unknown>;
-    };
+    const mutexes: unknown = Reflect.get(guard, 'mutexes');
+    if (!(mutexes instanceof Map)) {
+      throw new Error('Expected bounded mutex storage');
+    }
 
     await guard.runExclusive('stale', async () => {});
 
-    expect(guardState.mutexes.has('stale')).toBe(true);
+    expect(mutexes.has('stale')).toBe(true);
 
     vi.setSystemTime(new Date('2026-03-08T00:00:01.000Z'));
     guard.evaluate({
@@ -54,6 +56,6 @@ describe('InMemoryLoginAttemptGuard', () => {
       now: new Date(),
     });
 
-    expect(guardState.mutexes.has('stale')).toBe(false);
+    expect(mutexes.has('stale')).toBe(false);
   });
 });

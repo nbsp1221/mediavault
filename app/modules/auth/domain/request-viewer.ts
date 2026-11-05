@@ -1,6 +1,4 @@
-export type RequestViewer =
-  | AnonymousViewer
-  | AuthenticatedViewer;
+export type RequestViewer = AnonymousViewer | AuthenticatedViewer;
 
 export interface AnonymousViewer {
   type: 'anonymous';

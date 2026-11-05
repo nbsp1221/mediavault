@@ -1,9 +1,6 @@
 import { X } from 'lucide-react';
-import { useState } from 'react';
-import {
-  formatVideoTagLabel,
-  normalizeVideoTags,
-} from '~/modules/library/domain/video-tag';
+import { useId, useState } from 'react';
+import { formatVideoTagLabel, videoTagsSchema } from '~/modules/library/domain/video-tag';
 import { Badge } from '~/shared/ui/badge';
 import { Button } from '~/shared/ui/button';
 import { Input } from '~/shared/ui/input';
@@ -12,47 +9,62 @@ interface VideoTagInputProps {
   ariaLabel: string;
   disabled?: boolean;
   onChange: (tags: string[]) => void;
+  onValidationChange?: (error: string | null) => void;
   placeholder?: string;
   value: string[];
 }
 
 function splitTagInput(value: string): string[] {
-  return value
-    .split(',')
-    .map(part => part.trim())
-    .filter(Boolean);
+  return value.split(',').filter((part) => part.length > 0 && !/^\p{Zs}+$/u.test(part));
 }
 
 export function VideoTagInput({
   ariaLabel,
   disabled = false,
   onChange,
+  onValidationChange,
   placeholder = 'Add tags',
   value,
 }: VideoTagInputProps) {
   const [draft, setDraft] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const errorId = useId();
   const selectedTags = Array.isArray(value) ? value : [];
 
-  const addDraftTags = (rawValue: string) => {
-    const nextTags = normalizeVideoTags([
-      ...selectedTags,
-      ...splitTagInput(rawValue),
-    ]);
+  const validateDraft = (rawValue: string, tags = selectedTags) => {
+    const parts = splitTagInput(rawValue);
+    const result = videoTagsSchema.safeParse([...tags, ...parts]);
+    const message = result.success ? null : (result.error.issues[0]?.message ?? 'Invalid tags.');
+    setError(message);
+    onValidationChange?.(message);
+    return result;
+  };
 
-    onChange(nextTags);
+  const addDraftTags = (rawValue: string) => {
+    const result = validateDraft(rawValue);
+    if (!result.success) {
+      return;
+    }
+    onChange(result.data);
     setDraft('');
   };
 
   const removeTag = (tag: string) => {
-    onChange(selectedTags.filter(existingTag => existingTag !== tag));
+    const nextTags = selectedTags.filter((existingTag) => existingTag !== tag);
+    onChange(nextTags);
+    validateDraft(draft, nextTags);
   };
 
   return (
     <div className="min-h-11 rounded-lg border border-input bg-input/30 p-2 transition-colors focus-within:border-ring">
       {selectedTags.length > 0 ? (
         <div className="mb-2 flex flex-wrap gap-2">
-          {selectedTags.map(tag => (
-            <Badge key={tag} variant="secondary" className="h-6 gap-1 rounded-md px-2 text-xs font-medium">
+          {selectedTags.map((tag) => (
+            <Badge
+              key={tag}
+              variant="secondary"
+              className="h-6 gap-1 rounded-md px-2 text-xs font-medium"
+            >
               {formatVideoTagLabel(tag)}
               <Button
                 aria-label={`Remove ${formatVideoTagLabel(tag)} tag`}
@@ -72,6 +84,8 @@ export function VideoTagInput({
 
       <Input
         aria-label={ariaLabel}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
         className="h-6 border-0 bg-transparent px-1 py-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
         disabled={disabled}
         onBlur={() => {
@@ -79,8 +93,14 @@ export function VideoTagInput({
             addDraftTags(draft);
           }
         }}
-        onChange={event => setDraft(event.target.value)}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          validateDraft(event.target.value);
+        }}
         onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing) {
+            return;
+          }
           if (event.key === 'Enter' || event.key === ',') {
             event.preventDefault();
             addDraftTags(draft);
@@ -93,6 +113,11 @@ export function VideoTagInput({
         placeholder={placeholder}
         value={draft}
       />
+      {error ? (
+        <p className="mt-2 text-sm text-destructive" id={errorId} role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -19,8 +19,7 @@ describe('ThumbnailEncryptionService', () => {
   afterEach(async () => {
     if (originalStorageDir === undefined) {
       delete process.env.MEDIAVAULT_STORAGE_DIR;
-    }
-    else {
+    } else {
       process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
     }
 
@@ -66,11 +65,12 @@ describe('ThumbnailEncryptionService', () => {
   });
 
   test('decryptThumbnail treats a missing key as a decrypt failure, not as a missing thumbnail', async () => {
-    const [{ ThumbnailEncryptionService }, { Pbkdf2ThumbnailKeyManager }, { unlink }] = await Promise.all([
-      import('../../../app/modules/thumbnail/infrastructure/encryption/thumbnail-encryption.service'),
-      import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager'),
-      import('node:fs/promises'),
-    ]);
+    const [{ ThumbnailEncryptionService }, { Pbkdf2ThumbnailKeyManager }, { unlink }] =
+      await Promise.all([
+        import('../../../app/modules/thumbnail/infrastructure/encryption/thumbnail-encryption.service'),
+        import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager'),
+        import('node:fs/promises'),
+      ]);
     const videoId = '00000000-0000-4000-8000-000000000126';
     const videoDir = join(storageDir, 'videos', videoId);
     const thumbnailPath = join(videoDir, 'thumbnail.jpg');
@@ -96,6 +96,28 @@ describe('ThumbnailEncryptionService', () => {
     await expect(service.decryptThumbnail({ videoId })).rejects.not.toThrow(
       /Encrypted thumbnail not found/,
     );
+    await expect(service.decryptThumbnail({ videoId })).rejects.toMatchObject({
+      cause: { code: 'ENOENT' },
+    });
+  });
+
+  test('preserves filesystem causes when source or encrypted thumbnail files are missing', async () => {
+    const { ThumbnailEncryptionService } =
+      await import('../../../app/modules/thumbnail/infrastructure/encryption/thumbnail-encryption.service');
+    const service = new ThumbnailEncryptionService({
+      keyManager: { retrieveKey: async () => Buffer.alloc(16) },
+    });
+    const videoId = '00000000-0000-4000-8000-000000000130';
+    await expect(
+      service.encryptThumbnail({
+        thumbnailPath: join(storageDir, 'missing-thumbnail.jpg'),
+        videoId,
+      }),
+    ).rejects.toMatchObject({ cause: { code: 'ENOENT' } });
+    await expect(service.decryptThumbnail({ videoId })).rejects.toMatchObject({
+      message: `Encrypted thumbnail not found for video: ${videoId}`,
+      cause: { code: 'ENOENT' },
+    });
   });
 
   test('migrateExistingThumbnail reports missing plaintext, keeps valid encrypted content, and encrypts plaintext in place', async () => {

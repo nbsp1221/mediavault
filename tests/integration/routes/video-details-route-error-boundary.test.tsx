@@ -1,15 +1,15 @@
+import type * as ReactRouter from 'react-router';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-const useRouteErrorMock = vi.fn();
+const useRouteErrorMock = vi.fn<() => unknown>();
 
 vi.mock('react-router', async () => {
-  const actual = await vi.importActual<typeof import('react-router')>('react-router');
+  const actual = await vi.importActual<typeof ReactRouter>('react-router');
 
   return {
     ...actual,
-    isRouteErrorResponse: (error: unknown) => Boolean((error as { isRouteErrorResponse?: boolean } | null)?.isRouteErrorResponse),
     useRouteError: () => useRouteErrorMock(),
   };
 });
@@ -35,7 +35,8 @@ describe('video details route error boundary', () => {
   test('renders not-found errors inside the product shell frame', async () => {
     useRouteErrorMock.mockReturnValue({
       data: 'Video not found',
-      isRouteErrorResponse: true,
+      internal: false,
+      statusText: 'Not Found',
       status: 404,
     });
     const { ErrorBoundary } = await importVideoDetailsRoute();

@@ -61,29 +61,31 @@ describe('UpdateLibraryVideoUseCase', () => {
         contentTypeSlug: 'home_video',
         description: 'Updated description',
         genreSlugs: ['documentary'],
-        tags: ['good_boy-comedy', 'neo'],
+        tags: ['good boy-comedy', 'neo'],
         title: 'Updated title',
       }),
     });
 
-    await expect(useCase.execute({
-      contentTypeSlug: ' Home Video ',
-      description: '  Updated description  ',
-      genreSlugs: ['Documentary', 'documentary'],
-      tags: [' Good Boy-comedy ', '', 'good_boy-comedy', 'Neo', '   '],
-      title: '  Updated title  ',
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        contentTypeSlug: ' Home Video ',
+        description: '  Updated description  ',
+        genreSlugs: ['Documentary', 'documentary'],
+        tags: [' Good Boy-comedy ', 'good boy-comedy', 'Neo'],
+        title: '  Updated title  ',
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toMatchObject({
       data: {
         message: 'Video "Updated title" updated successfully',
-        video: expect.objectContaining({
+        video: {
           description: 'Updated description',
           genreSlugs: ['documentary'],
           id: 'video-1',
-          tags: ['good_boy-comedy', 'neo'],
+          tags: ['good boy-comedy', 'neo'],
           title: 'Updated title',
-        }),
+        },
       },
       ok: true,
     });
@@ -96,7 +98,7 @@ describe('UpdateLibraryVideoUseCase', () => {
       contentTypeSlug: 'home_video',
       description: 'Updated description',
       genreSlugs: ['documentary'],
-      tags: ['good_boy-comedy', 'neo'],
+      tags: ['good boy-comedy', 'neo'],
       title: 'Updated title',
       videoId: 'video-1',
     });
@@ -111,13 +113,15 @@ describe('UpdateLibraryVideoUseCase', () => {
       }),
     });
 
-    await expect(useCase.execute({
-      description: 'Updated description',
-      tags: ['Neo'],
-      title: 'Updated title',
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual(expect.objectContaining({ ok: true }));
+    await expect(
+      useCase.execute({
+        description: 'Updated description',
+        tags: ['Neo'],
+        title: 'Updated title',
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual(expect.objectContaining({ ok: true }));
 
     expect(updateLibraryVideo).toHaveBeenCalledWith({
       description: 'Updated description',
@@ -138,15 +142,17 @@ describe('UpdateLibraryVideoUseCase', () => {
       }),
     });
 
-    await expect(useCase.execute({
-      contentTypeSlug: null,
-      description: 'Updated description',
-      genreSlugs: [],
-      tags: ['Neo'],
-      title: 'Updated title',
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual(expect.objectContaining({ ok: true }));
+    await expect(
+      useCase.execute({
+        contentTypeSlug: null,
+        description: 'Updated description',
+        genreSlugs: [],
+        tags: ['Neo'],
+        title: 'Updated title',
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual(expect.objectContaining({ ok: true }));
 
     expect(updateLibraryVideo).toHaveBeenCalledWith({
       contentTypeSlug: null,
@@ -156,6 +162,32 @@ describe('UpdateLibraryVideoUseCase', () => {
       title: 'Updated title',
       videoId: 'video-1',
     });
+  });
+
+  test.each(
+    [null, 'label', [42], ['valid', ''], ['bad\u0000tag'], ['가'.repeat(101)]].map((tags) => ({
+      tags,
+    })),
+  )('rejects raw invalid tags %j instead of filtering them from an update', async ({ tags }) => {
+    const { useCase, updateLibraryVideo, findOwnedLibraryVideoById } = setupUseCase();
+    expect(
+      await useCase.execute({ tags, title: 'Valid', viewer: ownerViewer, videoId: 'video-1' }),
+    ).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+    expect(findOwnedLibraryVideoById).not.toHaveBeenCalled();
+    expect(updateLibraryVideo).not.toHaveBeenCalled();
+  });
+
+  test('uses the same Unicode canonical values for edits as ingest metadata', async () => {
+    const { useCase, updateLibraryVideo } = setupUseCase();
+    await useCase.execute({
+      tags: ['가족', '가족'.normalize('NFD'), 'C++', 'CAFÉ', 'cafe\u0301'],
+      title: 'Valid',
+      viewer: ownerViewer,
+      videoId: 'video-1',
+    });
+    expect(updateLibraryVideo).toHaveBeenCalledWith(
+      expect.objectContaining({ tags: ['가족', 'c++', 'café'] }),
+    );
   });
 
   test('rejects invalid input before touching the mutation port', async () => {
@@ -169,12 +201,14 @@ describe('UpdateLibraryVideoUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      tags: ['Action'],
-      title: '   ',
-      viewer: ownerViewer,
-      videoId: '',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        tags: ['Action'],
+        title: '   ',
+        viewer: ownerViewer,
+        videoId: '',
+      }),
+    ).resolves.toEqual({
       message: 'Video ID is required',
       ok: false,
       reason: 'INVALID_INPUT',
@@ -190,13 +224,15 @@ describe('UpdateLibraryVideoUseCase', () => {
       updatedVideo: null,
     });
 
-    await expect(useCase.execute({
-      description: 'Updated description',
-      tags: ['Action'],
-      title: 'Updated title',
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        description: 'Updated description',
+        tags: ['Action'],
+        title: 'Updated title',
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       message: 'Video not found',
       ok: false,
       reason: 'VIDEO_NOT_FOUND',
@@ -214,23 +250,27 @@ describe('UpdateLibraryVideoUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      tags: ['Action'],
-      title: undefined,
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        tags: ['Action'],
+        title: undefined,
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       message: 'Title is required',
       ok: false,
       reason: 'INVALID_INPUT',
     });
 
-    await expect(useCase.execute({
-      tags: ['Action'],
-      title: 123 as never,
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        tags: ['Action'],
+        title: 123,
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       message: 'Title is required',
       ok: false,
       reason: 'INVALID_INPUT',
@@ -276,13 +316,15 @@ describe('UpdateLibraryVideoUseCase', () => {
       }),
     });
 
-    await expect(useCase.execute({
-      description: 'Updated description',
-      tags: ['Action'],
-      title: 'Updated title',
-      viewer: nonOwnerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        description: 'Updated description',
+        tags: ['Action'],
+        title: 'Updated title',
+        viewer: nonOwnerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       message: 'Video not found',
       ok: false,
       reason: 'VIDEO_NOT_FOUND',

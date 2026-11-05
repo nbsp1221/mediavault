@@ -1,11 +1,13 @@
 import { describe, expect, test, vi } from 'vitest';
+import { createLibraryVideoFixture } from '../../../../../tests/support/library-video-fixture';
 
 const accessibleVideoRead = {
-  findLibraryVideoById: vi.fn(async () => ({} as never)),
+  findLibraryVideoById: vi.fn(async () => createLibraryVideoFixture()),
 };
 const authenticatedTokenPayload = {
   jti: 'token-1',
   readScope: 'public_or_owned' as const,
+  sessionId: 'session-1',
   subjectUserId: 'owner-1',
   videoId: 'video-1',
   viewerType: 'authenticated' as const,
@@ -23,6 +25,7 @@ describe('ServePlaybackManifestUseCase', () => {
     }));
     const useCase = new ServePlaybackManifestUseCase({
       manifestService: { getManifest },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate,
@@ -57,6 +60,7 @@ describe('ServePlaybackManifestUseCase', () => {
           headers: {},
         }),
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate: async () => null,
@@ -88,6 +92,7 @@ describe('ServePlaybackManifestUseCase', () => {
           headers: {},
         }),
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate: async () => ({ ...authenticatedTokenPayload, videoId: 'video-2' }),
@@ -118,6 +123,7 @@ describe('ServePlaybackManifestUseCase', () => {
       manifestService: {
         getManifest,
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate: async () => authenticatedTokenPayload,
@@ -127,10 +133,12 @@ describe('ServePlaybackManifestUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      token: 'signed-token',
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        token: 'signed-token',
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
         resource: 'manifest',

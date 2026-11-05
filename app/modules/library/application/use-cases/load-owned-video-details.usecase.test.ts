@@ -63,20 +63,19 @@ function setupUseCase(video: LibraryVideo | null = createLibraryVideo()) {
 
 describe('LoadOwnedVideoDetailsUseCase', () => {
   test('loads the owner video and metadata vocabulary for the details form', async () => {
-    const { findLibraryVideoById, listActiveContentTypes, listActiveGenres, useCase } = setupUseCase();
+    const { findLibraryVideoById, listActiveContentTypes, listActiveGenres, useCase } =
+      setupUseCase();
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       data: {
         contentTypes: [{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }],
         genres: [{ active: true, label: 'Action', slug: 'action', sortOrder: 10 }],
-        video: expect.objectContaining({
-          id: 'video-1',
-          ownerId: 'owner-1',
-          title: 'Original title',
-        }),
+        video: createLibraryVideo(),
       },
       ok: true,
     });
@@ -100,18 +99,24 @@ describe('LoadOwnedVideoDetailsUseCase', () => {
       reason: 'VIDEO_NOT_FOUND',
     };
 
-    await expect(missingSetup.useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual(expected);
-    await expect(anonymousSetup.useCase.execute({
-      viewer: anonymousViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual(expected);
-    await expect(nonOwnerSetup.useCase.execute({
-      viewer: nonOwnerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual(expected);
+    await expect(
+      missingSetup.useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual(expected);
+    await expect(
+      anonymousSetup.useCase.execute({
+        viewer: anonymousViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual(expected);
+    await expect(
+      nonOwnerSetup.useCase.execute({
+        viewer: nonOwnerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual(expected);
 
     expect(anonymousSetup.findLibraryVideoById).not.toHaveBeenCalled();
     expect(nonOwnerSetup.listActiveContentTypes).not.toHaveBeenCalled();
@@ -121,10 +126,12 @@ describe('LoadOwnedVideoDetailsUseCase', () => {
   test('rejects missing ids before reading persistence', async () => {
     const { findLibraryVideoById, useCase } = setupUseCase();
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: '  ',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: '  ',
+      }),
+    ).resolves.toEqual({
       message: 'Video ID is required',
       ok: false,
       reason: 'INVALID_INPUT',
@@ -147,10 +154,12 @@ describe('LoadOwnedVideoDetailsUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       message: 'Video details could not be loaded',
       ok: false,
       reason: 'VIDEO_DETAILS_SOURCE_UNAVAILABLE',

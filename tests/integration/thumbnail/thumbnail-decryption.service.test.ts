@@ -19,8 +19,7 @@ describe('ThumbnailDecryptionService', () => {
   afterEach(async () => {
     if (originalStorageDir === undefined) {
       delete process.env.MEDIAVAULT_STORAGE_DIR;
-    }
-    else {
+    } else {
       process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
     }
 
@@ -28,7 +27,11 @@ describe('ThumbnailDecryptionService', () => {
   });
 
   test('keeps a missing key as a decrypt failure instead of collapsing it into not-found', async () => {
-    const [{ ThumbnailDecryptionService }, { ThumbnailEncryptionService }, { Pbkdf2ThumbnailKeyManager }] = await Promise.all([
+    const [
+      { ThumbnailDecryptionService },
+      { ThumbnailEncryptionService },
+      { Pbkdf2ThumbnailKeyManager },
+    ] = await Promise.all([
       import('../../../app/modules/thumbnail/infrastructure/decryption/thumbnail-decryption.service'),
       import('../../../app/modules/thumbnail/infrastructure/encryption/thumbnail-encryption.service'),
       import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager'),
@@ -65,7 +68,8 @@ describe('ThumbnailDecryptionService', () => {
   });
 
   test('rejects invalid video ids before treating them as missing thumbnails', async () => {
-    const { ThumbnailDecryptionService } = await import('../../../app/modules/thumbnail/infrastructure/decryption/thumbnail-decryption.service');
+    const { ThumbnailDecryptionService } =
+      await import('../../../app/modules/thumbnail/infrastructure/decryption/thumbnail-decryption.service');
     const service = new ThumbnailDecryptionService({
       logger: console,
     });

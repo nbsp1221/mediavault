@@ -1,21 +1,20 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import type * as Router from 'react-router';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router';
 import { describe, expect, test, vi } from 'vitest';
-
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
 import { HomePage } from '../../../app/pages/home/ui/HomePage';
 
 const rootLoaderDataMock = vi.fn(() => ({
   user: {
     id: 'user-1',
-    role: 'admin',
     username: 'owner',
   },
 }));
 
 vi.mock('react-router', async () => {
-  const actual = await vi.importActual<typeof import('react-router')>('react-router');
+  const actual = await vi.importActual<typeof Router>('react-router');
 
   return {
     ...actual,
@@ -45,10 +44,7 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
 function renderHomeShell() {
   render(
     <MemoryRouter>
-      <HomePage
-        initialFilters={{ query: '' }}
-        videos={[createVideo()]}
-      />
+      <HomePage initialFilters={{ query: '' }} videos={[createVideo()]} />
     </MemoryRouter>,
   );
 }
@@ -57,16 +53,12 @@ describe('Home shell contract', () => {
   test('renders the approved product sidebar, header, and shell affordances', () => {
     render(
       <MemoryRouter>
-        <HomePage
-          initialFilters={{ query: '' }}
-          videos={[createVideo()]}
-        />
+        <HomePage initialFilters={{ query: '' }} videos={[createVideo()]} />
       </MemoryRouter>,
     );
 
     const libraryHeading = screen.getByRole('heading', { level: 2, name: 'Library' });
     const manageHeading = screen.getByRole('heading', { level: 2, name: 'Manage' });
-    const accountHeading = screen.getByRole('heading', { level: 2, name: 'Account' });
     const homeLink = screen.getByRole('link', { name: 'Videos' });
     const playlistsLink = screen.getByRole('link', { name: 'Playlists' });
     const uploadLink = screen.getAllByRole('link', { name: 'Upload' })[0];
@@ -74,14 +66,15 @@ describe('Home shell contract', () => {
     const accountMenu = screen.getByLabelText('Account menu');
 
     expect(screen.getByRole('link', { name: 'Mediavault home' })).toBeInTheDocument();
-    expect(libraryHeading.compareDocumentPosition(manageHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(manageHeading.compareDocumentPosition(accountHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      libraryHeading.compareDocumentPosition(manageHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(homeLink).toHaveAttribute('href', '/');
     expect(screen.queryByRole('heading', { level: 3, name: 'Browse' })).not.toBeInTheDocument();
     expect(playlistsLink).toHaveAttribute('href', '/playlists');
     expect(uploadLink).toHaveAttribute('href', '/add-videos');
     expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Settings, Soon' })).toBeInTheDocument();
+    expect(screen.queryByText('Soon')).not.toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: /Search library/ })).toBeInTheDocument();
     expect(filtersButton).toBeInTheDocument();
     expect(accountMenu).toBeInTheDocument();
@@ -90,10 +83,7 @@ describe('Home shell contract', () => {
   test('renders desktop and mobile search controls with the approved placeholder', () => {
     render(
       <MemoryRouter>
-        <HomePage
-          initialFilters={{ query: 'Action' }}
-          videos={[createVideo()]}
-        />
+        <HomePage initialFilters={{ query: 'Action' }} videos={[createVideo()]} />
       </MemoryRouter>,
     );
 
@@ -110,7 +100,9 @@ describe('Home shell contract', () => {
     }
 
     render(
-      <MemoryRouter initialEntries={['/?q=Action&tag=action&notTag=spoiler&type=movie&genre=action']}>
+      <MemoryRouter
+        initialEntries={['/?q=Action&tag=action&notTag=spoiler&type=movie&genre=action']}
+      >
         <HomePage
           initialFilters={{
             contentTypeSlug: 'movie',
@@ -127,7 +119,7 @@ describe('Home shell contract', () => {
 
     await user.click(screen.getByRole('link', { name: 'Videos' }));
 
-    const nextSearch = new URLSearchParams(screen.getByTestId('location-search').textContent ?? '');
+    const nextSearch = new URLSearchParams(screen.getByTestId('location-search').textContent);
     expect(nextSearch.get('q')).toBe('Action');
     expect(nextSearch.getAll('tag')).toEqual(['action']);
     expect(nextSearch.getAll('notTag')).toEqual(['spoiler']);
@@ -158,7 +150,11 @@ describe('Home shell contract', () => {
     await user.click(toggleButton);
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
 
-    await user.click(screen.getAllByRole('link', { name: 'Videos' }).at(-1)!);
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Navigation menu' })).getByRole('link', {
+        name: 'Videos',
+      }),
+    );
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
   });
 
@@ -169,7 +165,11 @@ describe('Home shell contract', () => {
     const toggleButton = screen.getByRole('button', { name: 'Open navigation menu' });
     await user.click(toggleButton);
     expect(screen.getByRole('dialog', { name: 'Navigation menu' })).toBeInTheDocument();
-    await user.click(screen.getAllByRole('link', { name: 'Mediavault home' }).at(-1)!);
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Navigation menu' })).getByRole('link', {
+        name: 'Mediavault home',
+      }),
+    );
     expect(screen.queryByRole('dialog', { name: 'Navigation menu' })).not.toBeInTheDocument();
   });
 

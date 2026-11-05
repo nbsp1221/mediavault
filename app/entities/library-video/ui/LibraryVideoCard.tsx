@@ -1,4 +1,4 @@
-import { Clock, Edit, Lock, MoreVertical, Play, Trash2 } from 'lucide-react';
+import { Clock, Edit, ListPlus, Lock, MoreVertical, Play, Trash2 } from 'lucide-react';
 import { Link } from 'react-router';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import { formatVideoTagLabel } from '~/modules/library/domain/video-tag';
@@ -10,6 +10,7 @@ import { Button } from '~/shared/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/shared/ui/dropdown-menu';
@@ -17,11 +18,18 @@ import {
 interface LibraryVideoCardProps {
   editHref?: string;
   onDelete?: (video: HomeLibraryVideo) => void;
+  onAddToPlaylist?: (video: HomeLibraryVideo) => void;
   video: HomeLibraryVideo;
   onTagClick?: (tag: string) => void;
 }
 
-export function LibraryVideoCard({ editHref, onDelete, video, onTagClick }: LibraryVideoCardProps) {
+export function LibraryVideoCard({
+  editHref,
+  onDelete,
+  onAddToPlaylist,
+  video,
+  onTagClick,
+}: LibraryVideoCardProps) {
   const handleTagClick = (tag: string, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -30,7 +38,7 @@ export function LibraryVideoCard({ editHref, onDelete, video, onTagClick }: Libr
 
   const canEdit = Boolean(editHref && video.permissions.canEdit);
   const canDelete = Boolean(onDelete && video.permissions.canDelete);
-  const hasActions = canEdit || canDelete;
+  const hasActions = canEdit || canDelete || Boolean(onAddToPlaylist);
 
   return (
     <article className="group relative">
@@ -73,9 +81,7 @@ export function LibraryVideoCard({ editHref, onDelete, video, onTagClick }: Libr
               {video.title}
             </h3>
 
-            <p className="text-xs text-muted-foreground">
-              {formatDisplayDate(video.createdAt)}
-            </p>
+            <p className="text-xs text-muted-foreground">{formatDisplayDate(video.createdAt)}</p>
           </div>
         </div>
       </Link>
@@ -94,39 +100,40 @@ export function LibraryVideoCard({ editHref, onDelete, video, onTagClick }: Libr
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {canEdit && (
-                <DropdownMenuItem asChild>
-                  <Link to={editHref ?? `/videos/${video.id}/edit`}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </Link>
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <DropdownMenuItem
-                  onSelect={() => onDelete?.(video)}
-                  variant="destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuGroup>
+                {onAddToPlaylist ? (
+                  <DropdownMenuItem onSelect={() => onAddToPlaylist(video)}>
+                    <ListPlus />
+                    Add to playlist
+                  </DropdownMenuItem>
+                ) : null}
+                {canEdit && (
+                  <DropdownMenuItem asChild>
+                    <Link to={editHref ?? `/videos/${video.id}/edit`}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <DropdownMenuItem onSelect={() => onDelete?.(video)} variant="destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       )}
 
       <div className="mt-2 flex flex-wrap gap-1">
-        {video.tags.map(tag => (
-          <Badge
-            asChild
-            key={tag}
-            variant="secondary"
-          >
+        {video.tags.map((tag) => (
+          <Badge asChild key={tag} variant="secondary">
             <button
               type="button"
               className="h-5 cursor-pointer px-2 text-xs transition-colors hover:bg-primary hover:text-primary-foreground"
-              onClick={event => handleTagClick(tag, event)}
+              onClick={(event) => handleTagClick(tag, event)}
             >
               #{formatVideoTagLabel(tag)}
             </button>

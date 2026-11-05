@@ -74,7 +74,7 @@ export async function loadDecryptedThumbnailResponse(
       });
     }
 
-    return new Response(imageBuffer, {
+    return new Response(new Uint8Array(imageBuffer), {
       headers: {
         ...THUMBNAIL_AUTH_DEPENDENT_HEADERS,
         'Content-Length': size.toString(),
@@ -82,8 +82,7 @@ export async function loadDecryptedThumbnailResponse(
         'ETag': eTag,
       },
     });
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Unexpected error in thumbnail decryption:', error);
     return new Response('Failed to load thumbnail', {
       headers: THUMBNAIL_AUTH_DEPENDENT_HEADERS,

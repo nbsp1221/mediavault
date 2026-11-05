@@ -1,15 +1,21 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
-import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import {
+  type CreateInitializedPrimarySqliteDatabase,
+  createInitializedPrimarySqliteDatabase,
+} from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import type { VideoReadAccessScope } from '../../application/policies/video-read-access-scope';
 import type { LibraryVideo } from '../../domain/library-video';
 import type { VideoTaxonomyItem } from '../../domain/video-taxonomy';
-import { type VideoVisibility, createVideoVisibility } from '../../domain/value-objects/video-visibility';
+import {
+  type VideoVisibility,
+  createVideoVisibility,
+} from '../../domain/value-objects/video-visibility';
 import { normalizeVideoTags } from '../../domain/video-tag';
 import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from '../../domain/video-taxonomy';
 
 interface SqliteLibraryVideoMetadataRepositoryOptions {
-  createDatabase?: CreateMigratedPrimarySqliteDatabase;
+  createDatabase?: CreateInitializedPrimarySqliteDatabase;
   dbPath: string;
 }
 
@@ -60,12 +66,12 @@ export interface UpdateLibraryVideoMetadataInput {
 }
 
 export class SqliteLibraryVideoMetadataRepository {
-  private readonly createDatabase: CreateMigratedPrimarySqliteDatabase;
+  private readonly createDatabase: CreateInitializedPrimarySqliteDatabase;
   private readonly dbPath: string;
   private databasePromise: Promise<SqliteDatabaseAdapter> | null = null;
 
   constructor(options: SqliteLibraryVideoMetadataRepositoryOptions) {
-    this.createDatabase = options.createDatabase ?? createMigratedPrimarySqliteDatabase;
+    this.createDatabase = options.createDatabase ?? createInitializedPrimarySqliteDatabase;
     this.dbPath = options.dbPath;
   }
 
@@ -81,10 +87,12 @@ export class SqliteLibraryVideoMetadataRepository {
 
   async count(): Promise<number> {
     const database = await this.getDatabase();
-    const row = await database.prepare<{ count: number }>(`
+    const row = await database
+      .prepare<{ count: number }>(`
       SELECT COUNT(*) AS count
       FROM videos
-    `).get();
+    `)
+      .get();
 
     return row?.count ?? 0;
   }
@@ -95,7 +103,8 @@ export class SqliteLibraryVideoMetadataRepository {
     const id = input.id ?? uuidv4();
 
     await database.transaction(async (transaction) => {
-      await transaction.prepare(`
+      await transaction
+        .prepare(`
         INSERT INTO videos (
           id,
           title,
@@ -119,18 +128,19 @@ export class SqliteLibraryVideoMetadataRepository {
           ?,
           COALESCE(?, COALESCE((SELECT MAX(sort_index) FROM videos), 0) + 1)
         )
-      `).run(
-        id,
-        input.title,
-        input.description ?? null,
-        input.duration ?? 0,
-        normalizeNullableTaxonomySlug(input.contentTypeSlug),
-        input.ownerId,
-        input.visibility,
-        createdAt.toISOString(),
-        createdAt.toISOString(),
-        input.sortIndex ?? null,
-      );
+      `)
+        .run(
+          id,
+          input.title,
+          input.description ?? null,
+          input.duration ?? 0,
+          normalizeNullableTaxonomySlug(input.contentTypeSlug),
+          input.ownerId,
+          input.visibility,
+          createdAt.toISOString(),
+          createdAt.toISOString(),
+          input.sortIndex ?? null,
+        );
 
       await replaceVideoTags(transaction, id, input.tags);
       await replaceVideoGenreAssignments(transaction, id, input.genreSlugs ?? []);
@@ -147,18 +157,35 @@ export class SqliteLibraryVideoMetadataRepository {
   async delete(id: string): Promise<boolean> {
     const database = await this.getDatabase();
     const result = await database.transaction(async (transaction) => {
-      await transaction.prepare(`
+      // Keep the source-cleanup intent while releasing its ready-video FK.
+      // The existing removing state fences processing and account deletion.
+      await transaction
+        .prepare(`
+        UPDATE ingest_uploads
+        SET status = 'removing', committed_video_id = NULL, committed_at = NULL, updated_at = ?
+        WHERE committed_video_id = ? AND EXISTS (
+          SELECT 1 FROM ingest_jobs
+          WHERE ingest_jobs.staging_id = ingest_uploads.staging_id
+            AND ingest_jobs.state = 'succeeded' AND ingest_jobs.source_cleanup_pending = 1
+        )
+      `)
+        .run(new Date().toISOString(), id);
+      await transaction
+        .prepare(`
         DELETE FROM ingest_uploads
         WHERE committed_video_id = ?
-      `).run(id);
+      `)
+        .run(id);
 
-      return transaction.prepare(`
+      return transaction
+        .prepare(`
         DELETE FROM videos
         WHERE id = ?
-      `).run(id);
+      `)
+        .run(id);
     });
 
-    return (result.changes ?? 0) > 0;
+    return result.changes > 0;
   }
 
   async exists(id: string): Promise<boolean> {
@@ -167,7 +194,8 @@ export class SqliteLibraryVideoMetadataRepository {
 
   async findAll(): Promise<LibraryVideo[]> {
     const database = await this.getDatabase();
-    const rows = await database.prepare<LibraryVideoRow>(`
+    const rows = await database
+      .prepare<LibraryVideoRow>(`
       SELECT
         id,
         title,
@@ -180,15 +208,18 @@ export class SqliteLibraryVideoMetadataRepository {
         sort_index
       FROM videos
       ORDER BY sort_index DESC
-    `).all();
+    `)
+      .all();
 
-    return Promise.all(rows.map(row => mapRowToLibraryVideo(database, row)));
+    return Promise.all(rows.map((row) => mapRowToLibraryVideo(database, row)));
   }
 
   async findAllByReadAccessScope(scope: VideoReadAccessScope): Promise<LibraryVideo[]> {
     const database = await this.getDatabase();
-    const rows = scope.type === 'public_only'
-      ? await database.prepare<LibraryVideoRow>(`
+    const rows =
+      scope.type === 'public_only'
+        ? await database
+            .prepare<LibraryVideoRow>(`
           SELECT
             id,
             title,
@@ -202,8 +233,10 @@ export class SqliteLibraryVideoMetadataRepository {
           FROM videos
           WHERE (visibility = 'public')
           ORDER BY sort_index DESC
-        `).all()
-      : await database.prepare<LibraryVideoRow>(`
+        `)
+            .all()
+        : await database
+            .prepare<LibraryVideoRow>(`
           SELECT
             id,
             title,
@@ -217,14 +250,16 @@ export class SqliteLibraryVideoMetadataRepository {
           FROM videos
           WHERE (visibility = 'public' OR owner_id = ?)
           ORDER BY sort_index DESC
-        `).all(scope.ownerId);
+        `)
+            .all(scope.ownerId);
 
-    return Promise.all(rows.map(row => mapRowToLibraryVideo(database, row)));
+    return Promise.all(rows.map((row) => mapRowToLibraryVideo(database, row)));
   }
 
   async findById(id: string): Promise<LibraryVideo | null> {
     const database = await this.getDatabase();
-    const row = await database.prepare<LibraryVideoRow>(`
+    const row = await database
+      .prepare<LibraryVideoRow>(`
       SELECT
         id,
         title,
@@ -237,14 +272,16 @@ export class SqliteLibraryVideoMetadataRepository {
         sort_index
       FROM videos
       WHERE id = ?
-    `).get(id);
+    `)
+      .get(id);
 
     return row ? mapRowToLibraryVideo(database, row) : null;
   }
 
   async findOwnedById(id: string, ownerId: string): Promise<LibraryVideo | null> {
     const database = await this.getDatabase();
-    const row = await database.prepare<LibraryVideoRow>(`
+    const row = await database
+      .prepare<LibraryVideoRow>(`
       SELECT
         id,
         title,
@@ -257,7 +294,8 @@ export class SqliteLibraryVideoMetadataRepository {
         sort_index
       FROM videos
       WHERE id = ? AND owner_id = ?
-    `).get(id, ownerId);
+    `)
+      .get(id, ownerId);
 
     return row ? mapRowToLibraryVideo(database, row) : null;
   }
@@ -268,30 +306,32 @@ export class SqliteLibraryVideoMetadataRepository {
     visibility: VideoVisibility,
   ): Promise<LibraryVideo | null> {
     const database = await this.getDatabase();
-    const result = await database.prepare(`
+    const result = await database
+      .prepare(`
       UPDATE videos
       SET
         visibility = ?,
         updated_at = ?
       WHERE id = ? AND owner_id = ?
-    `).run(
-      visibility,
-      new Date().toISOString(),
-      id,
-      ownerId,
-    );
+    `)
+      .run(visibility, new Date().toISOString(), id, ownerId);
 
-    if ((result.changes ?? 0) === 0) {
+    if (result.changes === 0) {
       return null;
     }
 
     return this.findOwnedById(id, ownerId);
   }
 
-  async findByIdByReadAccessScope(id: string, scope: VideoReadAccessScope): Promise<LibraryVideo | null> {
+  async findByIdByReadAccessScope(
+    id: string,
+    scope: VideoReadAccessScope,
+  ): Promise<LibraryVideo | null> {
     const database = await this.getDatabase();
-    const row = scope.type === 'public_only'
-      ? await database.prepare<LibraryVideoRow>(`
+    const row =
+      scope.type === 'public_only'
+        ? await database
+            .prepare<LibraryVideoRow>(`
           SELECT
             id,
             title,
@@ -304,8 +344,10 @@ export class SqliteLibraryVideoMetadataRepository {
             sort_index
           FROM videos
           WHERE id = ? AND (visibility = 'public')
-        `).get(id)
-      : await database.prepare<LibraryVideoRow>(`
+        `)
+            .get(id)
+        : await database
+            .prepare<LibraryVideoRow>(`
           SELECT
             id,
             title,
@@ -318,7 +360,8 @@ export class SqliteLibraryVideoMetadataRepository {
             sort_index
           FROM videos
           WHERE id = ? AND (visibility = 'public' OR owner_id = ?)
-        `).get(id, scope.ownerId);
+        `)
+            .get(id, scope.ownerId);
 
     return row ? mapRowToLibraryVideo(database, row) : null;
   }
@@ -327,16 +370,16 @@ export class SqliteLibraryVideoMetadataRepository {
     const normalizedTag = tag.toLowerCase();
     const videos = await this.findAll();
 
-    return videos.filter(video => video.tags.some(
-      videoTag => videoTag.toLowerCase() === normalizedTag,
-    ));
+    return videos.filter((video) =>
+      video.tags.some((videoTag) => videoTag.toLowerCase() === normalizedTag),
+    );
   }
 
   async findByTitle(title: string): Promise<LibraryVideo[]> {
     const normalizedTitle = title.toLowerCase();
     const videos = await this.findAll();
 
-    return videos.filter(video => video.title.toLowerCase().includes(normalizedTitle));
+    return videos.filter((video) => video.title.toLowerCase().includes(normalizedTitle));
   }
 
   async getAllTags(): Promise<string[]> {
@@ -356,16 +399,14 @@ export class SqliteLibraryVideoMetadataRepository {
     const normalizedQuery = query.toLowerCase();
     const videos = await this.findAll();
 
-    return videos.filter(video => (
-      video.title.toLowerCase().includes(normalizedQuery) ||
-      video.tags.some(tag => tag.toLowerCase().includes(normalizedQuery))
-    ));
+    return videos.filter(
+      (video) =>
+        video.title.toLowerCase().includes(normalizedQuery) ||
+        video.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery)),
+    );
   }
 
-  async update(
-    id: string,
-    updates: UpdateLibraryVideoMetadataInput,
-  ): Promise<LibraryVideo | null> {
+  async update(id: string, updates: UpdateLibraryVideoMetadataInput): Promise<LibraryVideo | null> {
     const existing = await this.findById(id);
 
     if (!existing) {
@@ -384,7 +425,8 @@ export class SqliteLibraryVideoMetadataRepository {
       existing.genreSlugs ?? [],
     );
     await database.transaction(async (transaction) => {
-      await transaction.prepare(`
+      await transaction
+        .prepare(`
         UPDATE videos
         SET
           title = ?,
@@ -393,16 +435,17 @@ export class SqliteLibraryVideoMetadataRepository {
           content_type_slug = ?,
           updated_at = ?
         WHERE id = ?
-      `).run(
-        updates.title ?? existing.title,
-        typeof updates.description === 'undefined'
-          ? existing.description ?? null
-          : updates.description ?? null,
-        updates.duration ?? existing.duration,
-        normalizeNullableTaxonomySlug(nextContentTypeSlug),
-        new Date().toISOString(),
-        id,
-      );
+      `)
+        .run(
+          updates.title ?? existing.title,
+          typeof updates.description === 'undefined'
+            ? (existing.description ?? null)
+            : (updates.description ?? null),
+          updates.duration ?? existing.duration,
+          normalizeNullableTaxonomySlug(nextContentTypeSlug),
+          new Date().toISOString(),
+          id,
+        );
 
       await replaceVideoTags(transaction, id, updates.tags ?? existing.tags);
       await replaceVideoGenreAssignments(transaction, id, nextGenreSlugs);
@@ -423,14 +466,16 @@ export class SqliteLibraryVideoMetadataRepository {
     tableName: 'video_content_types' | 'video_genres',
   ): Promise<VideoTaxonomyItem[]> {
     const database = await this.getDatabase();
-    const rows = await database.prepare<VideoTaxonomyRow>(`
+    const rows = await database
+      .prepare<VideoTaxonomyRow>(`
       SELECT slug, label, active, sort_order
       FROM ${tableName}
       WHERE active = 1
       ORDER BY sort_order ASC, label ASC
-    `).all();
+    `)
+      .all();
 
-    return rows.map(row => ({
+    return rows.map((row) => ({
       active: row.active === 1,
       label: row.label,
       slug: row.slug,
@@ -464,10 +509,7 @@ async function mapRowToLibraryVideo(
   };
 }
 
-function getNextNullableMetadataValue<
-  TUpdates extends object,
-  TKey extends keyof TUpdates,
->(
+function getNextNullableMetadataValue<TUpdates extends object, TKey extends keyof TUpdates>(
   updates: TUpdates,
   key: TKey,
   existingValue: string | undefined,
@@ -478,22 +520,21 @@ function getNextNullableMetadataValue<
     return existingValue ?? null;
   }
 
-  return (nextValue as string | null) ?? null;
+  if (nextValue === null || typeof nextValue === 'string') {
+    return nextValue;
+  }
+
+  throw new Error('Invalid nullable video metadata value');
 }
 
-function getNextListMetadataValue<
-  TUpdates extends object,
-  TKey extends keyof TUpdates,
->(
+function getNextListMetadataValue<TUpdates extends object, TKey extends keyof TUpdates>(
   updates: TUpdates,
   key: TKey,
   existingValue: string[],
 ): string[] {
   const nextValue = updates[key];
 
-  return Object.hasOwn(updates, key) && Array.isArray(nextValue)
-    ? nextValue
-    : existingValue;
+  return Object.hasOwn(updates, key) && Array.isArray(nextValue) ? nextValue : existingValue;
 }
 
 function normalizeNullableTaxonomySlug(value: string | null | undefined): string | null {
@@ -507,21 +548,27 @@ async function replaceVideoTags(
 ) {
   const tags = normalizeVideoTags(rawTags);
 
-  await database.prepare(`
+  await database
+    .prepare(`
     DELETE FROM video_tags
     WHERE video_id = ?
-  `).run(videoId);
+  `)
+    .run(videoId);
 
   for (const tag of tags) {
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO tags (slug, label, created_at)
       VALUES (?, ?, ?)
       ON CONFLICT(slug) DO NOTHING
-    `).run(tag, tag, new Date().toISOString());
-    await database.prepare(`
+    `)
+      .run(tag, tag, new Date().toISOString());
+    await database
+      .prepare(`
       INSERT INTO video_tags (video_id, tag_slug)
       VALUES (?, ?)
-    `).run(videoId, tag);
+    `)
+      .run(videoId, tag);
   }
 }
 
@@ -532,37 +579,45 @@ async function replaceVideoGenreAssignments(
 ) {
   const genreSlugs = normalizeTaxonomySlugs(rawGenreSlugs);
 
-  await database.prepare(`
+  await database
+    .prepare(`
     DELETE FROM video_genre_assignments
     WHERE video_id = ?
-  `).run(videoId);
+  `)
+    .run(videoId);
 
   for (const genreSlug of genreSlugs) {
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO video_genre_assignments (video_id, genre_slug)
       VALUES (?, ?)
-    `).run(videoId, genreSlug);
+    `)
+      .run(videoId, genreSlug);
   }
 }
 
 async function loadTagSlugs(database: SqliteDatabaseAdapter, videoId: string): Promise<string[]> {
-  const rows = await database.prepare<{ tag_slug: string }>(`
+  const rows = await database
+    .prepare<{ tag_slug: string }>(`
     SELECT tag_slug
     FROM video_tags
     WHERE video_id = ?
     ORDER BY tag_slug ASC
-  `).all(videoId);
+  `)
+    .all(videoId);
 
-  return rows.map(row => row.tag_slug);
+  return rows.map((row) => row.tag_slug);
 }
 
 async function loadGenreSlugs(database: SqliteDatabaseAdapter, videoId: string): Promise<string[]> {
-  const rows = await database.prepare<{ genre_slug: string }>(`
+  const rows = await database
+    .prepare<{ genre_slug: string }>(`
     SELECT genre_slug
     FROM video_genre_assignments
     WHERE video_id = ?
     ORDER BY genre_slug ASC
-  `).all(videoId);
+  `)
+    .all(videoId);
 
-  return rows.map(row => row.genre_slug);
+  return rows.map((row) => row.genre_slug);
 }

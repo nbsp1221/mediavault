@@ -7,28 +7,33 @@ const authUser = {
   createdAt: new Date('2026-05-16T00:00:00.000Z'),
   id: 'user-1',
   passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-  role: 'admin' as const,
   username: 'Owner',
   usernameKey: 'owner',
 };
 
-function createCredentialReader(overrides: Partial<UserCredentialReader> = {}): UserCredentialReader {
+function createCredentialReader(
+  overrides: Partial<UserCredentialReader> = {},
+): UserCredentialReader {
   return {
-    findCredentialByUsernameKey: async usernameKey => (usernameKey === authUser.usernameKey
-      ? {
-          id: authUser.id,
-          passwordHash: authUser.passwordHash,
-          usernameKey: authUser.usernameKey,
-        }
-      : null),
+    findCredentialByUsernameKey: async (usernameKey) =>
+      usernameKey === authUser.usernameKey
+        ? {
+            id: authUser.id,
+            passwordHash: authUser.passwordHash,
+            usernameKey: authUser.usernameKey,
+          }
+        : null,
     ...overrides,
   };
 }
 
-function createPasswordHashService(overrides: Partial<PasswordHashService> = {}): PasswordHashService {
+function createPasswordHashService(
+  overrides: Partial<PasswordHashService> = {},
+): PasswordHashService {
   return {
     hash: async () => authUser.passwordHash,
-    verify: async input => input.hash === authUser.passwordHash && input.password === 'correct-password',
+    verify: async (input) =>
+      input.hash === authUser.passwordHash && input.password === 'correct-password',
     ...overrides,
   };
 }
@@ -68,11 +73,13 @@ describe('CreateAuthSessionUseCase', () => {
 
     expect(result.ok).toBe(true);
     expect(savedSessions).toHaveLength(1);
-    expect(savedSessions[0]).toEqual(expect.objectContaining({
-      id: 'session-1',
-      userId: 'user-1',
-    }));
-    expect(reset).toHaveBeenCalledWith('vitest');
+    expect(savedSessions[0]).toEqual(
+      expect.objectContaining({
+        id: 'session-1',
+        userId: 'user-1',
+      }),
+    );
+    expect(reset).toHaveBeenCalledWith('account:owner');
   });
 
   test('rejects a wrong password with a generic invalid credentials reason', async () => {
@@ -115,13 +122,13 @@ describe('CreateAuthSessionUseCase', () => {
     expect(save).not.toHaveBeenCalled();
     expect(delayOnInvalidCredentials).toHaveBeenCalledOnce();
     expect(registerFailure).toHaveBeenCalledWith({
-      key: 'global',
+      key: 'account:owner',
       now: new Date('2026-03-07T00:00:00.000Z'),
     });
   });
 
   test('rejects an unknown username with the same invalid credentials reason', async () => {
-    const verify = vi.fn(async () => false);
+    const verify = vi.fn<PasswordHashService['verify']>(async () => false);
     const useCase = new CreateAuthSessionUseCase({
       credentialReader: createCredentialReader({
         findCredentialByUsernameKey: async () => null,
@@ -150,10 +157,10 @@ describe('CreateAuthSessionUseCase', () => {
       ok: false,
       reason: 'INVALID_CREDENTIALS',
     });
-    expect(verify).toHaveBeenCalledWith({
-      hash: expect.stringMatching(/^\$argon2id\$/),
-      password: 'correct-password',
-    });
+    expect(verify).toHaveBeenCalledOnce();
+    const verification = verify.mock.calls[0]?.[0];
+    expect(verification.hash).toMatch(/^\$argon2id\$/);
+    expect(verification.password).toBe('correct-password');
   });
 
   test('rejects invalid credential shape before lookup', async () => {
@@ -181,28 +188,32 @@ describe('CreateAuthSessionUseCase', () => {
       sessionTtlMs: 60_000,
     });
 
-    await expect(useCase.execute({
-      now: new Date('2026-03-07T00:00:00.000Z'),
-      password: 'abc',
-      username: 'owner',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        now: new Date('2026-03-07T00:00:00.000Z'),
+        password: 'abc',
+        username: 'owner',
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'INVALID_CREDENTIALS',
     });
     expect(registerFailure).toHaveBeenCalledWith({
-      key: 'global',
+      key: 'account:owner',
       now: new Date('2026-03-07T00:00:00.000Z'),
     });
-    await expect(useCase.execute({
-      now: new Date('2026-03-07T00:00:00.000Z'),
-      password: 'correct-password',
-      username: '../owner',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        now: new Date('2026-03-07T00:00:00.000Z'),
+        password: 'correct-password',
+        username: '../owner',
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'INVALID_CREDENTIALS',
     });
     expect(registerFailure).toHaveBeenCalledWith({
-      key: 'global',
+      key: 'account:../owner',
       now: new Date('2026-03-07T00:00:00.000Z'),
     });
     expect(registerFailure).toHaveBeenCalledTimes(2);
@@ -212,14 +223,16 @@ describe('CreateAuthSessionUseCase', () => {
   test('blocks account login when the attempt guard denies the request', async () => {
     const verify = vi.fn();
     const findCredentialByUsernameKey = vi.fn();
-    const evaluate = vi.fn(({ key }: { key: string }) => (key === 'anonymous'
-      ? {
-          allowed: false,
-          retryAfterSeconds: 60,
-        }
-      : {
-          allowed: true,
-        }));
+    const evaluate = vi.fn(({ key }: { key: string }) =>
+      key === 'account:owner'
+        ? {
+            allowed: false,
+            retryAfterSeconds: 60,
+          }
+        : {
+            allowed: true,
+          },
+    );
     const useCase = new CreateAuthSessionUseCase({
       credentialReader: createCredentialReader({
         findCredentialByUsernameKey,
@@ -246,7 +259,7 @@ describe('CreateAuthSessionUseCase', () => {
     });
 
     const result = await useCase.execute({
-      attemptKeys: ['client:rotated', 'anonymous'],
+      attemptKeys: ['client:rotated'],
       now: new Date('2026-03-07T00:00:00.000Z'),
       password: 'wrong-password',
       username: 'owner',
@@ -262,14 +275,14 @@ describe('CreateAuthSessionUseCase', () => {
       now: new Date('2026-03-07T00:00:00.000Z'),
     });
     expect(evaluate).toHaveBeenNthCalledWith(2, {
-      key: 'anonymous',
+      key: 'account:owner',
       now: new Date('2026-03-07T00:00:00.000Z'),
     });
     expect(findCredentialByUsernameKey).not.toHaveBeenCalled();
     expect(verify).not.toHaveBeenCalled();
   });
 
-  test('normalizes attempt keys, falls back to request metadata, and registers failures for each key once', async () => {
+  test('deduplicates source keys and serializes failures by normalized account', async () => {
     const evaluate = vi.fn(() => ({ allowed: true }));
     const registerFailure = vi.fn();
     const useCase = new CreateAuthSessionUseCase({
@@ -280,7 +293,7 @@ describe('CreateAuthSessionUseCase', () => {
         registerFailure,
         reset: vi.fn(),
         runExclusive: async (key, task) => {
-          expect(key).toBe('agent-key');
+          expect(key).toBe('account:owner');
           return task();
         },
       },
@@ -299,28 +312,31 @@ describe('CreateAuthSessionUseCase', () => {
     });
     const now = new Date('2026-03-07T00:00:00.000Z');
 
-    await expect(useCase.execute({
-      attemptKey: '  ignored-ip  ',
-      attemptKeys: [' client-key ', '', 'client-key', 'agent-key'],
-      ipAddress: '127.0.0.1',
-      now,
-      password: 'wrong-password',
-      userAgent: 'agent-key',
-      username: 'owner',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        attemptKeys: [' client-key ', '', 'client-key', 'agent-key'],
+        ipAddress: '127.0.0.1',
+        now,
+        password: 'wrong-password',
+        userAgent: 'agent-key',
+        username: 'owner',
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'INVALID_CREDENTIALS',
     });
 
-    expect(evaluate).toHaveBeenCalledTimes(2);
+    expect(evaluate).toHaveBeenCalledTimes(3);
     expect(evaluate).toHaveBeenNthCalledWith(1, { key: 'client-key', now });
     expect(evaluate).toHaveBeenNthCalledWith(2, { key: 'agent-key', now });
-    expect(registerFailure).toHaveBeenCalledTimes(2);
+    expect(registerFailure).toHaveBeenCalledTimes(3);
     expect(registerFailure).toHaveBeenNthCalledWith(1, { key: 'client-key', now });
     expect(registerFailure).toHaveBeenNthCalledWith(2, { key: 'agent-key', now });
+    expect(evaluate).toHaveBeenNthCalledWith(3, { key: 'account:owner', now });
+    expect(registerFailure).toHaveBeenNthCalledWith(3, { key: 'account:owner', now });
   });
 
-  test('uses the explicit attempt key before IP, user agent, and global fallbacks', async () => {
+  test('resets the source and account buckets on successful login', async () => {
     const evaluate = vi.fn(() => ({ allowed: true }));
     const reset = vi.fn();
     const useCase = new CreateAuthSessionUseCase({
@@ -331,7 +347,7 @@ describe('CreateAuthSessionUseCase', () => {
         registerFailure: vi.fn(),
         reset,
         runExclusive: async (key, task) => {
-          expect(key).toBe('explicit-key');
+          expect(key).toBe('account:owner');
           return task();
         },
       },
@@ -347,18 +363,21 @@ describe('CreateAuthSessionUseCase', () => {
     });
     const now = new Date('2026-03-07T00:00:00.000Z');
 
-    await expect(useCase.execute({
-      attemptKey: ' explicit-key ',
-      ipAddress: '127.0.0.1',
-      now,
-      password: 'correct-password',
-      userAgent: 'vitest',
-      username: 'owner',
-    })).resolves.toMatchObject({
+    await expect(
+      useCase.execute({
+        attemptKeys: [' explicit-key '],
+        ipAddress: '127.0.0.1',
+        now,
+        password: 'correct-password',
+        userAgent: 'vitest',
+        username: 'owner',
+      }),
+    ).resolves.toMatchObject({
       ok: true,
     });
 
     expect(evaluate).toHaveBeenCalledWith({ key: 'explicit-key', now });
     expect(reset).toHaveBeenCalledWith('explicit-key');
+    expect(reset).toHaveBeenCalledWith('account:owner');
   });
 });

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { access, readdir, readFile } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 interface HermeticViolation {
@@ -7,9 +7,7 @@ interface HermeticViolation {
   message: string;
 }
 
-const APP_ENV_ACCESS_ALLOWLIST = new Set([
-  'app/shared/config/app-config.server.ts',
-]);
+const APP_ENV_ACCESS_ALLOWLIST = new Set(['app/shared/config/app-config.server.ts']);
 
 const SCAN_SKIP_PATHS = new Set([
   'tests/integration/smoke/browser-smoke-fixture-contract.test.ts',
@@ -29,11 +27,13 @@ const RUNTIME_FIXTURE_ENV_LITERAL_PATTERN =
 
 const FORBIDDEN_PATTERNS = [
   {
-    message: 'Tests and support scripts must not read playback fixtures from ignored repo-local storage.',
+    message:
+      'Tests and support scripts must not read playback fixtures from ignored repo-local storage.',
     pattern: /process\.cwd\(\)\s*,\s*['"]storage['"]/,
   },
   {
-    message: 'Tests and support scripts must not resolve playback fixture inputs from retired repo-local storage paths.',
+    message:
+      'Tests and support scripts must not resolve playback fixture inputs from retired repo-local storage paths.',
     pattern: /storage\/data\/videos\//,
   },
 ] as const;
@@ -66,8 +66,7 @@ async function fileExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
     return true;
-  }
-  catch {
+  } catch {
     return false;
   }
 }
@@ -87,8 +86,7 @@ async function collectTargetFiles(rootDir: string): Promise<string[]> {
     let entries;
     try {
       entries = await readdir(absoluteCurrent, { withFileTypes: true });
-    }
-    catch {
+    } catch {
       continue;
     }
 
@@ -135,8 +133,7 @@ async function collectAppRuntimeFiles(rootDir: string): Promise<string[]> {
     let entries;
     try {
       entries = await readdir(absoluteCurrent, { withFileTypes: true });
-    }
-    catch {
+    } catch {
       continue;
     }
 
@@ -171,7 +168,7 @@ function isAllowedAppEnvAccessPath(relativePath: string): boolean {
   return APP_ENV_ACCESS_ALLOWLIST.has(relativePath);
 }
 
-async function isIgnoredByGit(filePath: string): Promise<boolean> {
+function isIgnoredByGit(filePath: string): boolean {
   const result = spawnSync('git', ['check-ignore', '-q', filePath], {
     cwd: process.cwd(),
     stdio: 'ignore',
@@ -180,7 +177,7 @@ async function isIgnoredByGit(filePath: string): Promise<boolean> {
   return result.status === 0;
 }
 
-async function isTrackedByGit(filePath: string): Promise<boolean> {
+function isTrackedByGit(filePath: string): boolean {
   const result = spawnSync('git', ['ls-files', '--error-unmatch', filePath], {
     cwd: process.cwd(),
     stdio: 'ignore',
@@ -193,7 +190,9 @@ async function hasGitMetadata(rootDir: string): Promise<boolean> {
   return fileExists(resolve(rootDir, '.git'));
 }
 
-export async function collectHermeticTestInputViolations(rootDir = process.cwd()): Promise<HermeticViolation[]> {
+export async function collectHermeticTestInputViolations(
+  rootDir = process.cwd(),
+): Promise<HermeticViolation[]> {
   const violations: HermeticViolation[] = [];
   const gitAware = await hasGitMetadata(rootDir);
 
@@ -207,7 +206,7 @@ export async function collectHermeticTestInputViolations(rootDir = process.cwd()
       continue;
     }
 
-    if (await isIgnoredByGit(relativePath)) {
+    if (isIgnoredByGit(relativePath)) {
       violations.push({
         filePath: relativePath,
         message: 'Required playback fixture asset is ignored by git.',
@@ -215,7 +214,7 @@ export async function collectHermeticTestInputViolations(rootDir = process.cwd()
       continue;
     }
 
-    if (gitAware && !(await isTrackedByGit(relativePath))) {
+    if (gitAware && !isTrackedByGit(relativePath)) {
       violations.push({
         filePath: relativePath,
         message: 'Required playback fixture asset is not tracked by git.',
@@ -247,7 +246,8 @@ export async function collectHermeticTestInputViolations(rootDir = process.cwd()
     ) {
       violations.push({
         filePath: relativePath,
-        message: 'Production-like runtime fixture env values must come from tests/support/runtime-test-env.ts.',
+        message:
+          'Production-like runtime fixture env values must come from tests/support/runtime-test-env.ts.',
       });
     }
   }
@@ -269,7 +269,8 @@ export async function collectHermeticTestInputViolations(rootDir = process.cwd()
     if (/\bprocess\.env\b/.test(source)) {
       violations.push({
         filePath: relativePath,
-        message: 'Runtime app code must read process.env only through the shared server config boundary.',
+        message:
+          'Runtime app code must read process.env only through the shared server config boundary.',
       });
     }
   }

@@ -75,18 +75,26 @@ describe('VideoVisibilitySection', () => {
       />,
     );
 
-    expect(screen.getByRole('region', { name: 'Visibility' })).toHaveTextContent('Only you can browse and watch this video.');
+    expect(screen.getByRole('region', { name: 'Visibility' })).toHaveTextContent(
+      'Only you can browse and watch this video.',
+    );
     expect(screen.getByText('Current visibility: Private')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Make Public' }));
     const dialog = screen.getByRole('alertdialog', { name: 'Make video public?' });
-    expect(dialog).toHaveTextContent('Anyone who can access this site can find and watch this video.');
+    expect(dialog).toHaveTextContent(
+      'Anyone who can access this site can find and watch this video.',
+    );
 
     await user.click(within(dialog).getByRole('button', { name: 'Make Public' }));
 
     expect(onChangeVisibility).toHaveBeenCalledWith('public');
     expect(await screen.findByRole('status')).toHaveTextContent('Visibility updated to Public.');
-    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Make video public?' })).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('alertdialog', { name: 'Make video public?' }),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   test('makes a public video private without a confirmation dialog', async () => {
@@ -100,12 +108,16 @@ describe('VideoVisibilitySection', () => {
       />,
     );
 
-    expect(screen.getByRole('region', { name: 'Visibility' })).toHaveTextContent('Anyone with site access can find and watch this video.');
+    expect(screen.getByRole('region', { name: 'Visibility' })).toHaveTextContent(
+      'Anyone with site access can find and watch this video.',
+    );
     expect(screen.getByText('Current visibility: Public')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Make Private' }));
 
-    expect(screen.queryByRole('alertdialog', { name: 'Make video public?' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('alertdialog', { name: 'Make video public?' }),
+    ).not.toBeInTheDocument();
     expect(onChangeVisibility).toHaveBeenCalledWith('private');
     expect(await screen.findByRole('status')).toHaveTextContent('Visibility updated to Private.');
   });
@@ -123,7 +135,9 @@ describe('VideoVisibilitySection', () => {
 
     await user.click(screen.getByRole('button', { name: 'Make Private' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Visibility could not be updated. Try again.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Visibility could not be updated. Try again.',
+    );
     expect(screen.getByText('Current visibility: Public')).toBeInTheDocument();
   });
 
@@ -142,7 +156,9 @@ describe('VideoVisibilitySection', () => {
     expect(screen.getByRole('button', { name: 'Updating...' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Updating...' }));
 
-    expect(screen.queryByRole('alertdialog', { name: 'Make video public?' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('alertdialog', { name: 'Make video public?' }),
+    ).not.toBeInTheDocument();
     expect(onChangeVisibility).not.toHaveBeenCalled();
   });
 });

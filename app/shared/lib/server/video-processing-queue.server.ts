@@ -1,5 +1,5 @@
 export type ProcessingTask<T> = (() => Promise<T>) & {
-  cleanup?: () => void;
+  cleanup?: (reason?: Error) => Promise<void> | void;
 };
 
 export interface QueueOptions {
@@ -10,8 +10,8 @@ export interface QueueOptions {
 
 interface QueueItem {
   reject: (error: unknown) => void;
-  resolve: (value: unknown) => void;
-  task: ProcessingTask<unknown>;
+  resolve: () => void;
+  task: ProcessingTask<void>;
   timeoutId?: NodeJS.Timeout;
 }
 
@@ -37,15 +37,20 @@ export class VideoProcessingQueue {
 
   async process<T>(task: ProcessingTask<T>): Promise<T> {
     if (this.waitingQueue.length >= this.maxQueueSize) {
-      throw new Error(`Video processing queue is full (max: ${this.maxQueueSize}). Too many videos being processed.`);
+      throw new Error(
+        `Video processing queue is full (max: ${this.maxQueueSize}). Too many videos being processed.`,
+      );
     }
 
     return new Promise<T>((resolve, reject) => {
-      this.waitingQueue.push({
-        reject,
-        resolve: value => resolve(value as T),
-        task: task as ProcessingTask<unknown>,
-      });
+      let result: T;
+
+      const wrapped: ProcessingTask<void> = async () => {
+        result = await task();
+      };
+
+      wrapped.cleanup = task.cleanup;
+      this.waitingQueue.push({ reject, resolve: () => resolve(result), task: wrapped });
       this.processNext();
     });
   }
@@ -53,16 +58,19 @@ export class VideoProcessingQueue {
   private executeTask(queueItem: QueueItem) {
     const timeoutPromise = new Promise<never>((_, timeoutReject) => {
       queueItem.timeoutId = setTimeout(() => {
-        timeoutReject(new Error(`Video processing task timed out after ${this.timeout}ms`));
+        const reason = new Error(`Video processing task timed out after ${this.timeout}ms`);
+        Promise.resolve()
+          .then(() => queueItem.task.cleanup?.(reason))
+          .then(() => timeoutReject(reason), timeoutReject);
       }, this.timeout);
     });
 
     Promise.race([queueItem.task(), timeoutPromise])
-      .then((result) => {
+      .then(() => {
         clearQueueItemTimeout(queueItem);
-        queueItem.resolve(result);
+        queueItem.resolve();
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         clearQueueItemTimeout(queueItem);
         queueItem.reject(error);
       })
@@ -88,8 +96,7 @@ export class VideoProcessingQueue {
         this.running++;
         this.executeTask(queueItem);
       }
-    }
-    finally {
+    } finally {
       this.processing = false;
     }
   }

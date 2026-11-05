@@ -23,11 +23,18 @@ describe('ProductRouteErrorView', () => {
       </MemoryRouter>,
     );
 
-    expect(within(screen.getByRole('banner')).getByRole('heading', { level: 1, name: 'Playlist unavailable' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('banner')).getByRole('heading', {
+        level: 1,
+        name: 'Playlist unavailable',
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Product navigation' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Playlists' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getAllByRole('main')).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 2, name: 'Playlist unavailable' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Playlist unavailable' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('The playlist could not be loaded.')).toBeInTheDocument();
   });
 });

@@ -9,14 +9,11 @@ const ENV_KEYS = [
   'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET',
 ] as const;
 
-const originalEnv = ENV_KEYS.reduce<Record<typeof ENV_KEYS[number], string | undefined>>((values, key) => {
-  values[key] = process.env[key];
-  return values;
-}, {} as Record<typeof ENV_KEYS[number], string | undefined>);
+const originalEnv = new Map(ENV_KEYS.map((key) => [key, process.env[key]]));
 
 function restoreOriginalEnv(): void {
   for (const key of ENV_KEYS) {
-    const value = originalEnv[key];
+    const value = originalEnv.get(key);
     if (value === undefined) {
       delete process.env[key];
       continue;

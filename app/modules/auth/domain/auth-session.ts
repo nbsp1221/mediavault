@@ -9,6 +9,4 @@ export interface AuthSession {
   userAgent?: string;
 }
 
-export type AuthDecision =
-  | { allowed: true }
-  | { allowed: false; reason: string };
+export type AuthDecision = { allowed: true } | { allowed: false; reason: string };

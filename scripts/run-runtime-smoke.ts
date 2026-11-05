@@ -1,35 +1,41 @@
 import { spawnSync } from 'node:child_process';
 import { createHermeticTestEnv } from './hermetic-env';
-import { prependNoEnvFile } from './no-env-file-bun';
+import { ensureMediaTools } from './lib/runtime/ensure-media-tools';
 
 const runtimeSmokeEnv = createHermeticTestEnv();
 
-function runCommand(command: string, args: string[], env: NodeJS.ProcessEnv = process.env) {
-  const result = spawnSync(command, args, {
+function runRequired(args: string[]): void {
+  const result = spawnSync('pnpm', args, {
     cwd: process.cwd(),
-    env,
+    env: runtimeSmokeEnv,
     stdio: 'inherit',
   });
-
-  if (typeof result.status === 'number') {
-    return result.status;
-  }
 
   if (result.error) {
     throw result.error;
   }
-
-  return 1;
-}
-
-function runRequired(command: string, args: string[], env?: NodeJS.ProcessEnv) {
-  const status = runCommand(command, args, env);
-
-  if (status !== 0) {
-    process.exit(status);
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
   }
 }
 
-runRequired('bun', prependNoEnvFile(['test', './tests/smoke/dev-auth-gate.test.ts']), runtimeSmokeEnv);
-runRequired('bun', prependNoEnvFile(['run', 'build']), runtimeSmokeEnv);
-runRequired('bun', prependNoEnvFile(['test', './tests/smoke/bun-auth-gate.test.ts']), runtimeSmokeEnv);
+ensureMediaTools((name) => runRequired([name]));
+runRequired([
+  'exec',
+  'vitest',
+  'run',
+  '--config',
+  'vitest.runtime.config.ts',
+  'tests/smoke/dev-auth-gate.test.ts',
+]);
+runRequired(['build']);
+runRequired([
+  'exec',
+  'vitest',
+  'run',
+  '--config',
+  'vitest.runtime.config.ts',
+  'tests/smoke/node-auth-gate.test.ts',
+  'tests/smoke/ingest-worker-lifecycle.test.ts',
+  'tests/smoke/dev-restart-supervisor.test.ts',
+]);

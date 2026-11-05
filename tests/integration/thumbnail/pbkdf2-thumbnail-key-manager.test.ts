@@ -24,15 +24,13 @@ describe('Pbkdf2ThumbnailKeyManager', () => {
   afterEach(async () => {
     if (originalDatabaseEncryptionKey === undefined) {
       delete process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
-    }
-    else {
+    } else {
       process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = originalDatabaseEncryptionKey;
     }
 
     if (originalStorageDir === undefined) {
       delete process.env.MEDIAVAULT_STORAGE_DIR;
-    }
-    else {
+    } else {
       process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
     }
 
@@ -40,7 +38,8 @@ describe('Pbkdf2ThumbnailKeyManager', () => {
   });
 
   test('generateAndStoreKey writes key.bin and retrieveKey/keyExists expose the same 16-byte key', async () => {
-    const { Pbkdf2ThumbnailKeyManager } = await import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager');
+    const { Pbkdf2ThumbnailKeyManager } =
+      await import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager');
     const manager = new Pbkdf2ThumbnailKeyManager({
       config: mediaKeyConfig,
     });
@@ -51,12 +50,15 @@ describe('Pbkdf2ThumbnailKeyManager', () => {
     expect(result.key).toHaveLength(16);
     expect(result.keyInfoFile).toBe(join(storageDir, 'videos', 'video-123', 'keyinfo.txt'));
     expect(storedKey).toEqual(result.key);
-    await expect(readFile(join(storageDir, 'videos', 'video-123', 'key.bin'))).resolves.toEqual(result.key);
+    await expect(readFile(join(storageDir, 'videos', 'video-123', 'key.bin'))).resolves.toEqual(
+      result.key,
+    );
     await expect(manager.keyExists('video-123')).resolves.toBe(true);
   });
 
   test('explicit config remains deterministic for repo tests', async () => {
-    const { Pbkdf2ThumbnailKeyManager } = await import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager');
+    const { Pbkdf2ThumbnailKeyManager } =
+      await import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager');
     const manager = new Pbkdf2ThumbnailKeyManager({
       config: mediaKeyConfig,
     });
@@ -68,7 +70,8 @@ describe('Pbkdf2ThumbnailKeyManager', () => {
   });
 
   test('non-test mode reads MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET and MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT with 100000 rounds', async () => {
-    const { Pbkdf2ThumbnailKeyManager } = await import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager');
+    const { Pbkdf2ThumbnailKeyManager } =
+      await import('../../../app/modules/thumbnail/infrastructure/security/pbkdf2-thumbnail-key-manager');
     const manager = new Pbkdf2ThumbnailKeyManager({
       env: {
         MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT: 'vault-salt',
@@ -77,9 +80,7 @@ describe('Pbkdf2ThumbnailKeyManager', () => {
     });
 
     const { key } = await manager.generateAndStoreKey('video-123');
-    const expectedSalt = crypto.createHash('sha256')
-      .update('vault-saltvideo-123')
-      .digest();
+    const expectedSalt = crypto.createHash('sha256').update('vault-saltvideo-123').digest();
     const expectedKey = crypto.pbkdf2Sync('vault-seed', expectedSalt, 100000, 16, 'sha256');
 
     expect(key).toEqual(expectedKey);

@@ -10,11 +10,11 @@ import {
 describe('PlayerSurface layout contracts', () => {
   test('renders as content-only watch surface inside ProductShell chrome', () => {
     protectedPlaybackSessionState.current = {
-      drmConfig: null,
+      licenseUrl: '/videos/video-1/clearkey',
       error: null,
       isLoading: false,
       manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: null,
+      token: 'test-playback-token',
     };
 
     renderPlayerSurface({
@@ -43,11 +43,11 @@ describe('PlayerSurface layout contracts', () => {
 
   test('formats fractional durations without leaking decimals', () => {
     protectedPlaybackSessionState.current = {
-      drmConfig: null,
+      licenseUrl: '/videos/video-1/clearkey',
       error: null,
       isLoading: false,
       manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: null,
+      token: 'test-playback-token',
     };
 
     renderPlayerSurface({
@@ -72,11 +72,11 @@ describe('PlayerSurface layout contracts', () => {
 
   test('formats invalid durations as 0:00', () => {
     protectedPlaybackSessionState.current = {
-      drmConfig: null,
+      licenseUrl: '/videos/video-1/clearkey',
       error: null,
       isLoading: false,
       manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: null,
+      token: 'test-playback-token',
     };
 
     renderPlayerSurface({
@@ -98,11 +98,11 @@ describe('PlayerSurface layout contracts', () => {
 
   test('shows a clear-filter affordance and explanatory empty state for tag filtering', async () => {
     protectedPlaybackSessionState.current = {
-      drmConfig: null,
+      licenseUrl: '/videos/video-1/clearkey',
       error: null,
       isLoading: false,
       manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: null,
+      token: 'test-playback-token',
     };
 
     const { user } = renderPlayerSurface({
@@ -130,11 +130,11 @@ describe('PlayerSurface layout contracts', () => {
 
   test('resets the active tag filter when the current video changes', async () => {
     protectedPlaybackSessionState.current = {
-      drmConfig: null,
+      licenseUrl: '/videos/video-1/clearkey',
       error: null,
       isLoading: false,
       manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: null,
+      token: 'test-playback-token',
     };
 
     const { rerender, user } = renderPlayerSurface({
@@ -153,30 +153,32 @@ describe('PlayerSurface layout contracts', () => {
     await user.click(screen.getAllByRole('button', { name: '#alpha' })[0]);
     expect(screen.getAllByRole('button', { name: /clear filter/i }).length).toBeGreaterThan(0);
 
-    rerender(createPlayerSurfaceElement({
-      relatedVideos: [
-        createVideo({
-          id: 'related-gamma',
+    rerender(
+      createPlayerSurfaceElement({
+        relatedVideos: [
+          createVideo({
+            id: 'related-gamma',
+            tags: ['gamma'],
+            thumbnailUrl: '/api/thumbnail/related-gamma',
+            title: 'Gamma related video',
+            videoUrl: 'https://cdn.example.com/related-gamma.mpd',
+          }),
+          createVideo({
+            id: 'related-delta',
+            tags: ['delta'],
+            thumbnailUrl: '/api/thumbnail/related-delta',
+            title: 'Delta related video',
+            videoUrl: 'https://cdn.example.com/related-delta.mpd',
+          }),
+        ],
+        video: createVideo({
+          id: 'video-2',
           tags: ['gamma'],
-          thumbnailUrl: '/api/thumbnail/related-gamma',
-          title: 'Gamma related video',
-          videoUrl: 'https://cdn.example.com/related-gamma.mpd',
+          title: 'Second fixture video',
+          videoUrl: 'https://cdn.example.com/video-2.mpd',
         }),
-        createVideo({
-          id: 'related-delta',
-          tags: ['delta'],
-          thumbnailUrl: '/api/thumbnail/related-delta',
-          title: 'Delta related video',
-          videoUrl: 'https://cdn.example.com/related-delta.mpd',
-        }),
-      ],
-      video: createVideo({
-        id: 'video-2',
-        tags: ['gamma'],
-        title: 'Second fixture video',
-        videoUrl: 'https://cdn.example.com/video-2.mpd',
       }),
-    }));
+    );
 
     expect(screen.queryByRole('button', { name: /clear filter/i })).not.toBeInTheDocument();
     expect(screen.getByText('Gamma related video')).toBeInTheDocument();
@@ -185,11 +187,11 @@ describe('PlayerSurface layout contracts', () => {
 
   test('renders related-video cards with thumbnails, duration badges, and tag chips', () => {
     protectedPlaybackSessionState.current = {
-      drmConfig: null,
+      licenseUrl: '/videos/video-1/clearkey',
       error: null,
       isLoading: false,
       manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: null,
+      token: 'test-playback-token',
     };
 
     renderPlayerSurface({
@@ -213,14 +215,16 @@ describe('PlayerSurface layout contracts', () => {
 
   test('renders recommendation entries as thumbnail-first links with compact metadata', () => {
     protectedPlaybackSessionState.current = {
-      drmConfig: null,
+      licenseUrl: '/videos/video-1/clearkey',
       error: null,
       isLoading: false,
       manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: null,
+      token: 'test-playback-token',
     };
 
-    const expectedDate = new Intl.DateTimeFormat('en-US').format(new Date('2026-03-08T00:00:00.000Z'));
+    const expectedDate = new Intl.DateTimeFormat('en-US').format(
+      new Date('2026-03-08T00:00:00.000Z'),
+    );
 
     renderPlayerSurface({
       relatedVideos: [

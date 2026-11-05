@@ -1,5 +1,5 @@
 import { LogOut, User } from 'lucide-react';
-import { Link } from 'react-router';
+import { Form, Link, useLocation } from 'react-router';
 import { useRootUser } from '~/shared/hooks/use-root-user';
 import { Button } from '~/shared/ui/button';
 import {
@@ -14,9 +14,18 @@ import {
 
 export function ProductAccountMenu() {
   const user = useRootUser();
+  const location = useLocation();
 
   if (!user) {
-    return null;
+    const redirectTo =
+      location.pathname.startsWith('/') && !location.pathname.startsWith('//')
+        ? `${location.pathname}${location.search}${location.hash}`
+        : '/';
+    return (
+      <Button asChild size="sm" variant="outline">
+        <Link to={`/login?${new URLSearchParams({ redirectTo })}`}>Sign in</Link>
+      </Button>
+    );
   }
 
   return (
@@ -36,19 +45,23 @@ export function ProductAccountMenu() {
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium leading-none">Account</p>
-            <p className="truncate text-xs leading-none text-muted-foreground">
-              {user.username}
-            </p>
+            <p className="truncate text-xs leading-none text-muted-foreground">{user.username}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild variant="destructive">
-            <Link to="/api/auth/logout">
-              <LogOut data-icon="inline-start" />
-              Logout
-            </Link>
-          </DropdownMenuItem>
+          <Form action="/api/auth/logout" method="post">
+            <DropdownMenuItem
+              asChild
+              onSelect={(event) => event.preventDefault()}
+              variant="destructive"
+            >
+              <button className="w-full" type="submit">
+                <LogOut data-icon="inline-start" />
+                Logout
+              </button>
+            </DropdownMenuItem>
+          </Form>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,11 +1,17 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { UserCredential, UserCredentialReader } from '~/modules/auth/application/ports/user-credential-reader.port';
+import type {
+  UserCredential,
+  UserCredentialReader,
+} from '~/modules/auth/application/ports/user-credential-reader.port';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
-import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import {
+  type CreateInitializedPrimarySqliteDatabase,
+  createInitializedPrimarySqliteDatabase,
+} from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 
 interface SqliteUserCredentialReaderAdapterOptions {
-  createDatabase?: CreateMigratedPrimarySqliteDatabase;
+  createDatabase?: CreateInitializedPrimarySqliteDatabase;
   dbPath: string;
 }
 
@@ -16,13 +22,13 @@ interface UserCredentialRow {
 }
 
 export class SqliteUserCredentialReaderAdapter implements UserCredentialReader {
-  private readonly createDatabase: CreateMigratedPrimarySqliteDatabase;
+  private readonly createDatabase: CreateInitializedPrimarySqliteDatabase;
   private readonly dbPath: string;
   private databasePromise: Promise<SqliteDatabaseAdapter> | null = null;
 
   constructor(options: SqliteUserCredentialReaderAdapterOptions) {
     mkdirSync(dirname(options.dbPath), { recursive: true });
-    this.createDatabase = options.createDatabase ?? createMigratedPrimarySqliteDatabase;
+    this.createDatabase = options.createDatabase ?? createInitializedPrimarySqliteDatabase;
     this.dbPath = options.dbPath;
   }
 
@@ -38,14 +44,16 @@ export class SqliteUserCredentialReaderAdapter implements UserCredentialReader {
 
   async findCredentialByUsernameKey(usernameKey: string): Promise<UserCredential | null> {
     const database = await this.getDatabase();
-    const row = await database.prepare<UserCredentialRow>(`
+    const row = await database
+      .prepare<UserCredentialRow>(`
       SELECT
         id,
         username_key,
         password_hash
       FROM auth_users
       WHERE username_key = ?
-    `).get(usernameKey);
+    `)
+      .get(usernameKey);
 
     return row
       ? {

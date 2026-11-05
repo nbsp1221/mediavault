@@ -43,8 +43,7 @@ export class ThumbnailDecryptionService implements ThumbnailDecryptionServicePor
         },
         success: true,
       };
-    }
-    catch (error) {
+    } catch (error) {
       return {
         error: error instanceof Error ? error : new Error('Failed to decrypt thumbnail'),
         success: false,

@@ -1,5 +1,3 @@
-import { normalizeVideoTag, normalizeVideoTags } from './video-tag';
-
 export interface VideoTaxonomyItem {
   active: boolean;
   label: string;
@@ -24,10 +22,29 @@ export const DEFAULT_VIDEO_GENRES: VideoTaxonomyItem[] = [
   { active: true, label: 'Other', slug: 'other', sortOrder: 60 },
 ];
 
+function isSlugLetterOrNumber(character: string | undefined): boolean {
+  return Boolean(character && /[a-z0-9]/.test(character));
+}
+
+/** Controlled taxonomy identifiers remain ASCII slugs; free-form video tags do not. */
 export function normalizeTaxonomySlug(rawSlug: string): string | null {
-  return normalizeVideoTag(rawSlug);
+  const normalized = rawSlug
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_-]/g, '')
+    .replace(/_+/g, '_');
+  const slug = Array.from(normalized)
+    .filter(
+      (character, index) =>
+        character !== '_' ||
+        (isSlugLetterOrNumber(normalized[index - 1]) &&
+          isSlugLetterOrNumber(normalized[index + 1])),
+    )
+    .join('');
+  return /[a-z0-9]/.test(slug) ? slug : null;
 }
 
 export function normalizeTaxonomySlugs(rawSlugs: string[]): string[] {
-  return normalizeVideoTags(rawSlugs);
+  return [...new Set(rawSlugs.map(normalizeTaxonomySlug).filter((slug) => slug !== null))];
 }

@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { RouterProvider, createMemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { AddVideosPage } from '../../../app/pages/add-videos/ui/AddVideosPage';
 
@@ -31,7 +31,7 @@ const addVideosViewMock = vi.hoisted(() => ({
     progressPercent: number;
     size: number;
     stagingId: string | null;
-    status: 'uploaded';
+    status: 'submitted' | 'uploaded';
     successMessage: string | null;
   },
 }));
@@ -39,14 +39,49 @@ const addVideosViewMock = vi.hoisted(() => ({
 vi.mock('~/shared/hooks/use-root-user', () => ({
   useRootUser: () => ({
     id: 'owner-1',
-    role: 'admin',
     username: 'owner',
   }),
 }));
 
-vi.mock('~/widgets/add-videos/model/useAddVideosView', () => ({
+vi.mock('~/pages/add-videos/model/useAddVideosView', () => ({
   useAddVideosView: () => addVideosViewMock,
 }));
+
+vi.mock('~/pages/add-videos/model/useIngestJobs', () => ({
+  useIngestJobs: () => ({
+    acceptJob: vi.fn(),
+    actionError: null,
+    control: vi.fn(),
+    isLoading: false,
+    jobs: [],
+    pendingIds: [],
+    refresh: vi.fn(),
+    statusError: null,
+  }),
+}));
+
+function renderPage() {
+  const router = createMemoryRouter(
+    [{ path: '*', element: <AddVideosPage contentTypes={[]} genres={[]} /> }],
+    { initialEntries: ['/add-videos'] },
+  );
+  return { ...render(<RouterProvider router={router} />), router };
+}
+
+function setStagedSession(status: 'submitted' | 'uploaded' = 'uploaded') {
+  addVideosViewMock.session = {
+    error: null,
+    file: new File(['video'], 'fixture.mp4'),
+    filename: 'fixture.mp4',
+    metadata: { description: '', genreSlugs: [], tags: [], title: 'Fixture' },
+    mimeType: 'video/mp4',
+    progressPercent: 100,
+    size: 1_024,
+    stagingId: 'stage',
+    status,
+    successMessage: null,
+  };
+}
 
 describe('AddVideosPage shell contract', () => {
   beforeEach(() => {
@@ -58,13 +93,11 @@ describe('AddVideosPage shell contract', () => {
   });
 
   test('renders upload workflow inside the product shell without library search or duplicate upload action', () => {
-    render(
-      <MemoryRouter initialEntries={['/add-videos']}>
-        <AddVideosPage contentTypes={[]} genres={[]} />
-      </MemoryRouter>,
-    );
+    renderPage();
 
-    expect(within(screen.getByRole('banner')).getByRole('heading', { level: 1, name: 'Upload a video' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('banner')).getByRole('heading', { level: 1, name: 'Upload a video' }),
+    ).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1, name: 'Upload a video' })).toHaveLength(1);
     expect(screen.getByText('Choose one video to upload')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Upload' })).toHaveAttribute('href', '/add-videos');
@@ -96,16 +129,36 @@ describe('AddVideosPage shell contract', () => {
       successMessage: null,
     };
 
-    render(
-      <MemoryRouter initialEntries={['/add-videos']}>
-        <AddVideosPage contentTypes={[]} genres={[]} />
-      </MemoryRouter>,
-    );
+    renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Remove' }));
     await user.click(screen.getByRole('button', { name: 'Add to Library' }));
 
     expect(addVideosViewMock.handleRemoveSession).toHaveBeenCalledOnce();
     expect(addVideosViewMock.handleAddToLibrary).toHaveBeenCalledOnce();
+  });
+
+  test('warns before unsubmitted navigation, Stay retains draft and Leave explicitly discards local work', async () => {
+    const user = userEvent.setup();
+    setStagedSession();
+    const { router } = renderPage();
+    await user.click(screen.getByRole('link', { name: 'Videos' }));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/add-videos');
+    await user.click(screen.getByRole('button', { name: 'Stay' }));
+    expect(router.state.location.pathname).toBe('/add-videos');
+    await user.click(screen.getByRole('link', { name: 'Videos' }));
+    await user.click(screen.getByRole('button', { name: 'Leave upload' }));
+    expect(router.state.location.pathname).toBe('/');
+    expect(addVideosViewMock.handleClearSession).toHaveBeenCalled();
+  });
+
+  test('accepted processing does not block navigation or claim the file transfer is resumable', async () => {
+    const user = userEvent.setup();
+    setStagedSession('submitted');
+    const { router } = renderPage();
+    await user.click(screen.getByRole('link', { name: 'Videos' }));
+    expect(router.state.location.pathname).toBe('/');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });

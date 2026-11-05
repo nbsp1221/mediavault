@@ -9,10 +9,11 @@ const PAGE_ROUTE_FILES = [
   'app/routes/playlists.$id.tsx',
 ] as const;
 
-const IMPORT_SPECIFIER_PATTERN = /\bimport\s+(?:[^"'`]+?\s+from\s+)?["'`]([^"'`]+)["'`]|import\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/g;
+const IMPORT_SPECIFIER_PATTERN =
+  /\bimport\s+(?:[^"'`]+?\s+from\s+)?["'`]([^"'`]+)["'`]|import\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/g;
 
 function extractImportSpecifiers(source: string) {
-  return Array.from(source.matchAll(IMPORT_SPECIFIER_PATTERN), match => match[1] ?? match[2]);
+  return Array.from(source.matchAll(IMPORT_SPECIFIER_PATTERN), (match) => match[1] || match[2]);
 }
 
 describe('playlist page loader composition', () => {
@@ -32,8 +33,14 @@ describe('playlist page loader composition', () => {
       const importSpecifiers = extractImportSpecifiers(source);
 
       expect(importSpecifiers, file).not.toContain('~/modules/playlist');
-      expect(importSpecifiers.some(specifier => specifier.startsWith('~/modules/playlist/')), file).toBe(false);
-      expect(importSpecifiers.some(specifier => specifier.includes('app/modules/playlist/')), file).toBe(false);
+      expect(
+        importSpecifiers.some((specifier) => specifier.startsWith('~/modules/playlist/')),
+        file,
+      ).toBe(false);
+      expect(
+        importSpecifiers.some((specifier) => specifier.includes('app/modules/playlist/')),
+        file,
+      ).toBe(false);
     }
   });
 });

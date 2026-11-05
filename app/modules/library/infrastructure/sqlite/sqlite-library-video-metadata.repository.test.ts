@@ -2,8 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-
-import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { SqliteLibraryVideoMetadataRepository } from './sqlite-library-video-metadata.repository';
 
 describe('SqliteLibraryVideoMetadataRepository', () => {
@@ -16,15 +15,14 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
     tempDir = await mkdtemp(join(tmpdir(), 'local-streamer-video-metadata-'));
     dbPath = join(tempDir, 'db.sqlite');
     process.env.MEDIAVAULT_STORAGE_DIR = tempDir;
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath });
     await seedOwner(database, ownerId);
   });
 
   afterEach(async () => {
     if (originalStorageDir === undefined) {
       delete process.env.MEDIAVAULT_STORAGE_DIR;
-    }
-    else {
+    } else {
       process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
     }
 
@@ -82,7 +80,7 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
   });
 
   test('lists videos by read access scope before rows are mapped', async () => {
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath });
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
     await seedOwner(database, 'owner-2');
 
@@ -127,45 +125,61 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       visibility: 'public',
     });
 
-    await expect(repository.findAllByReadAccessScope({
-      type: 'public_only',
-    })).resolves.toEqual([
+    await expect(
+      repository.findAllByReadAccessScope({
+        type: 'public_only',
+      }),
+    ).resolves.toEqual([
       expect.objectContaining({ id: 'owner-public' }),
       expect.objectContaining({ id: 'other-public' }),
     ]);
-    await expect(repository.findAllByReadAccessScope({
-      ownerId,
-      type: 'public_or_owned',
-    })).resolves.toEqual([
+    await expect(
+      repository.findAllByReadAccessScope({
+        ownerId,
+        type: 'public_or_owned',
+      }),
+    ).resolves.toEqual([
       expect.objectContaining({ id: 'owner-private' }),
       expect.objectContaining({ id: 'owner-public' }),
       expect.objectContaining({ id: 'other-public' }),
     ]);
-    await expect(repository.findAllByReadAccessScope({
-      ownerId: 'owner-2',
-      type: 'public_or_owned',
-    })).resolves.toEqual([
+    await expect(
+      repository.findAllByReadAccessScope({
+        ownerId: 'owner-2',
+        type: 'public_or_owned',
+      }),
+    ).resolves.toEqual([
       expect.objectContaining({ id: 'owner-public' }),
       expect.objectContaining({ id: 'other-private' }),
       expect.objectContaining({ id: 'other-public' }),
     ]);
-    await expect(repository.findByIdByReadAccessScope('other-private', {
-      ownerId,
-      type: 'public_or_owned',
-    })).resolves.toBeNull();
-    await expect(repository.findByIdByReadAccessScope('other-private', {
-      type: 'public_only',
-    })).resolves.toBeNull();
-    await expect(repository.findByIdByReadAccessScope('other-public', {
-      type: 'public_only',
-    })).resolves.toEqual(expect.objectContaining({ id: 'other-public' }));
-    await expect(repository.findByIdByReadAccessScope('missing-video', {
-      type: 'public_only',
-    })).resolves.toBeNull();
-    await expect(repository.findByIdByReadAccessScope('other-private', {
-      ownerId: 'owner-2',
-      type: 'public_or_owned',
-    })).resolves.toEqual(expect.objectContaining({ id: 'other-private' }));
+    await expect(
+      repository.findByIdByReadAccessScope('other-private', {
+        ownerId,
+        type: 'public_or_owned',
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      repository.findByIdByReadAccessScope('other-private', {
+        type: 'public_only',
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      repository.findByIdByReadAccessScope('other-public', {
+        type: 'public_only',
+      }),
+    ).resolves.toEqual(expect.objectContaining({ id: 'other-public' }));
+    await expect(
+      repository.findByIdByReadAccessScope('missing-video', {
+        type: 'public_only',
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      repository.findByIdByReadAccessScope('other-private', {
+        ownerId: 'owner-2',
+        type: 'public_or_owned',
+      }),
+    ).resolves.toEqual(expect.objectContaining({ id: 'other-private' }));
   });
 
   test('supports update, tag/title search, and delete without losing createdAt', async () => {
@@ -192,10 +206,12 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       title: 'Undefined content type update',
     });
 
-    expect(undefinedContentTypeUpdate).toEqual(expect.objectContaining({
-      contentTypeSlug: 'movie',
-      title: 'Undefined content type update',
-    }));
+    expect(undefinedContentTypeUpdate).toEqual(
+      expect.objectContaining({
+        contentTypeSlug: 'movie',
+        title: 'Undefined content type update',
+      }),
+    );
 
     const updated = await repository.update('video-1', {
       contentTypeSlug: null,
@@ -255,9 +271,11 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       visibility: 'private',
     });
 
-    await expect(repository.findByIdByReadAccessScope('video-1', {
-      type: 'public_only',
-    })).resolves.toBeNull();
+    await expect(
+      repository.findByIdByReadAccessScope('video-1', {
+        type: 'public_only',
+      }),
+    ).resolves.toBeNull();
 
     const published = await repository.updateVisibility('video-1', ownerId, 'public');
 
@@ -266,37 +284,49 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       tags: ['action', 'neo'],
       visibility: 'public',
     });
-    await expect(repository.findByIdByReadAccessScope('video-1', {
-      type: 'public_only',
-    })).resolves.toEqual(expect.objectContaining({
-      id: 'video-1',
-      title: 'Original title',
-      visibility: 'public',
-    }));
+    await expect(
+      repository.findByIdByReadAccessScope('video-1', {
+        type: 'public_only',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'video-1',
+        title: 'Original title',
+        visibility: 'public',
+      }),
+    );
 
     const privatized = await repository.updateVisibility('video-1', ownerId, 'private');
 
-    expect(privatized).toEqual(expect.objectContaining({
-      contentTypeSlug: 'movie',
-      description: 'Original description',
-      duration: 180,
-      genreSlugs: ['action'],
-      id: 'video-1',
-      ownerId,
-      tags: ['action', 'neo'],
-      title: 'Original title',
-      videoUrl: '/videos/video-1/manifest.mpd',
-      visibility: 'private',
-    }));
-    await expect(repository.findByIdByReadAccessScope('video-1', {
-      type: 'public_only',
-    })).resolves.toBeNull();
-    await expect(repository.updateVisibility('video-1', 'other-user', 'public')).resolves.toBeNull();
-    await expect(repository.updateVisibility('missing-video', ownerId, 'public')).resolves.toBeNull();
+    expect(privatized).toEqual(
+      expect.objectContaining({
+        contentTypeSlug: 'movie',
+        description: 'Original description',
+        duration: 180,
+        genreSlugs: ['action'],
+        id: 'video-1',
+        ownerId,
+        tags: ['action', 'neo'],
+        title: 'Original title',
+        videoUrl: '/videos/video-1/manifest.mpd',
+        visibility: 'private',
+      }),
+    );
+    await expect(
+      repository.findByIdByReadAccessScope('video-1', {
+        type: 'public_only',
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      repository.updateVisibility('video-1', 'other-user', 'public'),
+    ).resolves.toBeNull();
+    await expect(
+      repository.updateVisibility('missing-video', ownerId, 'public'),
+    ).resolves.toBeNull();
   });
 
   test('deletes videos that still have committed ingest upload rows', async () => {
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath });
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
 
     await repository.create({
@@ -312,9 +342,11 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       videoUrl: '/videos/uploaded-video/manifest.mpd',
       visibility: 'private',
     });
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO ingest_uploads (
         staging_id,
+        owner_id,
         reserved_video_id,
         committed_video_id,
         filename,
@@ -326,38 +358,46 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
         updated_at,
         expires_at,
         committed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      'staging-uploaded-video',
-      'uploaded-video',
-      'uploaded-video',
-      'uploaded-video.mp4',
-      'video/mp4',
-      1024,
-      'staging-uploaded-video/uploaded-video.mp4',
-      'committed',
-      '2026-03-24T00:00:00.000Z',
-      '2026-03-24T00:00:00.000Z',
-      '2026-03-25T00:00:00.000Z',
-      '2026-03-24T00:00:01.000Z',
-    );
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+      .run(
+        'staging-uploaded-video',
+        ownerId,
+        'uploaded-video',
+        'uploaded-video',
+        'uploaded-video.mp4',
+        'video/mp4',
+        1024,
+        'staging-uploaded-video/uploaded-video.mp4',
+        'committed',
+        '2026-03-24T00:00:00.000Z',
+        '2026-03-24T00:00:00.000Z',
+        '2026-03-25T00:00:00.000Z',
+        '2026-03-24T00:00:01.000Z',
+      );
 
     await expect(repository.delete('uploaded-video')).resolves.toBe(true);
     await expect(repository.findById('uploaded-video')).resolves.toBeNull();
-    await expect(database.prepare<{ count: number }>(`
+    await expect(
+      database
+        .prepare<{ count: number }>(`
       SELECT COUNT(*) AS count
       FROM ingest_uploads
       WHERE committed_video_id = ?
-    `).get('uploaded-video')).resolves.toEqual({ count: 0 });
+    `)
+        .get('uploaded-video'),
+    ).resolves.toEqual({ count: 0 });
   });
 
   test('lists active vocabulary rows without exposing inactive values', async () => {
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath });
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
 
-    await database.prepare(`
+    await database
+      .prepare(`
       UPDATE video_genres SET active = 0 WHERE slug = ?
-    `).run('animation');
+    `)
+      .run('animation');
 
     await expect(repository.listActiveContentTypes()).resolves.toEqual([
       { active: true, label: 'Movie', slug: 'movie', sortOrder: 10 },
@@ -367,31 +407,23 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       { active: true, label: 'Other', slug: 'other', sortOrder: 50 },
     ]);
     await expect(repository.listActiveGenres()).resolves.not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ slug: 'animation' }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ slug: 'animation' })]),
     );
   });
 });
 
-type TestDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
+type TestDatabase = Awaited<ReturnType<typeof createInitializedPrimarySqliteDatabase>>;
 
 async function seedOwner(database: TestDatabase, ownerId: string) {
-  await database.prepare(`
+  await database
+    .prepare(`
     INSERT INTO auth_users (
       id,
       username,
       username_key,
       password_hash,
-      role,
       created_at
-    ) VALUES (?, ?, ?, ?, ?, ?)
-  `).run(
-    ownerId,
-    ownerId,
-    ownerId,
-    'test-password-hash',
-    'user',
-    '2026-05-23T00:00:00.000Z',
-  );
+    ) VALUES (?, ?, ?, ?, ?)
+  `)
+    .run(ownerId, ownerId, ownerId, 'test-password-hash', '2026-05-23T00:00:00.000Z');
 }

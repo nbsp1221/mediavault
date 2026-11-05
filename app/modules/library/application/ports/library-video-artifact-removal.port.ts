@@ -3,5 +3,7 @@ export interface CleanupLibraryVideoArtifactsResult {
 }
 
 export interface LibraryVideoArtifactRemovalPort {
-  cleanupVideoArtifacts(input: { videoId: string }): Promise<CleanupLibraryVideoArtifactsResult | void>;
+  cleanupVideoArtifacts(input: {
+    videoId: string;
+  }): Promise<CleanupLibraryVideoArtifactsResult | void>;
 }

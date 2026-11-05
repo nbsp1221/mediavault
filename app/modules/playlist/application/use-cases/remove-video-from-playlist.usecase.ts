@@ -1,4 +1,5 @@
 import type { PlaylistRepositoryPort } from '../ports/playlist-repository.port';
+import { PlaylistAccessPolicy } from '../../domain/policies/playlist-access.policy';
 
 export interface RemoveVideoFromPlaylistInput {
   ownerId: string;
@@ -15,29 +16,29 @@ export interface RemoveVideoFromPlaylistOutput {
 
 export type RemoveVideoFromPlaylistUseCaseResult =
   | {
-    ok: true;
-    data: RemoveVideoFromPlaylistOutput;
-  }
+      ok: true;
+      data: RemoveVideoFromPlaylistOutput;
+    }
   | {
-    ok: false;
-    message: string;
-    reason:
-      | 'PLAYLIST_MUTATION_FAILED'
-      | 'PLAYLIST_NOT_FOUND'
-      | 'PLAYLIST_PERMISSION_DENIED'
-      | 'VIDEO_NOT_FOUND_IN_PLAYLIST';
-  };
+      ok: false;
+      message: string;
+      reason:
+        | 'PLAYLIST_MUTATION_FAILED'
+        | 'PLAYLIST_NOT_FOUND'
+        | 'PLAYLIST_PERMISSION_DENIED'
+        | 'VIDEO_NOT_FOUND_IN_PLAYLIST';
+    };
 
 interface RemoveVideoFromPlaylistUseCaseDependencies {
   playlistRepository: Pick<PlaylistRepositoryPort, 'findById' | 'removeVideoFromPlaylist'>;
 }
 
 export class RemoveVideoFromPlaylistUseCase {
-  constructor(
-    private readonly deps: RemoveVideoFromPlaylistUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: RemoveVideoFromPlaylistUseCaseDependencies) {}
 
-  async execute(input: RemoveVideoFromPlaylistInput): Promise<RemoveVideoFromPlaylistUseCaseResult> {
+  async execute(
+    input: RemoveVideoFromPlaylistInput,
+  ): Promise<RemoveVideoFromPlaylistUseCaseResult> {
     try {
       const playlist = await this.deps.playlistRepository.findById(input.playlistId);
 
@@ -49,7 +50,7 @@ export class RemoveVideoFromPlaylistUseCase {
         };
       }
 
-      if (playlist.ownerId !== input.ownerId) {
+      if (!PlaylistAccessPolicy.canManage({ ownerId: input.ownerId, playlist })) {
         return {
           message: `User "${input.ownerId}" does not have permission to modify playlist "${input.playlistId}"`,
           ok: false,
@@ -77,8 +78,7 @@ export class RemoveVideoFromPlaylistUseCase {
           videoId: input.videoId,
         },
       };
-    }
-    catch {
+    } catch {
       return {
         message: 'Failed to remove video from playlist',
         ok: false,

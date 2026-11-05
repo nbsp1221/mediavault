@@ -1,8 +1,8 @@
-import { type LoaderFunctionArgs } from 'react-router';
+import type { LoaderFunctionArgs } from 'react-router';
 import { resolvePublicVideoAccess } from '~/composition/server/auth';
 import { getServerPlaybackServices } from '~/composition/server/playback';
 import { assertValidPlaybackVideoId } from '~/modules/playback/domain/playback-video-id';
-import { getPlaybackRequestIp } from './playback-route-utils';
+import { getPlaybackRequestIp } from '~/routes/.server/playback-route-utils';
 
 /**
  * Generate JWT token for video streaming access
@@ -20,13 +20,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   try {
     assertValidPlaybackVideoId(videoId);
-  }
-  catch (error) {
+  } catch (error) {
     if (error instanceof Error) {
-      return Response.json({
-        error: 'Video not found',
-        success: false,
-      }, { headers, status: 404 });
+      return Response.json(
+        {
+          error: 'Video not found',
+          success: false,
+        },
+        { headers, status: 404 },
+      );
     }
 
     throw error;
@@ -38,19 +40,24 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       ipAddress: getPlaybackRequestIp(request),
       userAgent: request.headers.get('user-agent') || 'unknown',
       videoId,
-      viewer: publicRouteViewer.viewer,
+      viewer:
+        publicRouteViewer.viewer.type === 'authenticated'
+          ? { ...publicRouteViewer.viewer, sessionId: publicRouteViewer.sessionId ?? '' }
+          : publicRouteViewer.viewer,
     });
 
     if (!result.success) {
-      return Response.json({
-        error: 'Video not found',
-        success: false,
-      }, { headers, status: 404 });
+      return Response.json(
+        {
+          error: 'Video not found',
+          success: false,
+        },
+        { headers, status: result.reason === 'PLAYBACK_SESSION_REQUIRED' ? 401 : 404 },
+      );
     }
 
     return Response.json(result, { headers });
-  }
-  catch (error) {
+  } catch (error) {
     if (
       error &&
       typeof error === 'object' &&
@@ -58,10 +65,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       error.statusCode === 400 &&
       error instanceof Error
     ) {
-      return Response.json({
-        error: 'Video not found',
-        success: false,
-      }, { headers, status: 404 });
+      return Response.json(
+        {
+          error: 'Video not found',
+          success: false,
+        },
+        { headers, status: 404 },
+      );
     }
 
     throw error;

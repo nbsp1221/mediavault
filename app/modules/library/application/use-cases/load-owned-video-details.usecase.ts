@@ -22,10 +22,7 @@ interface LoadOwnedVideoDetailsSuccess {
 interface LoadOwnedVideoDetailsFailure {
   ok: false;
   message: string;
-  reason:
-    | 'INVALID_INPUT'
-    | 'VIDEO_DETAILS_SOURCE_UNAVAILABLE'
-    | 'VIDEO_NOT_FOUND';
+  reason: 'INVALID_INPUT' | 'VIDEO_DETAILS_SOURCE_UNAVAILABLE' | 'VIDEO_NOT_FOUND';
 }
 
 export type LoadOwnedVideoDetailsResult =
@@ -49,9 +46,7 @@ const videoNotFoundResult: LoadOwnedVideoDetailsFailure = {
 };
 
 export class LoadOwnedVideoDetailsUseCase {
-  constructor(
-    private readonly deps: LoadOwnedVideoDetailsUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: LoadOwnedVideoDetailsUseCaseDependencies) {}
 
   async execute(input: LoadOwnedVideoDetailsInput): Promise<LoadOwnedVideoDetailsResult> {
     const videoId = typeof input.videoId === 'string' ? input.videoId.trim() : '';
@@ -91,8 +86,7 @@ export class LoadOwnedVideoDetailsUseCase {
         },
         ok: true,
       };
-    }
-    catch {
+    } catch {
       return {
         message: 'Video details could not be loaded',
         ok: false,

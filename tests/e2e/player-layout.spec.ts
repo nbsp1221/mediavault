@@ -5,7 +5,11 @@ const desktopVideoId = '68e5f819-15e8-41ef-90ee-8a96769311b7';
 const filteredEmptyVideoId = '754c6828-621c-4df6-9cf8-a3d77297b85a';
 
 async function expectNoHorizontalOverflow(page: Page) {
-  await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect
+    .poll(async () =>
+      page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    )
+    .toBe(true);
 }
 
 test.describe('player layout', () => {
@@ -16,7 +20,10 @@ test.describe('player layout', () => {
     await expect(page).toHaveURL(new RegExp(`/player/${desktopVideoId}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'playtime' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Product navigation' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Videos' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('link', { name: 'Videos' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     await expect(page.getByRole('heading', { level: 2, name: 'Related videos' })).toBeVisible();
     await expect(page.getByText('Protected playback')).toHaveCount(0);
     await expect(page.getByText('Vault player')).toHaveCount(0);
@@ -64,7 +71,9 @@ test.describe('player layout', () => {
     }
   });
 
-  test('uses a lightweight related empty state when filtering removes all results', async ({ page }) => {
+  test('uses a lightweight related empty state when filtering removes all results', async ({
+    page,
+  }) => {
     await page.setViewportSize({ height: 1200, width: 1440 });
     await loginToPlayer(page, { videoId: filteredEmptyVideoId });
 
