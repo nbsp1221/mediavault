@@ -38,7 +38,7 @@ Use strict TypeScript and avoid `any` in new code. Follow the existing two-space
 
 ## Deliverables, language, and Git
 
-- Code, comments, permanent documentation, and UI copy are in English; owner-facing communication is in Korean.
+- Code, comments, permanent documentation, and UI copy are in English.
 - Commit candidates are product code, tests, lockfiles, build/deployment configuration, and useful long-lived documentation.
 - Research reports, feature inventories, decision logs, task tracking, scratch code, raw logs, and QA screenshots belong outside the repository. Do not add temporary execution reports under `docs/plans/` or stage ignored runtime artifacts.
 - Protect `main`: work on a task branch, never commit refactoring directly to `main`, and preserve unrelated changes and stashes.
