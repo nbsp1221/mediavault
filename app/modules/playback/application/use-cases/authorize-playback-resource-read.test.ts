@@ -1,10 +1,11 @@
 import { describe, expect, test, vi } from 'vitest';
-
+import { createLibraryVideoFixture } from '../../../../../tests/support/library-video-fixture';
 import { authorizePlaybackResourceRead } from './authorize-playback-resource-read';
 
 const authenticatedTokenPayload = {
   jti: 'token-1',
   readScope: 'public_or_owned' as const,
+  sessionId: 'session-1',
   subjectUserId: 'owner-1',
   videoId: 'video-1',
   viewerType: 'authenticated' as const,
@@ -16,16 +17,19 @@ describe('authorizePlaybackResourceRead', () => {
       findLibraryVideoById: vi.fn(),
     };
 
-    await expect(authorizePlaybackResourceRead({
-      resource: 'manifest',
-      token: null,
-      tokenService: {
-        issue: async () => '',
-        validate: async () => null,
-      },
-      videoId: 'video-1',
-      videoRead,
-    })).resolves.toEqual({
+    await expect(
+      authorizePlaybackResourceRead({
+        resource: 'manifest',
+        token: null,
+        sessionValidator: { isSessionActive: vi.fn(async () => true) },
+        tokenService: {
+          issue: async () => '',
+          validate: async () => null,
+        },
+        videoId: 'video-1',
+        videoRead,
+      }),
+    ).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
         resource: 'manifest',
@@ -41,16 +45,19 @@ describe('authorizePlaybackResourceRead', () => {
       findLibraryVideoById: vi.fn(),
     };
 
-    await expect(authorizePlaybackResourceRead({
-      resource: 'audio-segment',
-      token: 'signed-token',
-      tokenService: {
-        issue: async () => '',
-        validate: async () => ({ ...authenticatedTokenPayload, videoId: 'video-2' }),
-      },
-      videoId: 'video-1',
-      videoRead,
-    })).resolves.toEqual({
+    await expect(
+      authorizePlaybackResourceRead({
+        resource: 'audio-segment',
+        token: 'signed-token',
+        sessionValidator: { isSessionActive: vi.fn(async () => true) },
+        tokenService: {
+          issue: async () => '',
+          validate: async () => ({ ...authenticatedTokenPayload, videoId: 'video-2' }),
+        },
+        videoId: 'video-1',
+        videoRead,
+      }),
+    ).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
         resource: 'audio-segment',
@@ -67,16 +74,19 @@ describe('authorizePlaybackResourceRead', () => {
       findLibraryVideoById: vi.fn(async () => null),
     };
 
-    await expect(authorizePlaybackResourceRead({
-      resource: 'clearkey-license',
-      token: 'signed-token',
-      tokenService: {
-        issue: async () => '',
-        validate: async () => authenticatedTokenPayload,
-      },
-      videoId: 'video-1',
-      videoRead,
-    })).resolves.toEqual({
+    await expect(
+      authorizePlaybackResourceRead({
+        resource: 'clearkey-license',
+        token: 'signed-token',
+        sessionValidator: { isSessionActive: vi.fn(async () => true) },
+        tokenService: {
+          issue: async () => '',
+          validate: async () => authenticatedTokenPayload,
+        },
+        videoId: 'video-1',
+        videoRead,
+      }),
+    ).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
         resource: 'clearkey-license',
@@ -92,19 +102,22 @@ describe('authorizePlaybackResourceRead', () => {
 
   test('allows the resource when token scope and current read access both match', async () => {
     const videoRead = {
-      findLibraryVideoById: vi.fn(async () => ({} as never)),
+      findLibraryVideoById: vi.fn(async () => createLibraryVideoFixture()),
     };
 
-    await expect(authorizePlaybackResourceRead({
-      resource: 'segment',
-      token: 'signed-token',
-      tokenService: {
-        issue: async () => '',
-        validate: async () => authenticatedTokenPayload,
-      },
-      videoId: 'video-1',
-      videoRead,
-    })).resolves.toEqual({
+    await expect(
+      authorizePlaybackResourceRead({
+        resource: 'segment',
+        token: 'signed-token',
+        sessionValidator: { isSessionActive: vi.fn(async () => true) },
+        tokenService: {
+          issue: async () => '',
+          validate: async () => authenticatedTokenPayload,
+        },
+        videoId: 'video-1',
+        videoRead,
+      }),
+    ).resolves.toEqual({
       ok: true,
     });
   });

@@ -21,8 +21,7 @@ export function getCookieValue(request: Request, cookieName: string): string | n
     if (rawName === cookieName) {
       try {
         return decodeURIComponent(rawValue.join('='));
-      }
-      catch {
+      } catch {
         return null;
       }
     }
@@ -31,7 +30,11 @@ export function getCookieValue(request: Request, cookieName: string): string | n
   return null;
 }
 
-export function serializeCookie(name: string, value: string, options: SerializeCookieOptions = {}): string {
+export function serializeCookie(
+  name: string,
+  value: string,
+  options: SerializeCookieOptions = {},
+): string {
   const segments = [`${name}=${encodeURIComponent(value)}`];
 
   if (options.maxAge !== undefined) {

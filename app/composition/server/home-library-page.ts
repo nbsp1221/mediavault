@@ -66,7 +66,7 @@ function mapCatalogResultToHomePageData(
     data: {
       contentTypes: result.data.vocabulary.contentTypes,
       genres: result.data.vocabulary.genres,
-      videos: result.data.videos.map(video => toHomeLibraryVideoDto(video, viewer)),
+      videos: result.data.videos.map((video) => toHomeLibraryVideoDto(video, viewer)),
     },
   };
 }

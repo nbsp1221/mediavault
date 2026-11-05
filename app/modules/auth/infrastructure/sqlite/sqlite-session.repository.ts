@@ -1,12 +1,18 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
-import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
-import type { AuthSessionRepository, TouchAuthSessionInput } from '../../application/ports/auth-session-repository.port';
+import {
+  type CreateInitializedPrimarySqliteDatabase,
+  createInitializedPrimarySqliteDatabase,
+} from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
+import type {
+  AuthSessionRepository,
+  TouchAuthSessionInput,
+} from '../../application/ports/auth-session-repository.port';
 import type { AuthSession } from '../../domain/auth-session';
 
 interface SqliteSessionRepositoryOptions {
-  createDatabase?: CreateMigratedPrimarySqliteDatabase;
+  createDatabase?: CreateInitializedPrimarySqliteDatabase;
   dbPath: string;
 }
 
@@ -22,13 +28,13 @@ interface AuthSessionRow {
 }
 
 export class SqliteSessionRepository implements AuthSessionRepository {
-  private readonly createDatabase: CreateMigratedPrimarySqliteDatabase;
+  private readonly createDatabase: CreateInitializedPrimarySqliteDatabase;
   private readonly dbPath: string;
   private databasePromise: Promise<SqliteDatabaseAdapter> | null = null;
 
   constructor(options: SqliteSessionRepositoryOptions) {
     mkdirSync(dirname(options.dbPath), { recursive: true });
-    this.createDatabase = options.createDatabase ?? createMigratedPrimarySqliteDatabase;
+    this.createDatabase = options.createDatabase ?? createInitializedPrimarySqliteDatabase;
     this.dbPath = options.dbPath;
   }
 
@@ -45,7 +51,7 @@ export class SqliteSessionRepository implements AuthSessionRepository {
   async findById(id: string): Promise<AuthSession | null> {
     const database = await this.getDatabase();
     const row = await database
-      .prepare(`
+      .prepare<AuthSessionRow>(`
         SELECT
           id,
           created_at,
@@ -58,7 +64,7 @@ export class SqliteSessionRepository implements AuthSessionRepository {
         FROM auth_sessions
         WHERE id = ?
       `)
-      .get(id) as AuthSessionRow | undefined;
+      .get(id);
 
     if (!row) {
       return null;
@@ -135,10 +141,6 @@ export class SqliteSessionRepository implements AuthSessionRepository {
           last_accessed_at = ?
         WHERE id = ?
       `)
-      .run(
-        input.expiresAt.toISOString(),
-        input.lastAccessedAt.toISOString(),
-        input.id,
-      );
+      .run(input.expiresAt.toISOString(), input.lastAccessedAt.toISOString(), input.id);
   }
 }

@@ -46,10 +46,12 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       data: {
         message: 'Video deleted successfully',
         title: 'Catalog Fixture',
@@ -84,10 +86,12 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       message: 'Video not found',
       ok: false,
       reason: 'VIDEO_NOT_FOUND',
@@ -116,10 +120,12 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       data: {
         message: 'Video deleted successfully',
         title: 'Catalog Fixture',
@@ -144,10 +150,12 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: '   ',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: '   ',
+      }),
+    ).resolves.toEqual({
       message: 'Video ID is required',
       ok: false,
       reason: 'INVALID_INPUT',
@@ -211,17 +219,21 @@ describe('DeleteLibraryVideoUseCase', () => {
       },
       videoMutation: {
         deleteLibraryVideo,
-        findOwnedLibraryVideoById: vi.fn(async () => createLibraryVideo({
-          visibility: 'public',
-        })),
+        findOwnedLibraryVideoById: vi.fn(async () =>
+          createLibraryVideo({
+            visibility: 'public',
+          }),
+        ),
         updateLibraryVideo: vi.fn(),
       },
     });
 
-    await expect(useCase.execute({
-      viewer: nonOwnerViewer,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: nonOwnerViewer,
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       message: 'Video not found',
       ok: false,
       reason: 'VIDEO_NOT_FOUND',

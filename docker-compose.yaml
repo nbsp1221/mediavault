@@ -4,22 +4,29 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    container_name: mediavault
+    init: true
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    stop_grace_period: 35s
     env_file:
       - .env
     environment:
       NODE_ENV: production
-      PORT: "3000"
+      PORT: '3000'
       MEDIAVAULT_STORAGE_DIR: /app/storage
+    ports:
+      - '3000:3000'
     volumes:
       - mediavault-storage:/app/storage
     networks:
       - mediavault-network
     healthcheck:
-      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -28,10 +35,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
 
 networks:
   mediavault-network:

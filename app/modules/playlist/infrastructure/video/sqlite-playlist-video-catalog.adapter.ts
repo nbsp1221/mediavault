@@ -1,11 +1,14 @@
 import type { VideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { PlaylistItem } from '~/modules/playlist/domain/playlist';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
-import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import {
+  type CreateInitializedPrimarySqliteDatabase,
+  createInitializedPrimarySqliteDatabase,
+} from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
 
 interface SqlitePlaylistVideoCatalogOptions {
-  createDatabase?: CreateMigratedPrimarySqliteDatabase;
+  createDatabase?: CreateInitializedPrimarySqliteDatabase;
   dbPath?: string;
 }
 
@@ -16,12 +19,12 @@ interface PlaylistVideoRow {
 }
 
 export class SqlitePlaylistVideoCatalog {
-  private readonly createDatabase: CreateMigratedPrimarySqliteDatabase;
+  private readonly createDatabase: CreateInitializedPrimarySqliteDatabase;
   private readonly dbPath: string;
   private databasePromise: Promise<SqliteDatabaseAdapter> | null = null;
 
   constructor(options: SqlitePlaylistVideoCatalogOptions = {}) {
-    this.createDatabase = options.createDatabase ?? createMigratedPrimarySqliteDatabase;
+    this.createDatabase = options.createDatabase ?? createInitializedPrimarySqliteDatabase;
     this.dbPath = options.dbPath ?? getPrimaryStorageConfig().databasePath;
   }
 
@@ -51,31 +54,33 @@ export class SqlitePlaylistVideoCatalog {
 
   async getPlaylistVideos(items: PlaylistItem[], scope: VideoReadAccessScope) {
     const database = await this.getDatabase();
-    const resolvedVideos = await Promise.all(items.map(async (item) => {
-      const video = await findReadyVideoById(database, item.videoId, scope);
+    const resolvedVideos = await Promise.all(
+      items.map(async (item) => {
+        const video = await findReadyVideoById(database, item.videoId, scope);
 
-      if (!video) {
-        return null;
-      }
+        if (!video) {
+          return null;
+        }
 
-      return {
-        duration: video.duration,
-        id: video.id,
-        episodeMetadata: item.episodeMetadata,
-        position: item.position,
-        thumbnailUrl: `/api/thumbnail/${video.id}`,
-        title: video.title,
-      } satisfies {
-        duration: number;
-        id: string;
-        position: number;
-        thumbnailUrl?: string;
-        title: string;
-        episodeMetadata?: PlaylistItem['episodeMetadata'];
-      };
-    }));
+        return {
+          duration: video.duration,
+          id: video.id,
+          episodeMetadata: item.episodeMetadata,
+          position: item.position,
+          thumbnailUrl: `/api/thumbnail/${video.id}`,
+          title: video.title,
+        } satisfies {
+          duration: number;
+          id: string;
+          position: number;
+          thumbnailUrl?: string;
+          title: string;
+          episodeMetadata?: PlaylistItem['episodeMetadata'];
+        };
+      }),
+    );
 
-    return resolvedVideos.filter(video => video !== null);
+    return resolvedVideos.filter((video) => video !== null);
   }
 }
 
@@ -84,9 +89,10 @@ async function findReadyVideoById(
   videoId: string,
   scope: VideoReadAccessScope,
 ) {
-  const accessWhereClause = scope.type === 'public_only'
-    ? 'videos.visibility = \'public\''
-    : '(videos.visibility = \'public\' OR videos.owner_id = ?)';
+  const accessWhereClause =
+    scope.type === 'public_only'
+      ? "videos.visibility = 'public'"
+      : "(videos.visibility = 'public' OR videos.owner_id = ?)";
   const statement = database.prepare<PlaylistVideoRow>(`
     SELECT
       videos.id,
@@ -98,9 +104,10 @@ async function findReadyVideoById(
      AND video_media_assets.status = 'ready'
     WHERE videos.id = ? AND ${accessWhereClause}
   `);
-  const row = scope.type === 'public_only'
-    ? await statement.get(videoId)
-    : await statement.get(videoId, scope.ownerId);
+  const row =
+    scope.type === 'public_only'
+      ? await statement.get(videoId)
+      : await statement.get(videoId, scope.ownerId);
 
   return row
     ? {

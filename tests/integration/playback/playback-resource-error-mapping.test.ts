@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { routeArgs } from '../../helpers/route-args';
 
 const requireProtectedMediaSessionMock = vi.fn();
 const requireProtectedMediaSessionValueMock = vi.fn();
@@ -60,10 +61,14 @@ describe('playback resource route error mapping', () => {
     );
     const { loader } = await importManifestRoute();
 
-    const response = await loader({
-      params: { videoId: '../escape' },
-      request: new Request('http://localhost/videos/../escape/manifest.mpd?token=signed-token'),
-    } as never);
+    const response = await loader(
+      routeArgs({
+        params: { videoId: '../escape' },
+        request: new Request('http://localhost/videos/../escape/manifest.mpd', {
+          headers: { Authorization: 'Bearer signed-token' },
+        }),
+      }),
+    );
 
     expect(response.status).toBe(400);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -82,14 +87,17 @@ describe('playback resource route error mapping', () => {
     );
     const { loader } = await importVideoSegmentRoute();
 
-    const response = await loader({
-      params: { filename: 'segment-9999.m4s', videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/video/segment-9999.m4s?token=signed-token', {
-        headers: {
-          range: 'bytes=999-1200',
-        },
+    const response = await loader(
+      routeArgs({
+        params: { filename: 'segment-9999.m4s', videoId: 'video-1' },
+        request: new Request('http://localhost/videos/video-1/video/segment-9999.m4s', {
+          headers: {
+            Authorization: 'Bearer signed-token',
+            range: 'bytes=999-1200',
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(response.status).toBe(416);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -106,10 +114,14 @@ describe('playback resource route error mapping', () => {
     );
     const { loader } = await importVideoSegmentRoute();
 
-    const response = await loader({
-      params: { filename: 'segment-9999.m4s', videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/video/segment-9999.m4s?token=signed-token'),
-    } as never);
+    const response = await loader(
+      routeArgs({
+        params: { filename: 'segment-9999.m4s', videoId: 'video-1' },
+        request: new Request('http://localhost/videos/video-1/video/segment-9999.m4s', {
+          headers: { Authorization: 'Bearer signed-token' },
+        }),
+      }),
+    );
 
     expect(response.status).toBe(404);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -122,17 +134,24 @@ describe('playback resource route error mapping', () => {
     );
     const { action, loader } = await importClearKeyRoute();
 
-    const loaderResponse = await loader({
-      params: { videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/clearkey?token=signed-token'),
-    } as never);
-
-    const actionResponse = await action({
-      params: { videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/clearkey?token=signed-token', {
-        method: 'POST',
+    const loaderResponse = await loader(
+      routeArgs({
+        params: { videoId: 'video-1' },
+        request: new Request('http://localhost/videos/video-1/clearkey', {
+          headers: { Authorization: 'Bearer signed-token' },
+        }),
       }),
-    } as never);
+    );
+
+    const actionResponse = await action(
+      routeArgs({
+        params: { videoId: 'video-1' },
+        request: new Request('http://localhost/videos/video-1/clearkey', {
+          headers: { Authorization: 'Bearer signed-token' },
+          method: 'POST',
+        }),
+      }),
+    );
 
     expect(loaderResponse.status).toBe(500);
     expect(loaderResponse.headers.get('Cache-Control')).toBe('no-store');

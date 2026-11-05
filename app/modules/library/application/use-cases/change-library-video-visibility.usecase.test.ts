@@ -66,19 +66,19 @@ function setupUseCase({
 
 describe('ChangeLibraryVideoVisibilityUseCase', () => {
   test('allows the owner to change private videos to public', async () => {
-    const { resolveVisibilityManagementTarget, updateLibraryVideoVisibility, useCase } = setupUseCase();
+    const { resolveVisibilityManagementTarget, updateLibraryVideoVisibility, useCase } =
+      setupUseCase();
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: ' video-1 ',
-      visibility: 'public',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: ' video-1 ',
+        visibility: 'public',
+      }),
+    ).resolves.toEqual({
       data: {
         message: 'Visibility updated to Public.',
-        video: expect.objectContaining({
-          id: 'video-1',
-          visibility: 'public',
-        }),
+        video: createLibraryVideo({ visibility: 'public' }),
       },
       ok: true,
     });
@@ -102,16 +102,16 @@ describe('ChangeLibraryVideoVisibilityUseCase', () => {
       updatedVideo: createLibraryVideo({ visibility: 'private' }),
     });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-      visibility: 'private',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+        visibility: 'private',
+      }),
+    ).resolves.toEqual({
       data: {
         message: 'Visibility updated to Private.',
-        video: expect.objectContaining({
-          visibility: 'private',
-        }),
+        video: createLibraryVideo({ visibility: 'private' }),
       },
       ok: true,
     });
@@ -131,11 +131,13 @@ describe('ChangeLibraryVideoVisibilityUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-      visibility: 'public',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+        visibility: 'public',
+      }),
+    ).resolves.toEqual({
       data: {
         message: 'Visibility updated to Public.',
         video: existingPublicVideo,
@@ -154,11 +156,13 @@ describe('ChangeLibraryVideoVisibilityUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-      visibility: 'private',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+        visibility: 'private',
+      }),
+    ).resolves.toEqual({
       data: {
         message: 'Visibility updated to Private.',
         video: existingPrivateVideo,
@@ -169,28 +173,33 @@ describe('ChangeLibraryVideoVisibilityUseCase', () => {
   });
 
   test('does not reveal validation failures to anonymous viewers or private inaccessible targets', async () => {
-    const { resolveVisibilityManagementTarget, updateLibraryVideoVisibility, useCase } = setupUseCase({
-      target: {
-        type: 'not_found_or_private_inaccessible',
-      },
-    });
+    const { resolveVisibilityManagementTarget, updateLibraryVideoVisibility, useCase } =
+      setupUseCase({
+        target: {
+          type: 'not_found_or_private_inaccessible',
+        },
+      });
 
-    await expect(useCase.execute({
-      viewer: anonymousViewer,
-      videoId: 'video-1',
-      visibility: 'restricted',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: anonymousViewer,
+        videoId: 'video-1',
+        visibility: 'restricted',
+      }),
+    ).resolves.toEqual({
       message: 'Video not found',
       ok: false,
       reason: 'VIDEO_NOT_FOUND',
     });
     expect(resolveVisibilityManagementTarget).not.toHaveBeenCalled();
 
-    await expect(useCase.execute({
-      viewer: nonOwnerViewer,
-      videoId: 'video-1',
-      visibility: 'restricted',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: nonOwnerViewer,
+        videoId: 'video-1',
+        visibility: 'restricted',
+      }),
+    ).resolves.toEqual({
       message: 'Video not found',
       ok: false,
       reason: 'VIDEO_NOT_FOUND',
@@ -205,11 +214,13 @@ describe('ChangeLibraryVideoVisibilityUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      viewer: nonOwnerViewer,
-      videoId: 'video-1',
-      visibility: 'private',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: nonOwnerViewer,
+        videoId: 'video-1',
+        visibility: 'private',
+      }),
+    ).resolves.toEqual({
       message: 'Video visibility cannot be changed by this viewer',
       ok: false,
       reason: 'FORBIDDEN',
@@ -218,17 +229,20 @@ describe('ChangeLibraryVideoVisibilityUseCase', () => {
   });
 
   test('does not recreate missing or deleted videos for authenticated viewers', async () => {
-    const { resolveVisibilityManagementTarget, updateLibraryVideoVisibility, useCase } = setupUseCase({
-      target: {
-        type: 'not_found_or_private_inaccessible',
-      },
-    });
+    const { resolveVisibilityManagementTarget, updateLibraryVideoVisibility, useCase } =
+      setupUseCase({
+        target: {
+          type: 'not_found_or_private_inaccessible',
+        },
+      });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'deleted-video',
-      visibility: 'public',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'deleted-video',
+        visibility: 'public',
+      }),
+    ).resolves.toEqual({
       message: 'Video not found',
       ok: false,
       reason: 'VIDEO_NOT_FOUND',
@@ -243,11 +257,13 @@ describe('ChangeLibraryVideoVisibilityUseCase', () => {
   test('validates visibility only after an owned target is resolved', async () => {
     const { updateLibraryVideoVisibility, useCase } = setupUseCase();
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-      visibility: 'PUBLIC',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+        visibility: 'PUBLIC',
+      }),
+    ).resolves.toEqual({
       message: 'Video visibility must be public or private',
       ok: false,
       reason: 'INVALID_INPUT',
@@ -260,11 +276,13 @@ describe('ChangeLibraryVideoVisibilityUseCase', () => {
       updatedVideo: null,
     });
 
-    await expect(useCase.execute({
-      viewer: ownerViewer,
-      videoId: 'video-1',
-      visibility: 'public',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        viewer: ownerViewer,
+        videoId: 'video-1',
+        visibility: 'public',
+      }),
+    ).resolves.toEqual({
       message: 'Failed to update visibility',
       ok: false,
       reason: 'UPDATE_FAILED',

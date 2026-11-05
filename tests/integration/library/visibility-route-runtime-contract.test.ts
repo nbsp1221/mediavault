@@ -1,12 +1,13 @@
-import type { ActionFunctionArgs } from 'react-router';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { toRequestCookieHeader } from '../../helpers/cookies';
+import { routeArgs } from '../../helpers/route-args';
+import { E2E_AUTH_PASSWORD, E2E_AUTH_USERNAME } from '../../support/auth-account';
 import {
-  createRuntimeTestWorkspace,
   OTHER_PRIVATE_VIDEO_ID,
   OTHER_PUBLIC_VIDEO_ID,
   OWNER_PRIVATE_VIDEO_ID,
+  createRuntimeTestWorkspace,
 } from '../../support/create-runtime-test-workspace';
 
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
@@ -14,28 +15,27 @@ const ORIGINAL_AUTH_CLIENT_COOKIE_SECRET = process.env.MEDIAVAULT_AUTH_CLIENT_CO
 
 type RuntimeWorkspace = Awaited<ReturnType<typeof createRuntimeTestWorkspace>>;
 
-function createActionArgs(request: Request, params: { id?: string }): ActionFunctionArgs {
-  return {
-    context: {},
-    params,
-    request,
-  } as ActionFunctionArgs;
+function createActionArgs(request: Request, params: { id?: string }) {
+  return routeArgs({ params, request });
 }
 
 async function loginOwner() {
   const { action } = await import('../../../app/routes/api.auth.login');
-  const response = await action({
-    request: new Request('http://localhost/api/auth/login', {
-      body: JSON.stringify({
-        password: 'vault-password',
-        username: 'owner',
+  const response = await action(
+    routeArgs({
+      request: new Request('http://localhost/api/auth/login', {
+        body: JSON.stringify({
+          password: E2E_AUTH_PASSWORD,
+          username: E2E_AUTH_USERNAME,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'http://localhost',
+        },
+        method: 'POST',
       }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
     }),
-  } as never);
+  );
 
   expect(response.status).toBe(200);
 
@@ -43,18 +43,20 @@ async function loginOwner() {
 }
 
 async function getVideoRow(databasePath: string, videoId: string) {
-  const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+  const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
 
-  return database.prepare<{
-    id: string;
-    title: string;
-    updated_at: string;
-    visibility: 'private' | 'public';
-  }>(`
+  return database
+    .prepare<{
+      id: string;
+      title: string;
+      updated_at: string;
+      visibility: 'private' | 'public';
+    }>(`
     SELECT id, title, updated_at, visibility
     FROM videos
     WHERE id = ?
-  `).get(videoId);
+  `)
+    .get(videoId);
 }
 
 describe('visibility route runtime contract', () => {
@@ -63,22 +65,21 @@ describe('visibility route runtime contract', () => {
   beforeEach(async () => {
     workspace = await createRuntimeTestWorkspace();
     process.env.MEDIAVAULT_STORAGE_DIR = workspace.storageDir;
-    process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET = 'visibility-route-client-cookie-secret-012345';
+    process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET =
+      'visibility-route-client-cookie-secret-012345';
     vi.resetModules();
   });
 
   afterEach(async () => {
     if (ORIGINAL_AUTH_CLIENT_COOKIE_SECRET) {
       process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET = ORIGINAL_AUTH_CLIENT_COOKIE_SECRET;
-    }
-    else {
+    } else {
       delete process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET;
     }
 
     if (ORIGINAL_STORAGE_DIR) {
       process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
-    }
-    else {
+    } else {
       delete process.env.MEDIAVAULT_STORAGE_DIR;
     }
 
@@ -90,17 +91,20 @@ describe('visibility route runtime contract', () => {
     const cookie = await loginOwner();
     const { action } = await import('../../../app/routes/api.visibility.$id');
 
-    const ownerPublishResponse = await action(createActionArgs(
-      new Request(`http://localhost/api/visibility/${OWNER_PRIVATE_VIDEO_ID}`, {
-        body: JSON.stringify({ visibility: 'public' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': cookie,
-        },
-        method: 'PUT',
-      }),
-      { id: OWNER_PRIVATE_VIDEO_ID },
-    ));
+    const ownerPublishResponse = await action(
+      createActionArgs(
+        new Request(`http://localhost/api/visibility/${OWNER_PRIVATE_VIDEO_ID}`, {
+          body: JSON.stringify({ visibility: 'public' }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'http://localhost',
+            'Cookie': cookie,
+          },
+          method: 'PUT',
+        }),
+        { id: OWNER_PRIVATE_VIDEO_ID },
+      ),
+    );
 
     expect(ownerPublishResponse.status).toBe(200);
     expect(ownerPublishResponse.headers.get('Cache-Control')).toBe('private, no-store');
@@ -116,21 +120,26 @@ describe('visibility route runtime contract', () => {
         },
       },
     });
-    await expect(getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID)).resolves.toMatchObject({
+    await expect(
+      getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID),
+    ).resolves.toMatchObject({
       visibility: 'public',
     });
 
-    const nonOwnerResponse = await action(createActionArgs(
-      new Request(`http://localhost/api/visibility/${OTHER_PUBLIC_VIDEO_ID}`, {
-        body: JSON.stringify({ visibility: 'private' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': cookie,
-        },
-        method: 'PATCH',
-      }),
-      { id: OTHER_PUBLIC_VIDEO_ID },
-    ));
+    const nonOwnerResponse = await action(
+      createActionArgs(
+        new Request(`http://localhost/api/visibility/${OTHER_PUBLIC_VIDEO_ID}`, {
+          body: JSON.stringify({ visibility: 'private' }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'http://localhost',
+            'Cookie': cookie,
+          },
+          method: 'PATCH',
+        }),
+        { id: OTHER_PUBLIC_VIDEO_ID },
+      ),
+    );
 
     expect(nonOwnerResponse.status).toBe(403);
     expect(nonOwnerResponse.headers.get('Cache-Control')).toBe('private, no-store');
@@ -139,32 +148,39 @@ describe('visibility route runtime contract', () => {
       error: 'Video visibility cannot be changed by this viewer',
       success: false,
     });
-    await expect(getVideoRow(workspace.databasePath, OTHER_PUBLIC_VIDEO_ID)).resolves.toMatchObject({
-      visibility: 'public',
-    });
+    await expect(getVideoRow(workspace.databasePath, OTHER_PUBLIC_VIDEO_ID)).resolves.toMatchObject(
+      {
+        visibility: 'public',
+      },
+    );
   });
 
   test('returns the protected auth response for unauthenticated public mutation attempts', async () => {
     const before = await getVideoRow(workspace.databasePath, OTHER_PUBLIC_VIDEO_ID);
     const { action } = await import('../../../app/routes/api.visibility.$id');
 
-    const response = await action(createActionArgs(
-      new Request(`http://localhost/api/visibility/${OTHER_PUBLIC_VIDEO_ID}`, {
-        body: JSON.stringify({ visibility: 'private' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'PUT',
-      }),
-      { id: OTHER_PUBLIC_VIDEO_ID },
-    ));
+    const response = await action(
+      createActionArgs(
+        new Request(`http://localhost/api/visibility/${OTHER_PUBLIC_VIDEO_ID}`, {
+          body: JSON.stringify({ visibility: 'private' }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'http://localhost',
+          },
+          method: 'PUT',
+        }),
+        { id: OTHER_PUBLIC_VIDEO_ID },
+      ),
+    );
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
       error: 'Authentication required',
       success: false,
     });
-    await expect(getVideoRow(workspace.databasePath, OTHER_PUBLIC_VIDEO_ID)).resolves.toEqual(before);
+    await expect(getVideoRow(workspace.databasePath, OTHER_PUBLIC_VIDEO_ID)).resolves.toEqual(
+      before,
+    );
   });
 
   test('normalizes authenticated non-owner private and malformed requests before input disclosure and preserves storage', async () => {
@@ -172,17 +188,20 @@ describe('visibility route runtime contract', () => {
     const before = await getVideoRow(workspace.databasePath, OTHER_PRIVATE_VIDEO_ID);
     const { action } = await import('../../../app/routes/api.visibility.$id');
 
-    const privateResponse = await action(createActionArgs(
-      new Request(`http://localhost/api/visibility/${OTHER_PRIVATE_VIDEO_ID}`, {
-        body: '{not-json',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': cookie,
-        },
-        method: 'PUT',
-      }),
-      { id: OTHER_PRIVATE_VIDEO_ID },
-    ));
+    const privateResponse = await action(
+      createActionArgs(
+        new Request(`http://localhost/api/visibility/${OTHER_PRIVATE_VIDEO_ID}`, {
+          body: '{not-json',
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'http://localhost',
+            'Cookie': cookie,
+          },
+          method: 'PUT',
+        }),
+        { id: OTHER_PRIVATE_VIDEO_ID },
+      ),
+    );
 
     expect(privateResponse.status).toBe(404);
     expect(privateResponse.headers.get('Cache-Control')).toBe('private, no-store');
@@ -191,7 +210,9 @@ describe('visibility route runtime contract', () => {
       error: 'Video not found',
       success: false,
     });
-    await expect(getVideoRow(workspace.databasePath, OTHER_PRIVATE_VIDEO_ID)).resolves.toEqual(before);
+    await expect(getVideoRow(workspace.databasePath, OTHER_PRIVATE_VIDEO_ID)).resolves.toEqual(
+      before,
+    );
   });
 
   test('rejects invalid owner input without mutating video metadata or visibility', async () => {
@@ -199,24 +220,29 @@ describe('visibility route runtime contract', () => {
     const before = await getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID);
     const { action } = await import('../../../app/routes/api.visibility.$id');
 
-    const response = await action(createActionArgs(
-      new Request(`http://localhost/api/visibility/${OWNER_PRIVATE_VIDEO_ID}`, {
-        body: JSON.stringify({ visibility: 'friends-only' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': cookie,
-        },
-        method: 'PUT',
-      }),
-      { id: OWNER_PRIVATE_VIDEO_ID },
-    ));
+    const response = await action(
+      createActionArgs(
+        new Request(`http://localhost/api/visibility/${OWNER_PRIVATE_VIDEO_ID}`, {
+          body: JSON.stringify({ visibility: 'friends-only' }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'http://localhost',
+            'Cookie': cookie,
+          },
+          method: 'PUT',
+        }),
+        { id: OWNER_PRIVATE_VIDEO_ID },
+      ),
+    );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: 'Video visibility must be public or private',
       success: false,
     });
-    await expect(getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID)).resolves.toEqual(before);
+    await expect(getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID)).resolves.toEqual(
+      before,
+    );
   });
 
   test('treats same-state owner changes as successful storage no-ops', async () => {
@@ -224,17 +250,20 @@ describe('visibility route runtime contract', () => {
     const before = await getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID);
     const { action } = await import('../../../app/routes/api.visibility.$id');
 
-    const response = await action(createActionArgs(
-      new Request(`http://localhost/api/visibility/${OWNER_PRIVATE_VIDEO_ID}`, {
-        body: JSON.stringify({ visibility: 'private' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': cookie,
-        },
-        method: 'PATCH',
-      }),
-      { id: OWNER_PRIVATE_VIDEO_ID },
-    ));
+    const response = await action(
+      createActionArgs(
+        new Request(`http://localhost/api/visibility/${OWNER_PRIVATE_VIDEO_ID}`, {
+          body: JSON.stringify({ visibility: 'private' }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'http://localhost',
+            'Cookie': cookie,
+          },
+          method: 'PATCH',
+        }),
+        { id: OWNER_PRIVATE_VIDEO_ID },
+      ),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -245,7 +274,9 @@ describe('visibility route runtime contract', () => {
         isPrivate: true,
       },
     });
-    await expect(getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID)).resolves.toEqual(before);
+    await expect(getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID)).resolves.toEqual(
+      before,
+    );
   });
 
   test('rejects unsupported authenticated methods without mutating visibility', async () => {
@@ -253,17 +284,20 @@ describe('visibility route runtime contract', () => {
     const before = await getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID);
     const { action } = await import('../../../app/routes/api.visibility.$id');
 
-    const response = await action(createActionArgs(
-      new Request(`http://localhost/api/visibility/${OWNER_PRIVATE_VIDEO_ID}`, {
-        body: JSON.stringify({ visibility: 'public' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': cookie,
-        },
-        method: 'POST',
-      }),
-      { id: OWNER_PRIVATE_VIDEO_ID },
-    ));
+    const response = await action(
+      createActionArgs(
+        new Request(`http://localhost/api/visibility/${OWNER_PRIVATE_VIDEO_ID}`, {
+          body: JSON.stringify({ visibility: 'public' }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'http://localhost',
+            'Cookie': cookie,
+          },
+          method: 'POST',
+        }),
+        { id: OWNER_PRIVATE_VIDEO_ID },
+      ),
+    );
 
     expect(response.status).toBe(405);
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
@@ -272,6 +306,8 @@ describe('visibility route runtime contract', () => {
       error: 'Method not allowed',
       success: false,
     });
-    await expect(getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID)).resolves.toEqual(before);
+    await expect(getVideoRow(workspace.databasePath, OWNER_PRIVATE_VIDEO_ID)).resolves.toEqual(
+      before,
+    );
   });
 });

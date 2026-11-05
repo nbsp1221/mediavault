@@ -25,19 +25,14 @@ interface DeleteLibraryVideoFailure {
   message: string;
 }
 
-export type DeleteLibraryVideoUseCaseResult =
-  | DeleteLibraryVideoSuccess
-  | DeleteLibraryVideoFailure;
+export type DeleteLibraryVideoUseCaseResult = DeleteLibraryVideoSuccess | DeleteLibraryVideoFailure;
 
 interface DeleteLibraryVideoUseCaseDependencies {
   videoArtifacts: LibraryVideoArtifactRemovalPort;
   videoMutation: LibraryVideoMutationPort;
 }
 
-function canDeleteVideo(input: {
-  existingVideo: LibraryVideo;
-  viewer: VideoViewer;
-}) {
+function canDeleteVideo(input: { existingVideo: LibraryVideo; viewer: VideoViewer }) {
   return VideoAccessPolicy.evaluate({
     operation: 'delete',
     ownerId: input.existingVideo.ownerId,
@@ -47,9 +42,7 @@ function canDeleteVideo(input: {
 }
 
 export class DeleteLibraryVideoUseCase {
-  constructor(
-    private readonly deps: DeleteLibraryVideoUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: DeleteLibraryVideoUseCaseDependencies) {}
 
   async execute(input: DeleteLibraryVideoInput): Promise<DeleteLibraryVideoUseCaseResult> {
     const videoId = input.videoId.trim();
@@ -106,8 +99,7 @@ export class DeleteLibraryVideoUseCase {
     try {
       const cleanupResult = await this.deps.videoArtifacts.cleanupVideoArtifacts({ videoId });
       cleanupWarning = cleanupResult?.warning;
-    }
-    catch {
+    } catch {
       cleanupWarning = 'Video files could not be fully removed';
     }
 

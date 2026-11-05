@@ -29,11 +29,13 @@ describe('AddVideoToPlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       message: 'Video "video-1" is already in playlist "playlist-1"',
       ok: false,
       reason: 'DUPLICATE_VIDEO_IN_PLAYLIST',
@@ -55,11 +57,13 @@ describe('AddVideoToPlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-      videoId: 'missing-video',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        videoId: 'missing-video',
+      }),
+    ).resolves.toEqual({
       message: 'Video with ID "missing-video" not found',
       ok: false,
       reason: 'VIDEO_NOT_FOUND',
@@ -88,12 +92,14 @@ describe('AddVideoToPlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-      position: 2,
-      videoId: 'video-2',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        position: 2,
+        videoId: 'video-2',
+      }),
+    ).resolves.toEqual({
       message: 'Invalid position 2. Must be between 0 and 1',
       ok: false,
       reason: 'INVALID_PLAYLIST_POSITION',
@@ -118,23 +124,27 @@ describe('AddVideoToPlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-      position: 0.5,
-      videoId: 'video-2',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        position: 0.5,
+        videoId: 'video-2',
+      }),
+    ).resolves.toEqual({
       message: 'Invalid position 0.5. Must be between 0 and 1',
       ok: false,
       reason: 'INVALID_PLAYLIST_POSITION',
     });
 
-    await expect(useCase.execute({
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-      position: Number.NaN,
-      videoId: 'video-2',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        position: Number.NaN,
+        videoId: 'video-2',
+      }),
+    ).resolves.toEqual({
       message: 'Invalid position NaN. Must be between 0 and 1',
       ok: false,
       reason: 'INVALID_PLAYLIST_POSITION',
@@ -148,7 +158,8 @@ describe('AddVideoToPlaylistUseCase', () => {
     const playlistAfter = createPlaylist({
       videoIds: ['video-2', 'video-1'],
     });
-    const findById = vi.fn()
+    const findById = vi
+      .fn()
       .mockResolvedValueOnce(playlistBefore)
       .mockResolvedValueOnce(playlistAfter);
     const addVideoToPlaylist = vi.fn(async () => undefined);
@@ -166,12 +177,14 @@ describe('AddVideoToPlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-      position: 0,
-      videoId: 'video-2',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        position: 0,
+        videoId: 'video-2',
+      }),
+    ).resolves.toEqual({
       ok: true,
       data: {
         finalPosition: 0,

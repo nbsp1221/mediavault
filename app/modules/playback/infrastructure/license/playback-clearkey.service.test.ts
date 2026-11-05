@@ -33,7 +33,12 @@ describe('PlaybackClearKeyService', () => {
         videoId: 'video-1',
       });
 
-      const keyIdHex = crypto.createHash('sha256').update('video-1').digest().subarray(0, 16).toString('hex');
+      const keyIdHex = crypto
+        .createHash('sha256')
+        .update('video-1')
+        .digest()
+        .subarray(0, 16)
+        .toString('hex');
 
       expect(result).toEqual({
         body: JSON.stringify({
@@ -56,8 +61,7 @@ describe('PlaybackClearKeyService', () => {
           'X-Frame-Options': 'DENY',
         },
       });
-    }
-    finally {
+    } finally {
       await rm(rootDir, { force: true, recursive: true });
     }
   });
@@ -71,14 +75,15 @@ describe('PlaybackClearKeyService', () => {
     const service = new PlaybackClearKeyService();
 
     try {
-      await expect(service.serveLicense({
-        videoId: 'video-1',
-      })).rejects.toMatchObject({
+      await expect(
+        service.serveLicense({
+          videoId: 'video-1',
+        }),
+      ).rejects.toMatchObject({
         name: 'NotFoundError',
         statusCode: 404,
       });
-    }
-    finally {
+    } finally {
       await rm(rootDir, { force: true, recursive: true });
     }
   });
@@ -87,9 +92,11 @@ describe('PlaybackClearKeyService', () => {
     const { PlaybackClearKeyService } = await import('./playback-clearkey.service');
     const service = new PlaybackClearKeyService();
 
-    await expect(service.serveLicense({
-      videoId: '../escape',
-    })).rejects.toMatchObject({
+    await expect(
+      service.serveLicense({
+        videoId: '../escape',
+      }),
+    ).rejects.toMatchObject({
       message: 'Invalid video ID format',
       name: 'ValidationError',
       statusCode: 400,

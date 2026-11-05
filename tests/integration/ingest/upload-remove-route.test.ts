@@ -1,64 +1,73 @@
 import { describe, expect, test, vi } from 'vitest';
-import { createUploadRemoveAction } from '../../../app/routes/api.uploads.$stagingId';
+import type { RemoveStagedUploadUseCase } from '~/modules/ingest/application/use-cases/remove-staged-upload.usecase';
+import {
+  createUploadReadLoader,
+  createUploadRemoveAction,
+} from '~/routes/.server/staged-upload-handlers';
 
-describe('upload remove api route', () => {
-  test('removes a staged upload through the ingest composition root', async () => {
-    const execute = vi.fn(async () => ({
-      ok: true as const,
-    }));
-    const action = createUploadRemoveAction({
-      createErrorResponse: error => new Response(error instanceof Error ? error.message : 'Unknown error occurred', { status: 500 }),
-      getServerIngestServices: () => ({
-        removeStagedUpload: {
-          execute,
-        },
-      }),
-      requireProtectedApiSession: vi.fn(async () => null),
-    });
+function fixture() {
+  const execute = vi.fn<RemoveStagedUploadUseCase['execute']>(async () => ({ ok: true }));
+  const requireProtectedApiSessionValue = vi.fn(async () => ({ userId: 'owner' }));
+  const getServerIngestServices = vi.fn(() => ({ removeStagedUpload: { execute } }));
+  return {
+    action: createUploadRemoveAction({ getServerIngestServices, requireProtectedApiSessionValue }),
+    execute,
+    getServerIngestServices,
+    requireProtectedApiSessionValue,
+  };
+}
 
-    const response = await action({
-      params: {
-        stagingId: 'staging-123',
-      },
-      request: new Request('http://localhost/api/uploads/staging-123', {
-        method: 'DELETE',
-      }),
-    } as never);
+const request = () => new Request('http://localhost/api/uploads/stage', { method: 'DELETE' });
 
-    expect(execute).toHaveBeenCalledWith({
-      stagingId: 'staging-123',
-    });
-    expect((response as Response).status).toBe(204);
+describe('explicit staged source removal HTTP boundary', () => {
+  test('returns 204 only after owner-aware removal and keeps response private', async () => {
+    const f = fixture();
+    const response = await f.action({ params: { stagingId: 'stage' }, request: request() });
+    expect(f.execute).toHaveBeenCalledWith({ ownerId: 'owner', stagingId: 'stage' });
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
   });
 
-  test('maps a committing row to 409 conflict', async () => {
+  test.each([
+    ['REMOVE_STAGED_UPLOAD_CONFLICT', 409],
+    ['REMOVE_STAGED_UPLOAD_NOT_FOUND', 404],
+  ] as const)('maps %s without claiming deletion', async (reason, status) => {
+    const f = fixture();
+    f.execute.mockResolvedValue({ ok: false, message: 'Unavailable', reason });
+    expect((await f.action({ params: { stagingId: 'stage' }, request: request() })).status).toBe(
+      status,
+    );
+  });
+
+  test('unsupported method does not authenticate, assemble services or remove files', async () => {
+    const f = fixture();
+    expect(
+      (
+        await f.action({
+          params: { stagingId: 'stage' },
+          request: new Request('http://localhost/api/uploads/stage'),
+        })
+      ).status,
+    ).toBe(405);
+    expect(f.getServerIngestServices).not.toHaveBeenCalled();
+  });
+
+  test('read uses the same neutral404 contract and never returns owner or filesystem state', async () => {
     const execute = vi.fn(async () => ({
       ok: false as const,
-      message: 'Commit already in progress',
-      reason: 'REMOVE_STAGED_UPLOAD_CONFLICT' as const,
+      reason: 'STAGED_UPLOAD_NOT_FOUND' as const,
     }));
-    const action = createUploadRemoveAction({
-      createErrorResponse: error => new Response(error instanceof Error ? error.message : 'Unknown error occurred', { status: 500 }),
-      getServerIngestServices: () => ({
-        removeStagedUpload: {
-          execute,
-        },
-      }),
-      requireProtectedApiSession: vi.fn(async () => null),
+    const loader = createUploadReadLoader({
+      getServerIngestServices: () => ({ readStagedUpload: { execute } }),
+      requireProtectedApiSessionValue: async () => ({ userId: 'owner' }),
     });
-
-    const response = await action({
-      params: {
-        stagingId: 'staging-123',
-      },
-      request: new Request('http://localhost/api/uploads/staging-123', {
-        method: 'DELETE',
-      }),
-    } as never);
-
-    expect((response as Response).status).toBe(409);
-    await expect((response as Response).json()).resolves.toEqual({
-      error: 'Commit already in progress',
+    const response = await loader({
+      params: { stagingId: 'other' },
+      request: new Request('http://localhost/api/uploads/other'),
+    });
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Staged upload not found',
       success: false,
     });
   });

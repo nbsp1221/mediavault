@@ -46,9 +46,7 @@ function createBaseRuntimeTestEnv(): RuntimeTestEnv {
   };
 }
 
-export function createRuntimeTestEnv(
-  overrides: Record<string, string> = {},
-): RuntimeTestEnv {
+export function createRuntimeTestEnv(overrides: Record<string, string> = {}): RuntimeTestEnv {
   const forwardedEnv = Object.fromEntries(
     FORWARDED_ENV_KEYS.flatMap((key) => {
       const value = process.env[key];
@@ -124,7 +122,7 @@ export function runtimeSecretLogValues(env: RuntimeTestEnvInput): string[] {
     env[PUBLIC_ENV_KEYS.playbackJwtSecret],
     env[PUBLIC_ENV_KEYS.mediaKeyDerivationSecret],
     env[PUBLIC_ENV_KEYS.authClientCookieSecret],
-  ].flatMap(value => (value ? [value] : []));
+  ].flatMap((value) => (value ? [value] : []));
 }
 
 export function assertRuntimeTestEnvConfigurable(env: RuntimeTestEnvInput): void {
@@ -136,6 +134,6 @@ export function assertRuntimeTestEnvConfigurable(env: RuntimeTestEnvInput): void
 
   const issues = collectCriticalProductionSecretIssues(env);
   if (issues.length > 0) {
-    throw new Error(issues.map(issue => issue.message).join('\n'));
+    throw new Error(issues.map((issue) => issue.message).join('\n'));
   }
 }

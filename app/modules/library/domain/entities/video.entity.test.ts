@@ -24,7 +24,9 @@ describe('VideoEntity', () => {
     });
 
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    if (!result.ok) {
+      throw new Error('Expected a valid video fixture');
+    }
 
     expect(result.video.id).toBe('video-1');
     expect(result.video.ownerId).toBe('user-1');
@@ -56,7 +58,9 @@ describe('VideoEntity', () => {
   test('changes visibility and metadata through methods', () => {
     const result = createVideo();
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    if (!result.ok) {
+      throw new Error('Expected a valid video fixture');
+    }
 
     result.video.makePublic();
     expect(result.video.visibility).toBe('public');
@@ -65,13 +69,15 @@ describe('VideoEntity', () => {
     expect(result.video.isOwnedBy('user-1')).toBe(true);
     expect(result.video.isOwnedBy('user-2')).toBe(false);
 
-    expect(result.video.changeMetadata({
-      contentTypeSlug: 'lecture',
-      description: 'Updated description',
-      genreSlugs: ['education'],
-      tags: ['next'],
-      title: '  Next title  ',
-    })).toEqual({
+    expect(
+      result.video.changeMetadata({
+        contentTypeSlug: 'lecture',
+        description: 'Updated description',
+        genreSlugs: ['education'],
+        tags: ['next'],
+        title: '  Next title  ',
+      }),
+    ).toEqual({
       ok: true,
       video: result.video,
     });

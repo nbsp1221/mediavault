@@ -1,16 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
-import { Clock, Heart, ListVideo, Settings, Upload, Video } from 'lucide-react';
+import { ListVideo, Upload, Video } from 'lucide-react';
 
 export type ProductShellActiveRoute = 'videos' | 'playlists' | 'upload';
-export type ProductNavigationSection = 'library' | 'manage' | 'account';
+export type ProductNavigationSection = 'library' | 'manage';
 
-interface ProductNavigationUser {
-  id: string;
-  role: 'admin' | 'user';
-  username: string;
-}
-
-export interface ProductNavigationLinkItem {
+export interface ProductNavigationItem {
   href: string;
   icon: LucideIcon;
   id: ProductShellActiveRoute;
@@ -19,18 +13,6 @@ export interface ProductNavigationLinkItem {
   section: ProductNavigationSection;
 }
 
-export interface ProductNavigationSoonItem {
-  icon: LucideIcon;
-  id: 'favorites' | 'history' | 'settings';
-  kind: 'soon';
-  label: string;
-  section: ProductNavigationSection;
-  statusLabel: 'Soon';
-  toastMessage: string;
-}
-
-export type ProductNavigationItem = ProductNavigationLinkItem | ProductNavigationSoonItem;
-
 export interface ProductNavigationSectionGroup {
   id: ProductNavigationSection;
   label: string;
@@ -38,20 +20,11 @@ export interface ProductNavigationSectionGroup {
 }
 
 export const PRODUCT_NAVIGATION_SECTION_LABELS: Record<ProductNavigationSection, string> = {
-  account: 'Account',
   library: 'Library',
   manage: 'Manage',
 };
-
-const ownerNavigationItems: ProductNavigationItem[] = [
-  {
-    href: '/',
-    icon: Video,
-    id: 'videos',
-    kind: 'link',
-    label: 'Videos',
-    section: 'library',
-  },
+const publicItems: ProductNavigationItem[] = [
+  { href: '/', icon: Video, id: 'videos', kind: 'link', label: 'Videos', section: 'library' },
   {
     href: '/playlists',
     icon: ListVideo,
@@ -60,24 +33,9 @@ const ownerNavigationItems: ProductNavigationItem[] = [
     label: 'Playlists',
     section: 'library',
   },
-  {
-    icon: Heart,
-    id: 'favorites',
-    kind: 'soon',
-    label: 'Favorites',
-    section: 'library',
-    statusLabel: 'Soon',
-    toastMessage: 'Favorites is coming soon.',
-  },
-  {
-    icon: Clock,
-    id: 'history',
-    kind: 'soon',
-    label: 'History',
-    section: 'library',
-    statusLabel: 'Soon',
-    toastMessage: 'History is coming soon.',
-  },
+];
+const ownerItems: ProductNavigationItem[] = [
+  ...publicItems,
   {
     href: '/add-videos',
     icon: Upload,
@@ -86,54 +44,37 @@ const ownerNavigationItems: ProductNavigationItem[] = [
     label: 'Upload',
     section: 'manage',
   },
-  {
-    icon: Settings,
-    id: 'settings',
-    kind: 'soon',
-    label: 'Settings',
-    section: 'account',
-    statusLabel: 'Soon',
-    toastMessage: 'Settings is coming soon.',
-  },
 ];
-
-const anonymousNavigationItems: ProductNavigationItem[] = [
-  ownerNavigationItems[0],
-];
-
-function isProductNavigationUser(user: unknown): user is ProductNavigationUser {
-  if (!user || typeof user !== 'object') {
-    return false;
-  }
-
-  const candidate = user as Partial<ProductNavigationUser>;
-
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.username === 'string' &&
-    (candidate.role === 'admin' || candidate.role === 'user')
-  );
-}
 
 export function getProductNavigationItems(user: unknown): ProductNavigationItem[] {
-  return isProductNavigationUser(user) ? ownerNavigationItems : anonymousNavigationItems;
+  if (
+    user &&
+    typeof user === 'object' &&
+    'id' in user &&
+    typeof user.id === 'string' &&
+    'username' in user &&
+    typeof user.username === 'string'
+  ) {
+    return ownerItems;
+  }
+  return publicItems;
 }
 
 export function groupProductNavigationItems(
   items: ProductNavigationItem[],
 ): ProductNavigationSectionGroup[] {
-  return (['library', 'manage', 'account'] as const)
-    .map(section => ({
-      id: section,
-      label: PRODUCT_NAVIGATION_SECTION_LABELS[section],
-      items: items.filter(item => item.section === section),
+  return (['library', 'manage'] as const)
+    .map((id) => ({
+      id,
+      label: PRODUCT_NAVIGATION_SECTION_LABELS[id],
+      items: items.filter((item) => item.section === id),
     }))
-    .filter(group => group.items.length > 0);
+    .filter((group) => group.items.length > 0);
 }
 
 export function isProductNavigationItemActive(
   item: ProductNavigationItem,
   activeRoute?: ProductShellActiveRoute,
 ): boolean {
-  return item.kind === 'link' && item.id === activeRoute;
+  return item.id === activeRoute;
 }

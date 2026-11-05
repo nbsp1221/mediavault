@@ -1,12 +1,12 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { getStoragePaths } from '~/shared/config/app-config.server';
+import type { Pbkdf2ThumbnailKeyManager } from '../security/pbkdf2-thumbnail-key-manager';
 import {
   decryptThumbnailEnvelope,
   encryptThumbnailEnvelope,
   looksLikeJpeg,
 } from '../crypto/thumbnail-crypto.utils';
-import { Pbkdf2ThumbnailKeyManager } from '../security/pbkdf2-thumbnail-key-manager';
 
 interface EncryptThumbnailInput {
   thumbnailPath: string;
@@ -53,11 +53,11 @@ export class ThumbnailEncryptionService {
         originalSize: originalData.length,
         success: true,
       };
-    }
-    catch (error) {
+    } catch (error) {
       this.deps.logger?.error(`❌ Failed to encrypt thumbnail for ${input.videoId}:`, error);
       throw new Error(
         `Failed to encrypt thumbnail: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error },
       );
     }
   }
@@ -80,11 +80,11 @@ export class ThumbnailEncryptionService {
         mimeType: 'image/jpeg',
         size: imageBuffer.length,
       };
-    }
-    catch (error) {
+    } catch (error) {
       this.deps.logger?.error(`❌ Failed to decrypt thumbnail for ${input.videoId}:`, error);
       throw new Error(
         `Failed to decrypt thumbnail: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error },
       );
     }
   }
@@ -97,8 +97,7 @@ export class ThumbnailEncryptionService {
         videoId,
       });
       return true;
-    }
-    catch {
+    } catch {
       return false;
     }
   }
@@ -109,7 +108,9 @@ export class ThumbnailEncryptionService {
       await fs.access(plaintextPath);
 
       if (await this.hasEncryptedThumbnail(videoId)) {
-        this.deps.logger?.info(`Encrypted thumbnail already exists for ${videoId}, skipping migration`);
+        this.deps.logger?.info(
+          `Encrypted thumbnail already exists for ${videoId}, skipping migration`,
+        );
         return true;
       }
 
@@ -120,8 +121,7 @@ export class ThumbnailEncryptionService {
 
       this.deps.logger?.info(`✅ Migrated thumbnail for video: ${videoId}`);
       return true;
-    }
-    catch {
+    } catch {
       return false;
     }
   }
@@ -134,10 +134,9 @@ export class ThumbnailEncryptionService {
   private async readEncryptedThumbnail(videoId: string): Promise<Buffer> {
     try {
       return await fs.readFile(this.getEncryptedThumbnailPath(videoId));
-    }
-    catch (error) {
+    } catch (error) {
       if (isNotFoundError(error)) {
-        throw new Error(`Encrypted thumbnail not found for video: ${videoId}`);
+        throw new Error(`Encrypted thumbnail not found for video: ${videoId}`, { cause: error });
       }
 
       throw error;
@@ -164,8 +163,5 @@ export class ThumbnailEncryptionService {
 }
 
 function isNotFoundError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as NodeJS.ErrnoException).code === 'ENOENT';
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }

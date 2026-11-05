@@ -3,8 +3,8 @@ import type { AuthSessionRepository } from '../ports/auth-session-repository.por
 import type { LoginAttemptGuard } from '../ports/login-attempt-guard.port';
 import type { PasswordHashService } from '../ports/password-hash-service.port';
 import type { UserCredentialReader } from '../ports/user-credential-reader.port';
-import { createUsername } from '../../../user/domain/value-objects/username';
-import { validateAuthPassword } from '../../domain/auth-password-policy';
+import { validateUserPassword } from '../../../user/domain/value-objects/user-password';
+import { createUsername, normalizeUsernameKey } from '../../../user/domain/value-objects/username';
 import { SessionPolicy } from '../../domain/policies/SessionPolicy';
 
 interface CreateAuthSessionUseCaseDependencies {
@@ -18,7 +18,6 @@ interface CreateAuthSessionUseCaseDependencies {
 }
 
 interface CreateAuthSessionUseCaseInput {
-  attemptKey?: string;
   attemptKeys?: string[];
   ipAddress?: string;
   now: Date;
@@ -32,26 +31,17 @@ type CreateAuthSessionUseCaseResult =
   | { ok: false; reason: 'INVALID_CREDENTIALS' }
   | { ok: false; reason: 'RATE_LIMITED'; retryAfterSeconds: number };
 
-const missingUserPasswordHash = '$argon2id$v=19$m=65536,t=3,p=4$gAxMt01zhbLw2749qtYKyw$rFXDGJGWvkCNiUJvmDmTu+RgkA0nTCsbbmG/RopVGvI';
+const missingUserPasswordHash =
+  '$argon2id$v=19$m=65536,t=3,p=4$gAxMt01zhbLw2749qtYKyw$rFXDGJGWvkCNiUJvmDmTu+RgkA0nTCsbbmG/RopVGvI';
 
 export class CreateAuthSessionUseCase {
   constructor(private readonly deps: CreateAuthSessionUseCaseDependencies) {}
 
   async execute(input: CreateAuthSessionUseCaseInput): Promise<CreateAuthSessionUseCaseResult> {
+    const accountKey = `account:${normalizeUsernameKey(input.username) ?? ''}`;
     const attemptKeys = Array.from(
-      new Set(
-        (input.attemptKeys ?? [])
-          .map(key => key.trim())
-          .filter(Boolean),
-      ),
+      new Set([...(input.attemptKeys ?? []).map((key) => key.trim()).filter(Boolean), accountKey]),
     );
-    const fallbackAttemptKey = input.attemptKey?.trim() || input.ipAddress?.trim() || input.userAgent?.trim() || 'global';
-
-    if (attemptKeys.length === 0) {
-      attemptKeys.push(fallbackAttemptKey);
-    }
-
-    const lockKey = attemptKeys[attemptKeys.length - 1] ?? fallbackAttemptKey;
 
     const performAttempt = async (): Promise<CreateAuthSessionUseCaseResult> => {
       for (const key of attemptKeys) {
@@ -70,7 +60,7 @@ export class CreateAuthSessionUseCase {
       }
 
       const username = createUsername(input.username);
-      const passwordValidation = validateAuthPassword(input.password);
+      const passwordValidation = validateUserPassword(input.password);
 
       if (!username.ok || !passwordValidation.ok) {
         for (const key of attemptKeys) {
@@ -88,7 +78,9 @@ export class CreateAuthSessionUseCase {
         };
       }
 
-      const credential = await this.deps.credentialReader.findCredentialByUsernameKey(username.usernameKey);
+      const credential = await this.deps.credentialReader.findCredentialByUsernameKey(
+        username.usernameKey,
+      );
       const passwordMatches = await this.deps.passwordHashService.verify({
         hash: credential?.passwordHash ?? missingUserPasswordHash,
         password: input.password,
@@ -132,7 +124,7 @@ export class CreateAuthSessionUseCase {
     };
 
     if (this.deps.loginAttemptGuard) {
-      return this.deps.loginAttemptGuard.runExclusive(lockKey, performAttempt);
+      return this.deps.loginAttemptGuard.runExclusive(accountKey, performAttempt);
     }
 
     return performAttempt();

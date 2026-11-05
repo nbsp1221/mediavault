@@ -3,17 +3,17 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-
-import type { HomeLibraryFilters } from '../../../app/widgets/home-library/model/home-library-filters';
-import { HomeFilterSurface } from '../../../app/features/home-tag-filter/ui/HomeFilterSurface';
-import { createHomeLibraryFilters } from '../../../app/widgets/home-library/model/home-library-filters';
+import type { HomeLibraryFilters } from '../../../app/pages/home/model/home-library-filters';
+import { createHomeLibraryFilters } from '../../../app/pages/home/model/home-library-filters';
+import { HomeFilterSurface } from '../../../app/pages/home/ui/HomeFilterSurface';
 
 vi.mock('~/shared/ui/drawer', () => ({
-  Drawer: ({ children, open }: { children: ReactNode; open?: boolean }) => (
-    open ? <div data-testid="mock-drawer">{children}</div> : null
-  ),
+  Drawer: ({ children, open }: { children: ReactNode; open?: boolean }) =>
+    open ? <div data-testid="mock-drawer">{children}</div> : null,
   DrawerContent: ({ children }: { children: ReactNode }) => (
-    <section aria-label="Filters" role="dialog">{children}</section>
+    <section aria-label="Filters" role="dialog">
+      {children}
+    </section>
   ),
   DrawerDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
   DrawerFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
@@ -23,7 +23,7 @@ vi.mock('~/shared/ui/drawer', () => ({
 
 const originalMatchMedia = window.matchMedia;
 
-function useMobileMediaQuery() {
+function installMobileMediaQuery() {
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     value: vi.fn().mockImplementation((query: string) => ({
@@ -40,7 +40,7 @@ function useMobileMediaQuery() {
 }
 
 function ControlledMobileFilterSurface() {
-  const [filters, setFilters] = useState<HomeLibraryFilters>(
+  const [filters, setFilters] = useState<HomeLibraryFilters>(() =>
     createHomeLibraryFilters({ query: 'Action' }),
   );
   const [open, setOpen] = useState(true);
@@ -71,8 +71,27 @@ describe('mobile home filter surface', () => {
     });
   });
 
+  test('prevents applying invalid tag drafts and resets them explicitly', async () => {
+    installMobileMediaQuery();
+    const user = userEvent.setup();
+    render(<ControlledMobileFilterSurface />);
+    fireEvent.change(screen.getByLabelText('Require tags'), {
+      target: { value: '가'.repeat(101) },
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('100 characters');
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+    expect(screen.getByTestId('filters')).toHaveTextContent('"includeTags":[]');
+    await user.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Require tags')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
+    await user.type(screen.getByLabelText('Require tags'), '가족 여행{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(screen.getByTestId('filters')).toHaveTextContent('"includeTags":["가족 여행"]');
+  });
+
   test('keeps mobile filters as draft until apply and resets metadata while preserving query', async () => {
-    useMobileMediaQuery();
+    installMobileMediaQuery();
     const user = userEvent.setup();
 
     render(<ControlledMobileFilterSurface />);

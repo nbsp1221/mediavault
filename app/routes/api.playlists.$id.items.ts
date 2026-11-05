@@ -1,121 +1,68 @@
 import type { ActionFunctionArgs } from 'react-router';
+import { z } from 'zod';
 import { requireProtectedApiSessionValue } from '~/composition/server/auth';
 import { getServerPlaylistServices } from '~/composition/server/playlist';
 
-type UseCaseResult<T> =
-  | { data: T; success: true }
-  | { error: string; reason: string; status: number; success: false };
-
-function getErrorStatusCode(error: unknown): number {
-  if (typeof error === 'object' && error !== null && 'status' in error) {
-    const status = (error as { status?: unknown }).status;
-    if (typeof status === 'number') {
-      return status;
-    }
-  }
-
-  if (typeof error === 'object' && error !== null && 'statusCode' in error) {
-    const statusCode = (error as { statusCode?: unknown }).statusCode;
-    if (typeof statusCode === 'number') {
-      return statusCode;
-    }
-  }
-
-  return 500;
-}
-
-function getErrorMessage(error: unknown): string {
-  if (typeof error === 'object' && error !== null && 'error' in error) {
-    const message = (error as { error?: unknown }).error;
-    if (typeof message === 'string') {
-      return message;
-    }
-  }
-
-  return error instanceof Error ? error.message : 'Unknown error occurred';
-}
-
-function createErrorResponse(error: unknown): Response {
-  return Response.json({
-    success: false,
-    error: getErrorMessage(error),
-  }, { status: getErrorStatusCode(error) });
-}
-
-function handleUseCaseResult<T>(result: UseCaseResult<T>): Response | T {
-  if (result.success) {
-    return result.data;
-  }
-
-  return createErrorResponse(result);
-}
+const addSchema = z
+  .object({
+    videoId: z.string().min(1).max(255),
+    position: z.number().int().nonnegative().optional(),
+    episodeMetadata: z
+      .object({
+        episodeNumber: z.number().int().positive().optional(),
+        episodeTitle: z.string().max(255).optional(),
+        watchProgress: z.number().min(0).max(100).optional(),
+        duration: z.number().nonnegative().optional(),
+        notes: z.string().max(1000).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+const reorderSchema = z
+  .object({ newOrder: z.array(z.string().min(1).max(255)).min(1).max(10000) })
+  .strict();
 
 export async function action({ request, params }: ActionFunctionArgs) {
-  try {
-    const authSession = await requireProtectedApiSessionValue(request);
-    if (authSession instanceof Response) return authSession;
-
-    const ownerId = authSession.userId;
-    const { id: playlistId } = params;
-
-    if (!playlistId) {
-      return Response.json(
-        { success: false, error: 'Playlist ID is required' },
-        { status: 400 },
-      );
-    }
-
-    const services = getServerPlaylistServices();
-
-    if (request.method === 'POST') {
-      const body = await request.json() as {
-        episodeMetadata?: Record<string, unknown>;
-        position?: number;
-        videoId?: string;
-      };
-      const result = await services.addVideoToPlaylist.execute({
-        episodeMetadata: body.episodeMetadata,
-        playlistId,
-        position: body.position,
-        ownerId,
-        videoId: body.videoId as string,
-      });
-
-      const response = handleUseCaseResult(result);
-      if (response instanceof Response) {
-        return response;
-      }
-
-      return Response.json(response);
-    }
-
-    if (request.method === 'PUT') {
-      const body = await request.json() as {
-        newOrder?: string[];
-        preserveMetadata?: boolean;
-      };
-      const result = await services.reorderPlaylistItems.execute({
-        newOrder: body.newOrder as string[],
-        playlistId,
-        preserveMetadata: body.preserveMetadata,
-        ownerId,
-      });
-
-      const response = handleUseCaseResult(result);
-      if (response instanceof Response) {
-        return response;
-      }
-
-      return Response.json(response);
-    }
-
+  if (request.method !== 'POST' && request.method !== 'PUT') {
     return Response.json(
       { success: false, error: `Method ${request.method} not allowed` },
-      { status: 405 },
+      { status: 405, headers: { Allow: 'POST, PUT' } },
     );
   }
-  catch (error) {
-    console.error('Unexpected error in playlist items route:', error);
-    return createErrorResponse(error);
+  const session = await requireProtectedApiSessionValue(request);
+  if (session instanceof Response) {
+    return session;
   }
+  if (!params.id) {
+    return Response.json({ success: false, error: 'Playlist ID is required' }, { status: 400 });
+  }
+  const body: unknown = await request.json().catch(() => null);
+  const services = getServerPlaylistServices();
+  if (request.method === 'POST') {
+    const parsed = addSchema.safeParse(body);
+    if (!parsed.success) {
+      return Response.json({ success: false, error: 'Invalid playlist item' }, { status: 400 });
+    }
+    const result = await services.addVideoToPlaylist.execute({
+      ...parsed.data,
+      ownerId: session.userId,
+      playlistId: params.id,
+    });
+    return result.success
+      ? Response.json({ ...result.data, success: true })
+      : Response.json({ success: false, error: result.error }, { status: result.status });
+  }
+  const parsed = reorderSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json({ success: false, error: 'Invalid playlist order' }, { status: 400 });
+  }
+  const result = await services.reorderPlaylistItems.execute({
+    ...parsed.data,
+    ownerId: session.userId,
+    playlistId: params.id,
+  });
+  return result.success
+    ? Response.json({ ...result.data, success: true })
+    : Response.json({ success: false, error: result.error }, { status: result.status });
 }

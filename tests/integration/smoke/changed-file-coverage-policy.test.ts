@@ -16,7 +16,9 @@ import {
 const cleanupPaths: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(cleanupPaths.splice(0).map(path => rm(path, { force: true, recursive: true })));
+  await Promise.all(
+    cleanupPaths.splice(0).map((path) => rm(path, { force: true, recursive: true })),
+  );
 });
 
 function run(command: string, args: string[], cwd: string): void {
@@ -26,11 +28,9 @@ function run(command: string, args: string[], cwd: string): void {
   });
 
   if (result.status !== 0) {
-    throw new Error([
-      `${command} ${args.join(' ')} failed`,
-      result.stdout,
-      result.stderr,
-    ].join('\n'));
+    throw new Error(
+      [`${command} ${args.join(' ')} failed`, result.stdout, result.stderr].join('\n'),
+    );
   }
 }
 
@@ -44,7 +44,10 @@ async function createGitRepo(): Promise<string> {
 
   await mkdir(join(rootDir, 'app', 'modules', 'library', 'domain'), { recursive: true });
   await mkdir(join(rootDir, 'docs'), { recursive: true });
-  await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'), 'export const tag = "base";\n');
+  await writeFile(
+    join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'),
+    'export const tag = "base";\n',
+  );
   await writeFile(join(rootDir, 'docs', 'example.md'), '# Base\n');
 
   run('git', ['add', '.'], rootDir);
@@ -56,8 +59,12 @@ async function createGitRepo(): Promise<string> {
 
 describe('changed-file coverage filtering policy', () => {
   test('includes production TypeScript files in the calibrated app coverage scope', () => {
-    expect(isCoverageEligibleChangedProductionFile('app/modules/library/domain/video-tag.ts')).toBe(true);
-    expect(isCoverageEligibleChangedProductionFile('app/widgets/home/ui/HomeLibraryWidget.tsx')).toBe(true);
+    expect(isCoverageEligibleChangedProductionFile('app/modules/library/domain/video-tag.ts')).toBe(
+      true,
+    );
+    expect(
+      isCoverageEligibleChangedProductionFile('app/widgets/home/ui/HomeLibraryWidget.tsx'),
+    ).toBe(true);
   });
 
   test('excludes tests, generated UI primitives, app entrypoints, and non-app files', () => {
@@ -93,7 +100,7 @@ describe('changed-file coverage filtering policy', () => {
       'app/components/ui/button.tsx',
     ];
 
-    expect(viteConfig).toContain('include: [\'app/**/*.{ts,tsx}\']');
+    expect(viteConfig).toContain("include: ['app/**/*.{ts,tsx}']");
     expect(viteConfig).toContain('app/**/*.test.{ts,tsx}');
     expect(viteConfig).toContain('app/**/*.spec.{ts,tsx}');
     expect(viteConfig).toContain('app/entry.client.tsx');
@@ -106,73 +113,90 @@ describe('changed-file coverage filtering policy', () => {
   });
 
   test('normalizes Windows and dot-prefixed paths before filtering', () => {
-    expect(filterCoverageEligibleChangedProductionFiles([
-      String.raw`.\app\modules\library\domain\video-tag.ts`,
-      String.raw`app\shared\ui\button.tsx`,
-    ])).toEqual([
-      'app/modules/library/domain/video-tag.ts',
-    ]);
+    expect(
+      filterCoverageEligibleChangedProductionFiles([
+        String.raw`.\app\modules\library\domain\video-tag.ts`,
+        String.raw`app\shared\ui\button.tsx`,
+      ]),
+    ).toEqual(['app/modules/library/domain/video-tag.ts']);
   });
 });
 
 describe('changed-file coverage git discovery', () => {
   test('finds unstaged production changes relative to HEAD', async () => {
     const rootDir = await createGitRepo();
-    await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'), 'export const tag = "unstaged";\n');
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'),
+      'export const tag = "unstaged";\n',
+    );
 
-    await expect(listCoverageEligibleChangedProductionFiles({
-      cwd: rootDir,
-    })).resolves.toEqual([
-      'app/modules/library/domain/video-tag.ts',
-    ]);
+    await expect(
+      listCoverageEligibleChangedProductionFiles({
+        cwd: rootDir,
+      }),
+    ).resolves.toEqual(['app/modules/library/domain/video-tag.ts']);
   });
 
   test('finds staged production changes relative to HEAD', async () => {
     const rootDir = await createGitRepo();
-    await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'), 'export const tag = "staged";\n');
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'),
+      'export const tag = "staged";\n',
+    );
     run('git', ['add', 'app/modules/library/domain/video-tag.ts'], rootDir);
 
-    await expect(listCoverageEligibleChangedProductionFiles({
-      cwd: rootDir,
-    })).resolves.toEqual([
-      'app/modules/library/domain/video-tag.ts',
-    ]);
+    await expect(
+      listCoverageEligibleChangedProductionFiles({
+        cwd: rootDir,
+      }),
+    ).resolves.toEqual(['app/modules/library/domain/video-tag.ts']);
   });
 
   test('finds untracked production files created before commit', async () => {
     const rootDir = await createGitRepo();
-    await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'untracked.ts'), 'export const value = true;\n');
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'library', 'domain', 'untracked.ts'),
+      'export const value = true;\n',
+    );
 
-    await expect(listCoverageEligibleChangedProductionFiles({
-      cwd: rootDir,
-    })).resolves.toEqual([
-      'app/modules/library/domain/untracked.ts',
-    ]);
+    await expect(
+      listCoverageEligibleChangedProductionFiles({
+        cwd: rootDir,
+      }),
+    ).resolves.toEqual(['app/modules/library/domain/untracked.ts']);
   });
 
   test('ignores committed branch changes in the default local pre-commit discovery', async () => {
     const rootDir = await createGitRepo();
-    await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'), 'export const tag = "changed";\n');
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'),
+      'export const tag = "changed";\n',
+    );
     run('git', ['add', '.'], rootDir);
     run('git', ['commit', '-m', 'Change production file'], rootDir);
 
-    await expect(listCoverageEligibleChangedProductionFiles({
-      cwd: rootDir,
-    })).resolves.toEqual([]);
+    await expect(
+      listCoverageEligibleChangedProductionFiles({
+        cwd: rootDir,
+      }),
+    ).resolves.toEqual([]);
   });
 
   test('finds modified production files relative to the merge base', async () => {
     const rootDir = await createGitRepo();
-    await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'), 'export const tag = "changed";\n');
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'),
+      'export const tag = "changed";\n',
+    );
     run('git', ['add', '.'], rootDir);
     run('git', ['commit', '-m', 'Change production file'], rootDir);
 
-    await expect(listChangedFilesSinceBase({
-      baseRef: 'origin/main',
-      cwd: rootDir,
-    })).resolves.toEqual([
-      'app/modules/library/domain/video-tag.ts',
-    ]);
+    await expect(
+      listChangedFilesSinceBase({
+        baseRef: 'origin/main',
+        cwd: rootDir,
+      }),
+    ).resolves.toEqual(['app/modules/library/domain/video-tag.ts']);
   });
 
   test('ignores deleted files and docs-only changes', async () => {
@@ -182,56 +206,74 @@ describe('changed-file coverage git discovery', () => {
     run('git', ['add', '.'], rootDir);
     run('git', ['commit', '-m', 'Change docs and delete production file'], rootDir);
 
-    await expect(listCoverageEligibleChangedProductionFiles({
-      cwd: rootDir,
-    })).resolves.toEqual([]);
+    await expect(
+      listCoverageEligibleChangedProductionFiles({
+        cwd: rootDir,
+      }),
+    ).resolves.toEqual([]);
   });
 
   test('includes renamed production files through the ACMRT diff filter', async () => {
     const rootDir = await createGitRepo();
-    run('git', [
-      'mv',
-      'app/modules/library/domain/video-tag.ts',
-      'app/modules/library/domain/video-tag-label.ts',
-    ], rootDir);
+    run(
+      'git',
+      [
+        'mv',
+        'app/modules/library/domain/video-tag.ts',
+        'app/modules/library/domain/video-tag-label.ts',
+      ],
+      rootDir,
+    );
     run('git', ['commit', '-m', 'Rename production file'], rootDir);
 
-    await expect(listChangedFilesSinceBase({
-      baseRef: 'origin/main',
-      cwd: rootDir,
-    })).resolves.toEqual([
-      'app/modules/library/domain/video-tag-label.ts',
-    ]);
+    await expect(
+      listChangedFilesSinceBase({
+        baseRef: 'origin/main',
+        cwd: rootDir,
+      }),
+    ).resolves.toEqual(['app/modules/library/domain/video-tag-label.ts']);
   });
 
   test('returns an empty eligible list for tests-only changes', async () => {
     const rootDir = await createGitRepo();
-    await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.test.ts'), 'import "./video-tag";\n');
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.test.ts'),
+      'import "./video-tag";\n',
+    );
     run('git', ['add', '.'], rootDir);
     run('git', ['commit', '-m', 'Add test file'], rootDir);
 
-    await expect(listCoverageEligibleChangedProductionFiles({
-      cwd: rootDir,
-    })).resolves.toEqual([]);
+    await expect(
+      listCoverageEligibleChangedProductionFiles({
+        cwd: rootDir,
+      }),
+    ).resolves.toEqual([]);
   });
 
   test('branch discovery does not treat untracked production files as changed coverage inputs', async () => {
     const rootDir = await createGitRepo();
-    await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'untracked.ts'), 'export const value = true;\n');
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'library', 'domain', 'untracked.ts'),
+      'export const value = true;\n',
+    );
 
-    await expect(listChangedFilesSinceBase({
-      baseRef: 'origin/main',
-      cwd: rootDir,
-    })).resolves.toEqual([]);
+    await expect(
+      listChangedFilesSinceBase({
+        baseRef: 'origin/main',
+        cwd: rootDir,
+      }),
+    ).resolves.toEqual([]);
   });
 
   test('fails clearly when the base ref cannot be resolved', async () => {
     const rootDir = await createGitRepo();
 
-    await expect(listChangedFilesSinceBase({
-      baseRef: 'missing/base',
-      cwd: rootDir,
-    })).rejects.toThrow('Unable to resolve coverage changed base ref: missing/base');
+    await expect(
+      listChangedFilesSinceBase({
+        baseRef: 'missing/base',
+        cwd: rootDir,
+      }),
+    ).rejects.toThrow('Unable to resolve coverage changed base ref: missing/base');
   });
 });
 
@@ -245,7 +287,8 @@ describe('changed-file coverage CLI policy', () => {
     });
 
     expect(args).toEqual([
-      '--no-env-file',
+      '--import',
+      'tsx',
       './scripts/run-vitest.ts',
       'run',
       '--changed',
@@ -273,8 +316,8 @@ describe('changed-file coverage CLI policy', () => {
         spawned.push([command, ...args]);
         return { status: 0 };
       },
-      stdout: message => output.push(message),
-      stderr: message => output.push(message),
+      stdout: (message) => output.push(message),
+      stderr: (message) => output.push(message),
     });
 
     expect(status).toBe(0);
@@ -284,7 +327,10 @@ describe('changed-file coverage CLI policy', () => {
 
   test('prints eligible files before spawning Vitest and preserves the exit status', async () => {
     const rootDir = await createGitRepo();
-    await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'), 'export const tag = "changed";\n');
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'library', 'domain', 'video-tag.ts'),
+      'export const tag = "changed";\n',
+    );
     const spawned: string[][] = [];
     const output: string[] = [];
 
@@ -294,8 +340,8 @@ describe('changed-file coverage CLI policy', () => {
         spawned.push([command, ...args]);
         return { status: 7 };
       },
-      stdout: message => output.push(message),
-      stderr: message => output.push(message),
+      stdout: (message) => output.push(message),
+      stderr: (message) => output.push(message),
     });
 
     expect(status).toBe(7);
@@ -303,18 +349,23 @@ describe('changed-file coverage CLI policy', () => {
     expect(output.join('\n')).toContain('- app/modules/library/domain/video-tag.ts');
     expect(output.join('\n')).toContain('Running changed-file coverage gate with Vitest...');
     expect(spawned).toHaveLength(1);
-    expect(spawned[0][0]).toBe('bun');
-    expect(spawned[0]).toEqual(expect.arrayContaining([
-      '--changed',
-      '--coverage.include=app/modules/library/domain/video-tag.ts',
-    ]));
+    expect(spawned[0][0]).toBe(process.execPath);
+    expect(spawned[0]).toEqual(
+      expect.arrayContaining([
+        '--changed',
+        '--coverage.include=app/modules/library/domain/video-tag.ts',
+      ]),
+    );
     expect(spawned[0]).not.toContain('origin/main');
   });
 
   test('local discovery exposes the raw pre-commit file list for diagnostics', async () => {
     const rootDir = await createGitRepo();
     await writeFile(join(rootDir, 'docs', 'example.md'), '# Changed\n');
-    await writeFile(join(rootDir, 'app', 'modules', 'library', 'domain', 'untracked.ts'), 'export const value = true;\n');
+    await writeFile(
+      join(rootDir, 'app', 'modules', 'library', 'domain', 'untracked.ts'),
+      'export const value = true;\n',
+    );
 
     await expect(listLocalChangedFiles({ cwd: rootDir })).resolves.toEqual([
       'app/modules/library/domain/untracked.ts',

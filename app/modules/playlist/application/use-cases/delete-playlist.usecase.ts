@@ -1,7 +1,7 @@
 import type { PlaylistRepositoryPort } from '../ports/playlist-repository.port';
+import { PlaylistAccessPolicy } from '../../domain/policies/playlist-access.policy';
 
 export interface DeletePlaylistInput {
-  force?: boolean;
   ownerId: string;
   playlistId: string;
 }
@@ -9,32 +9,25 @@ export interface DeletePlaylistInput {
 export interface DeletePlaylistOutput {
   deletedPlaylistName: string;
   message: string;
-  relatedPlaylistsAffected: string[];
-  videosAffected: number;
 }
 
 export type DeletePlaylistUseCaseResult =
   | {
-    ok: true;
-    data: DeletePlaylistOutput;
-  }
+      ok: true;
+      data: DeletePlaylistOutput;
+    }
   | {
-    ok: false;
-    message: string;
-    reason:
-      | 'PLAYLIST_MUTATION_FAILED'
-      | 'PLAYLIST_NOT_FOUND'
-      | 'PLAYLIST_PERMISSION_DENIED';
-  };
+      ok: false;
+      message: string;
+      reason: 'PLAYLIST_MUTATION_FAILED' | 'PLAYLIST_NOT_FOUND' | 'PLAYLIST_PERMISSION_DENIED';
+    };
 
 interface DeletePlaylistUseCaseDependencies {
-  playlistRepository: Pick<PlaylistRepositoryPort, 'delete' | 'findById' | 'findBySeries'>;
+  playlistRepository: Pick<PlaylistRepositoryPort, 'delete' | 'findById'>;
 }
 
 export class DeletePlaylistUseCase {
-  constructor(
-    private readonly deps: DeletePlaylistUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: DeletePlaylistUseCaseDependencies) {}
 
   async execute(input: DeletePlaylistInput): Promise<DeletePlaylistUseCaseResult> {
     try {
@@ -48,7 +41,7 @@ export class DeletePlaylistUseCase {
         };
       }
 
-      if (playlist.ownerId !== input.ownerId) {
+      if (!PlaylistAccessPolicy.canManage({ ownerId: input.ownerId, playlist })) {
         return {
           message: `User "${input.ownerId}" does not have permission to delete playlist "${input.playlistId}"`,
           ok: false,
@@ -56,9 +49,6 @@ export class DeletePlaylistUseCase {
         };
       }
 
-      const related = playlist.type === 'series' && playlist.metadata?.seriesName
-        ? await this.deps.playlistRepository.findBySeries(playlist.metadata.seriesName)
-        : [];
       const deleted = await this.deps.playlistRepository.delete(playlist.id);
 
       if (!deleted) {
@@ -74,12 +64,9 @@ export class DeletePlaylistUseCase {
         data: {
           deletedPlaylistName: playlist.name,
           message: `Playlist "${playlist.name}" deleted successfully`,
-          relatedPlaylistsAffected: related.filter(candidate => candidate.id !== playlist.id).map(candidate => candidate.id),
-          videosAffected: playlist.videoIds.length,
         },
       };
-    }
-    catch {
+    } catch {
       return {
         message: 'Failed to delete playlist',
         ok: false,

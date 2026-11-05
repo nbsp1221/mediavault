@@ -41,7 +41,9 @@ export function VideoVisibilitySection({
   video,
 }: VideoVisibilitySectionProps) {
   const [showPublicConfirm, setShowPublicConfirm] = useState(false);
-  const [feedback, setFeedback] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const [feedback, setFeedback] = useState<{ message: string; type: 'error' | 'success' } | null>(
+    null,
+  );
   const currentLabel = video.isPrivate ? 'Private' : 'Public';
   const nextVisibility: VideoVisibility = video.isPrivate ? 'public' : 'private';
   const actionLabel = video.isPrivate ? 'Make Public' : 'Make Private';
@@ -61,8 +63,7 @@ export function VideoVisibilitySection({
         message: visibilitySuccessMessages[visibility],
         type: 'success',
       });
-    }
-    catch {
+    } catch {
       setFeedback({
         message: 'Visibility could not be updated. Try again.',
         type: 'error',
@@ -102,9 +103,7 @@ export function VideoVisibilitySection({
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 border-t border-border/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-5">
-          <p className="text-xs text-muted-foreground">
-            {`Current visibility: ${currentLabel}`}
-          </p>
+          <p className="text-xs text-muted-foreground">{`Current visibility: ${currentLabel}`}</p>
           <Button
             disabled={isChanging}
             onClick={handleAction}
@@ -121,12 +120,13 @@ export function VideoVisibilitySection({
           <CardContent className="px-4 pb-4 lg:px-5">
             {feedback.type === 'error' ? (
               <Alert variant="destructive">
-                <AlertDescription>
-                  {feedback.message}
-                </AlertDescription>
+                <AlertDescription>{feedback.message}</AlertDescription>
               </Alert>
             ) : (
-              <div role="status" className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-foreground">
+              <div
+                role="status"
+                className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-foreground"
+              >
                 {feedback.message}
               </div>
             )}
@@ -150,13 +150,12 @@ export function VideoVisibilitySection({
           <AlertDialogHeader>
             <AlertDialogTitle>Make video public?</AlertDialogTitle>
             <AlertDialogDescription>
-              Anyone who can access this site can find and watch this video. You can make it private again later.
+              Anyone who can access this site can find and watch this video. You can make it private
+              again later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isChanging}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isChanging}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               disabled={isChanging}
               onClick={(event) => {

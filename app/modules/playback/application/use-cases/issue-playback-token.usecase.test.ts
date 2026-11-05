@@ -25,6 +25,7 @@ describe('IssuePlaybackTokenUseCase', () => {
     const { IssuePlaybackTokenUseCase } = await import('./issue-playback-token.usecase');
     const issue = vi.fn(async () => 'signed-token');
     const useCase = new IssuePlaybackTokenUseCase({
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue,
         validate: async () => null,
@@ -36,7 +37,7 @@ describe('IssuePlaybackTokenUseCase', () => {
       ipAddress: '203.0.113.10',
       userAgent: 'vitest',
       videoId: 'video-1',
-      viewer: { type: 'authenticated', userId: 'owner-1' },
+      viewer: { sessionId: 'session-1', type: 'authenticated', userId: 'owner-1' },
     });
 
     expect(result).toEqual({
@@ -50,6 +51,7 @@ describe('IssuePlaybackTokenUseCase', () => {
     expect(issue).toHaveBeenCalledWith({
       ipAddress: '203.0.113.10',
       readScope: 'public_or_owned',
+      sessionId: 'session-1',
       subjectUserId: 'owner-1',
       userAgent: 'vitest',
       videoId: 'video-1',
@@ -66,6 +68,7 @@ describe('IssuePlaybackTokenUseCase', () => {
       })),
     };
     const useCase = new IssuePlaybackTokenUseCase({
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue,
         validate: async () => null,
@@ -100,6 +103,7 @@ describe('IssuePlaybackTokenUseCase', () => {
     const { IssuePlaybackTokenUseCase } = await import('./issue-playback-token.usecase');
     const issue = vi.fn(async () => 'signed-token');
     const useCase = new IssuePlaybackTokenUseCase({
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue,
         validate: async () => null,
@@ -109,12 +113,14 @@ describe('IssuePlaybackTokenUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      ipAddress: '203.0.113.10',
-      userAgent: 'vitest',
-      videoId: 'other-private',
-      viewer: { type: 'authenticated', userId: 'owner-1' },
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ipAddress: '203.0.113.10',
+        userAgent: 'vitest',
+        videoId: 'other-private',
+        viewer: { sessionId: 'session-1', type: 'authenticated', userId: 'owner-1' },
+      }),
+    ).resolves.toEqual({
       reason: 'VIDEO_NOT_FOUND',
       success: false,
     });
@@ -125,6 +131,7 @@ describe('IssuePlaybackTokenUseCase', () => {
     const { IssuePlaybackTokenUseCase } = await import('./issue-playback-token.usecase');
     const issue = vi.fn(async () => 'signed-token');
     const useCase = new IssuePlaybackTokenUseCase({
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue,
         validate: async () => null,
@@ -132,12 +139,14 @@ describe('IssuePlaybackTokenUseCase', () => {
       videoRead: authenticatedVideoRead,
     });
 
-    await expect(useCase.execute({
-      ipAddress: '203.0.113.10',
-      userAgent: 'vitest',
-      videoId: '../escape',
-      viewer: { type: 'anonymous' },
-    })).rejects.toMatchObject({
+    await expect(
+      useCase.execute({
+        ipAddress: '203.0.113.10',
+        userAgent: 'vitest',
+        videoId: '../escape',
+        viewer: { type: 'anonymous' },
+      }),
+    ).rejects.toMatchObject({
       message: 'Invalid video ID format',
       name: 'ValidationError',
       statusCode: 400,

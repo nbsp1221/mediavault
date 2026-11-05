@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 import { existsSync, lstatSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { createPrimarySqliteDatabase } from '../app/modules/storage/infrastructure/sqlite/primary-sqlite.database';
@@ -60,14 +59,11 @@ function collectGlobMatches(baseDir: string, globValue: string | null): string[]
 
   const [prefix, suffix = ''] = basenamePattern.split('*');
   return readdirSync(directory)
-    .filter(entry => entry.startsWith(prefix) && entry.endsWith(suffix))
-    .map(entry => path.join(directory, entry));
+    .filter((entry) => entry.startsWith(prefix) && entry.endsWith(suffix))
+    .map((entry) => path.join(directory, entry));
 }
 
-function resolveReadyMediaRelpath(input: {
-  baseDir: string;
-  relpath: string;
-}): string | null {
+function resolveReadyMediaRelpath(input: { baseDir: string; relpath: string }): string | null {
   const absolutePath = path.resolve(input.baseDir, input.relpath);
   const baseDirWithSeparator = input.baseDir.endsWith(path.sep)
     ? input.baseDir
@@ -173,13 +169,15 @@ function assertRelativeFile(input: {
     return;
   }
 
-  if (!assertNoSymlinkPathComponent({
-    absolutePath,
-    baseDir: input.baseDir,
-    findings: input.findings,
-    message: `Ready media path contains a symlink component: ${input.relpath}`,
-    videoId: input.videoId,
-  })) {
+  if (
+    !assertNoSymlinkPathComponent({
+      absolutePath,
+      baseDir: input.baseDir,
+      findings: input.findings,
+      message: `Ready media path contains a symlink component: ${input.relpath}`,
+      videoId: input.videoId,
+    })
+  ) {
     return;
   }
 
@@ -225,10 +223,13 @@ function assertSegmentGlob(input: {
   baseDir: string;
   videoId: string;
 }) {
-  if (input.globValue && !resolveReadyMediaRelpath({
-    baseDir: input.baseDir,
-    relpath: input.globValue,
-  })) {
+  if (
+    input.globValue &&
+    !resolveReadyMediaRelpath({
+      baseDir: input.baseDir,
+      relpath: input.globValue,
+    })
+  ) {
     input.findings.push({
       code: 'unsafe_ready_media_path',
       message: `Ready media segment glob escapes canonical videos directory: ${input.globValue}`,
@@ -244,17 +245,19 @@ function assertSegmentGlob(input: {
         relpath: input.globValue,
       })
     : null;
-  const segmentDirectory = absolutePatternPath
-    ? path.dirname(absolutePatternPath)
-    : null;
+  const segmentDirectory = absolutePatternPath ? path.dirname(absolutePatternPath) : null;
 
-  if (segmentDirectory && existsSync(segmentDirectory) && !assertNoSymlinkPathComponent({
-    absolutePath: segmentDirectory,
-    baseDir: input.baseDir,
-    findings: input.findings,
-    message: `Ready media segment directory contains a symlink component: ${input.globValue}`,
-    videoId: input.videoId,
-  })) {
+  if (
+    segmentDirectory &&
+    existsSync(segmentDirectory) &&
+    !assertNoSymlinkPathComponent({
+      absolutePath: segmentDirectory,
+      baseDir: input.baseDir,
+      findings: input.findings,
+      message: `Ready media segment directory contains a symlink component: ${input.globValue}`,
+      videoId: input.videoId,
+    })
+  ) {
     return;
   }
 
@@ -270,13 +273,15 @@ function assertSegmentGlob(input: {
   }
 
   for (const match of matches) {
-    if (!assertNoSymlinkPathComponent({
-      absolutePath: match,
-      baseDir: input.baseDir,
-      findings: input.findings,
-      message: `Ready media segment path contains a symlink component: ${path.relative(input.baseDir, match)}`,
-      videoId: input.videoId,
-    })) {
+    if (
+      !assertNoSymlinkPathComponent({
+        absolutePath: match,
+        baseDir: input.baseDir,
+        findings: input.findings,
+        message: `Ready media segment path contains a symlink component: ${path.relative(input.baseDir, match)}`,
+        videoId: input.videoId,
+      })
+    ) {
       continue;
     }
 
@@ -336,7 +341,9 @@ export async function verifyPrimaryStorageIntegrity() {
     dbPath: config.databasePath,
   });
 
-  const integrityRow = await database.prepare<{ integrity_check: string }>('PRAGMA integrity_check').get();
+  const integrityRow = await database
+    .prepare<{ integrity_check: string }>('PRAGMA integrity_check')
+    .get();
   if (integrityRow?.integrity_check !== 'ok') {
     findings.push({
       code: 'sqlite_integrity_check_failed',
@@ -345,7 +352,9 @@ export async function verifyPrimaryStorageIntegrity() {
     });
   }
 
-  const foreignKeyRows = await database.prepare<{ table: string }>('PRAGMA foreign_key_check').all();
+  const foreignKeyRows = await database
+    .prepare<{ table: string }>('PRAGMA foreign_key_check')
+    .all();
   for (const row of foreignKeyRows) {
     findings.push({
       code: 'sqlite_foreign_key_check_failed',
@@ -354,7 +363,8 @@ export async function verifyPrimaryStorageIntegrity() {
     });
   }
 
-  const readyAssets = await database.prepare<ReadyAssetRow>(`
+  const readyAssets = await database
+    .prepare<ReadyAssetRow>(`
     SELECT
       video_id,
       manifest_relpath,
@@ -367,7 +377,8 @@ export async function verifyPrimaryStorageIntegrity() {
     FROM video_media_assets
     WHERE status = 'ready'
     ORDER BY video_id ASC
-  `).all();
+  `)
+    .all();
 
   for (const asset of readyAssets) {
     assertRelativeFile({
@@ -423,11 +434,13 @@ export async function verifyPrimaryStorageIntegrity() {
     });
   }
 
-  const uploads = await database.prepare<UploadRow>(`
+  const uploads = await database
+    .prepare<UploadRow>(`
     SELECT staging_id, status, committed_video_id, storage_relpath, expires_at
     FROM ingest_uploads
     ORDER BY staging_id ASC
-  `).all();
+  `)
+    .all();
   const now = Date.now();
 
   for (const upload of uploads) {
@@ -480,12 +493,14 @@ export async function verifyPrimaryStorageIntegrity() {
     }
   }
 
-  const videoRows = await database.prepare<VideoRow>(`
+  const videoRows = await database
+    .prepare<VideoRow>(`
     SELECT id, owner_id, visibility
     FROM videos
     ORDER BY id ASC
-  `).all();
-  const knownVideoIds = new Set(videoRows.map(row => row.id));
+  `)
+    .all();
+  const knownVideoIds = new Set(videoRows.map((row) => row.id));
 
   for (const video of videoRows) {
     if (!video.owner_id?.trim()) {
@@ -507,7 +522,8 @@ export async function verifyPrimaryStorageIntegrity() {
     }
   }
 
-  const videosWithoutReadyAssets = await database.prepare<{ id: string }>(`
+  const videosWithoutReadyAssets = await database
+    .prepare<{ id: string }>(`
     SELECT videos.id
     FROM videos
     LEFT JOIN video_media_assets
@@ -515,7 +531,8 @@ export async function verifyPrimaryStorageIntegrity() {
       AND video_media_assets.status = 'ready'
     WHERE video_media_assets.video_id IS NULL
     ORDER BY videos.id ASC
-  `).all();
+  `)
+    .all();
 
   for (const row of videosWithoutReadyAssets) {
     findings.push({
@@ -535,8 +552,7 @@ export async function verifyPrimaryStorageIntegrity() {
           path: path.join(config.videosDir, entry.name),
           severity: 'blocking',
         });
-      }
-      else if (entry.isDirectory() && !knownVideoIds.has(entry.name)) {
+      } else if (entry.isDirectory() && !knownVideoIds.has(entry.name)) {
         findings.push({
           code: 'orphan_video_directory',
           message: `Video directory has no database row: ${entry.name}`,
@@ -552,7 +568,7 @@ export async function verifyPrimaryStorageIntegrity() {
     checkedAt: new Date().toISOString(),
     databasePath: config.databasePath,
     findings,
-    ok: findings.every(finding => finding.severity !== 'blocking'),
+    ok: findings.every((finding) => finding.severity !== 'blocking'),
     storageRoot: config.storageDir,
   };
 }

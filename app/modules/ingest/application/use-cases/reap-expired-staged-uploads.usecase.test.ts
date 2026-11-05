@@ -9,6 +9,7 @@ describe('ReapExpiredStagedUploadsUseCase', () => {
         expiresAt: new Date('2026-04-19T12:00:00.000Z'),
         filename: 'expired.mp4',
         mimeType: 'video/mp4',
+        ownerId: 'owner-1',
         size: 1_024,
         stagingId: 'expired-uploaded',
         status: 'uploaded' as const,
@@ -19,13 +20,11 @@ describe('ReapExpiredStagedUploadsUseCase', () => {
     const deleteStorage = vi.fn(async () => undefined);
     const useCase = new ReapExpiredStagedUploadsUseCase({
       stagedUploadRepository: {
-        beginCommit: vi.fn(),
+        beginRemoval: vi.fn(),
         create: vi.fn(),
         delete: deleteRow,
         findByStagingId: vi.fn(),
         listExpired,
-        reserveCommittedVideoId: vi.fn(),
-        update: vi.fn(),
       },
       stagedUploadStorage: {
         delete: deleteStorage,
@@ -34,9 +33,11 @@ describe('ReapExpiredStagedUploadsUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      referenceTime: new Date('2026-04-20T12:00:00.000Z'),
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        referenceTime: new Date('2026-04-20T12:00:00.000Z'),
+      }),
+    ).resolves.toEqual({
       deletedCount: 1,
     });
 

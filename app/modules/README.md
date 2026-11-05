@@ -1,5 +1,5 @@
-# Modules
+# Backend modules
 
-This directory is reserved for the new bounded-context backend modules.
+Modules own backend behavior and their meaningful I/O adapters. Business domains use policy/use-case/port boundaries where useful; technical modules need only the layers they use.
 
-Only new source-of-truth backend code should be added here.
+See the current [architecture](../../docs/architecture.md) and canonical [repository guidance](../../AGENTS.md). Do not create speculative layers or parallel old/new module implementations.

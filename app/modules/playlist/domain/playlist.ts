@@ -12,11 +12,7 @@ export interface Playlist {
   metadata?: PlaylistMetadata;
 }
 
-export type PlaylistType =
-  | 'user_created'
-  | 'series'
-  | 'season'
-  | 'auto_generated';
+export type PlaylistType = 'user_created' | 'series' | 'season' | 'auto_generated';
 
 export interface PlaylistMetadata {
   seriesName?: string;
@@ -72,17 +68,6 @@ export interface PlaylistFilters {
   status?: 'ongoing' | 'completed' | 'hiatus';
 }
 
-export interface PlaylistStats {
-  id: string;
-  totalVideos: number;
-  totalDuration: number;
-  totalViews: number;
-  completionRate: number;
-  averageRating?: number;
-  lastUpdated: Date;
-  popularityScore: number;
-}
-
 export interface PlaylistWithVideos extends Playlist {
   videos: Array<{
     id: string;
@@ -92,5 +77,4 @@ export interface PlaylistWithVideos extends Playlist {
     position: number;
     episodeMetadata?: PlaylistItem['episodeMetadata'];
   }>;
-  stats?: PlaylistStats;
 }

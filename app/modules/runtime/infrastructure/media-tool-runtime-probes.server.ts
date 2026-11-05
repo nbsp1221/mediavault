@@ -63,57 +63,54 @@ function getErrorReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export const runMediaToolCommand: MediaToolCommandRunner = (
-  command,
-  args,
-  options,
-) => new Promise((resolve, reject) => {
-  const child = spawn(command, args, {
-    killSignal: 'SIGKILL',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: options.timeoutMs,
-  });
+export const runMediaToolCommand: MediaToolCommandRunner = (command, args, options) =>
+  new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      killSignal: 'SIGKILL',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: options.timeoutMs,
+    });
 
-  let settled = false;
-  let stdout = '';
-  let stderr = '';
+    let settled = false;
+    let stdout = '';
+    let stderr = '';
 
-  child.stdout.setEncoding('utf8');
-  child.stderr.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    stdout += chunk;
-  });
-  child.stderr.on('data', (chunk) => {
-    stderr += chunk;
-  });
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
 
-  child.on('error', (error) => {
-    if (settled) {
-      return;
-    }
+    child.on('error', (error) => {
+      if (settled) {
+        return;
+      }
 
-    settled = true;
-    reject(error);
-  });
+      settled = true;
+      reject(error);
+    });
 
-  child.on('close', (exitCode, signal) => {
-    if (settled) {
-      return;
-    }
+    child.on('close', (exitCode, signal) => {
+      if (settled) {
+        return;
+      }
 
-    settled = true;
-    if (signal === 'SIGKILL') {
-      reject(new Error(`timed out after ${options.timeoutMs}ms`));
-      return;
-    }
+      settled = true;
+      if (signal === 'SIGKILL') {
+        reject(new Error(`timed out after ${options.timeoutMs}ms`));
+        return;
+      }
 
-    resolve({
-      exitCode: exitCode ?? 1,
-      stderr,
-      stdout,
+      resolve({
+        exitCode: exitCode ?? 1,
+        stderr,
+        stdout,
+      });
     });
   });
-});
 
 async function probeTool(
   definition: ToolProbeDefinition,
@@ -131,8 +128,7 @@ async function probeTool(
     }
 
     return { ok: true, tool: definition.tool };
-  }
-  catch (error) {
+  } catch (error) {
     return {
       ok: false,
       reason: getErrorReason(error),
@@ -154,5 +150,5 @@ export async function probeMediaTools(
     { args: getVersionArgs('packager'), command: paths.packager, tool: 'packager' },
   ];
 
-  return Promise.all(definitions.map(definition => probeTool(definition, runner, timeoutMs)));
+  return Promise.all(definitions.map((definition) => probeTool(definition, runner, timeoutMs)));
 }

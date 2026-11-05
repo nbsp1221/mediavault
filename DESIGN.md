@@ -3,65 +3,65 @@ version: alpha
 name: Mediavault Design System
 description: Visual identity and design-system guidance for a personal encrypted video library with familiar video-service patterns.
 colors:
-  background: "#0a0a0a"
-  foreground: "#fafafa"
-  card: "#171717"
-  card-foreground: "#fafafa"
-  popover: "#262626"
-  popover-foreground: "#fafafa"
-  primary: "#7c3aed"
-  primary-foreground: "#fafafa"
-  secondary: "#262626"
-  secondary-foreground: "#fafafa"
-  muted: "#262626"
-  muted-foreground: "#a1a1a1"
-  accent: "#404040"
-  accent-foreground: "#fafafa"
-  destructive: "#ff6467"
-  border: "#282828"
-  input: "#343434"
-  ring: "#737373"
-  sidebar: "#171717"
-  sidebar-foreground: "#fafafa"
-  sidebar-primary: "#7c3aed"
-  sidebar-primary-foreground: "#fafafa"
-  sidebar-accent: "#262626"
-  sidebar-accent-foreground: "#fafafa"
-  sidebar-border: "#282828"
-  sidebar-ring: "#525252"
+  background: '#0a0a0a'
+  foreground: '#fafafa'
+  card: '#171717'
+  card-foreground: '#fafafa'
+  popover: '#262626'
+  popover-foreground: '#fafafa'
+  primary: '#7c3aed'
+  primary-foreground: '#fafafa'
+  secondary: '#262626'
+  secondary-foreground: '#fafafa'
+  muted: '#262626'
+  muted-foreground: '#a1a1a1'
+  accent: '#404040'
+  accent-foreground: '#fafafa'
+  destructive: '#ff6467'
+  border: '#282828'
+  input: '#343434'
+  ring: '#737373'
+  sidebar: '#171717'
+  sidebar-foreground: '#fafafa'
+  sidebar-primary: '#7c3aed'
+  sidebar-primary-foreground: '#fafafa'
+  sidebar-accent: '#262626'
+  sidebar-accent-foreground: '#fafafa'
+  sidebar-border: '#282828'
+  sidebar-ring: '#525252'
 typography:
   heading-lg:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif"
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif'
     fontSize: 24px
     fontWeight: 700
     lineHeight: 1.25
     letterSpacing: 0em
   heading-md:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif"
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif'
     fontSize: 20px
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: 0em
   body-md:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif"
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif'
     fontSize: 16px
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: 0em
   body-sm:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif"
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif'
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: 0em
   label-md:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif"
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif'
     fontSize: 14px
     fontWeight: 500
     lineHeight: 1.25
     letterSpacing: 0em
   label-sm:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif"
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif'
     fontSize: 12px
     fontWeight: 500
     lineHeight: 1.25
@@ -83,41 +83,41 @@ spacing:
   4xl: 64px
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.primary-foreground}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.md}"
+    backgroundColor: '{colors.primary}'
+    textColor: '{colors.primary-foreground}'
+    typography: '{typography.label-md}'
+    rounded: '{rounded.md}'
     padding: 8px
     height: 36px
   button-secondary:
-    backgroundColor: "{colors.secondary}"
-    textColor: "{colors.secondary-foreground}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.md}"
+    backgroundColor: '{colors.secondary}'
+    textColor: '{colors.secondary-foreground}'
+    typography: '{typography.label-md}'
+    rounded: '{rounded.md}'
     padding: 8px
     height: 36px
   button-destructive:
-    backgroundColor: "{colors.destructive}"
-    textColor: "{colors.background}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.md}"
+    backgroundColor: '{colors.destructive}'
+    textColor: '{colors.background}'
+    typography: '{typography.label-md}'
+    rounded: '{rounded.md}'
     padding: 8px
     height: 36px
   card:
-    backgroundColor: "{colors.card}"
-    textColor: "{colors.card-foreground}"
-    rounded: "{rounded.lg}"
+    backgroundColor: '{colors.card}'
+    textColor: '{colors.card-foreground}'
+    rounded: '{rounded.lg}'
     padding: 24px
   dialog:
-    backgroundColor: "{colors.background}"
-    textColor: "{colors.foreground}"
-    rounded: "{rounded.lg}"
+    backgroundColor: '{colors.background}'
+    textColor: '{colors.foreground}'
+    rounded: '{rounded.lg}'
     padding: 24px
   badge:
-    backgroundColor: "{colors.secondary}"
-    textColor: "{colors.secondary-foreground}"
-    typography: "{typography.label-sm}"
-    rounded: "{rounded.full}"
+    backgroundColor: '{colors.secondary}'
+    textColor: '{colors.secondary-foreground}'
+    typography: '{typography.label-sm}'
+    rounded: '{rounded.full}'
     padding: 4px
 ---
 
@@ -213,7 +213,7 @@ Do:
 - Use label, icon, and badge semantics before color for visibility and status.
 - Ground new visual decisions in defined tokens, rendered UI evidence, or existing component structure.
 - Update this document when introducing a new reusable color, spacing value, radius, or component treatment.
-- Run `bun run design:lint` after editing this document; normal handoff should use `bun run check`.
+- Run `pnpm design:lint` after editing this document; normal handoff should use `pnpm check`.
 
 Don't:
 

@@ -1,285 +1,143 @@
 # Mediavault
 
-Self-hosted encrypted media streaming vault for browsing, uploading, and protecting personal media through a web interface. Built with React Router v7 and pure Bun runtime.
+A self-hosted encrypted video library built with React Router Framework, React, and Node.js LTS. One application serves the web UI, same-origin API and protected media routes, and the media-processing runner.
 
-## Features
+## Product boundaries
 
-- 🎬 Stream local media files through a web browser
-- 🔐 SQLite-backed account login with httpOnly site sessions
-- 📁 Browser-first upload with staged commit into the library
-- 🔒 Protected DASH playback with JWT tokens, ClearKey, and encrypted media packaging
-- 🎨 YouTube-inspired UI for video browsing
-- ⚡ Pure Bun runtime for maximum performance
+- Anonymous visitors can browse and play public videos and public playlists.
+- Account holders can upload videos, manage their own metadata and visibility, and organize playlists.
+- Private videos and playlists remain owner-only. A public playlist never grants access to a private video.
+- Accounts are provisioned through an operator-only bearer-authenticated API; there is no public signup or site-admin bypass for another account's private videos.
+- Media uses encrypted DASH/CENC packaging and ClearKey delivery. Thumbnails and the primary SQLite database are encrypted at rest.
+- This is not commercial DRM: an authorized client or a compromised running host can extract content. HTTPS, host security, and preservation of encryption secrets remain operator responsibilities.
 
-## Getting Started
+## Requirements
 
-### Development
+Use the Node.js and pnpm versions declared in [package.json](package.json) and [.node-version](.node-version). Do not install with another package manager or create another lockfile.
+
+FFmpeg, ffprobe, and Shaka Packager are needed for upload processing and playback fixtures. The production image includes them; local development can provision them with:
 
 ```bash
-# Install dependencies
-bun install
+pnpm install --frozen-lockfile
+pnpm download:ffmpeg
+pnpm download:shaka
+```
 
-# Create local environment config
+## Local development
+
+```bash
 cp .env.example .env
-
-# Start development server
-bun run dev
+# Supply unique local secret values and bootstrap settings before starting.
+pnpm dev
 ```
 
-Access at http://localhost:5173
+The development command explicitly loads the optional local environment file. Verification commands do not use it. See [.env.example](.env.example) for supported settings.
 
-Create the first local login account after the server starts by enabling the
-operator-only admin API for bootstrap and calling it with a bearer token:
+Set these secrets:
+
+- `MEDIAVAULT_DATABASE_ENCRYPTION_KEY`
+- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET`
+- `MEDIAVAULT_PLAYBACK_JWT_SECRET`
+- `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET`
+
+For first-account provisioning, also configure `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and a unique `MEDIAVAULT_ADMIN_API_TOKEN`. After the server starts, create an account through the operator API:
 
 ```bash
-MEDIAVAULT_ADMIN_API_MODE=bootstrap \
-MEDIAVAULT_ADMIN_API_TOKEN=dev-admin-token \
-MEDIAVAULT_DATABASE_ENCRYPTION_KEY=dev-database-key \
-bun run dev
-
-curl -fsS \
-  -H "Authorization: Bearer dev-admin-token" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"owner","password":"vault-password"}' \
-  http://localhost:5173/api/admin/users
+curl --fail-with-body \
+  -H "Authorization: Bearer ${MEDIAVAULT_ADMIN_API_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"owner","password":"replace-with-a-unique-long-passphrase"}' \
+  http://127.0.0.1:5173/api/admin/users
 ```
 
-`bun run dev` is for trusted local development only. Do not expose the Vite
-development server through a public tunnel, reverse proxy, or untrusted LAN. Use
-`bun run build` and `bun run start`, or the Docker production image, for
-deployment. When `MEDIAVAULT_STORAGE_DIR` is not set, development runtime storage defaults
-to a checkout-specific directory outside this repository so Vite cannot serve
-runtime media, keys, or SQLite data from the project root.
+The example assumes the token is also available to the shell running curl; loading the server's environment file does not export it into another shell. Do not publish example credentials or reuse them in production. Passwords allow 15–128 Unicode characters, including spaces.
 
-### Production
+Bootstrap provisioning closes once the first account exists. Use `always` only for intentionally enabled ongoing operator automation, and protect/rotate the bearer credential independently of site sessions.
+
+The development server is for trusted local use only. Do not expose it through a public tunnel or reverse proxy. Development storage defaults outside the checkout; never put media, keys, or databases in the static asset directory.
+
+## Production
+
+Inject the configured environment, then build and start:
 
 ```bash
-# Build application
-bun run build
-
-# Start production server
-bun start
+pnpm build
+pnpm start
 ```
 
-Create login accounts through the operator-only admin API. For first-run
-production bootstrap, set `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and
-`MEDIAVAULT_ADMIN_API_TOKEN` to a deployment-specific random value, start the
-server, and call `POST /api/admin/users` with `Authorization: Bearer <token>`.
-Set `MEDIAVAULT_DATABASE_ENCRYPTION_KEY` before starting the app so the primary
-SQLite database can be opened. For protected playback routes, set `MEDIAVAULT_PLAYBACK_JWT_SECRET`.
-For ingest and encrypted playback packaging, also set `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET`.
-For signed client identity cookies, set `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET`.
-When `NODE_ENV=production`, Mediavault runs a startup preflight and refuses to start
-without the full vault requirements: at least one auth account in the primary SQLite
-database or a bootstrap admin API token, `MEDIAVAULT_PLAYBACK_JWT_SECRET`,
-`MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET`, `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET`,
-`MEDIAVAULT_DATABASE_ENCRYPTION_KEY`, and usable configured storage.
+Production start does not implicitly load a local environment file. Startup checks require usable encrypted storage, required secrets, and an existing account or explicitly enabled bootstrap path. The readiness endpoint additionally checks media tooling:
 
-## Docker Deployment
+- `GET /health/ready`: empty `204` when ready, otherwise empty `503`.
+- Detailed failures belong in sanitized server logs, not public health responses.
 
-### Published GHCR Image
+Use HTTPS for remote access. Production session cookies are secure cookies. Behind an operator-managed Caddy proxy, set `MEDIAVAULT_PUBLIC_ORIGIN` to the browser-facing origin and keep the app port private. The runtime derives React Router's exact allowed action host from that same origin; application CSRF checks still match the full scheme, host, and port. Only enable forwarded client-IP trust at that explicit boundary. See the [reverse-proxy contract](docs/reverse-proxy.md); the app does not manage Caddy, public ingress, WAF rules, or network quota policies.
 
-Mediavault publishes production images to GitHub Container Registry after verified
-`main` pushes. Pulling and restarting the service on a host is an operator-owned
-deployment step.
+### Docker
 
 ```bash
-docker pull ghcr.io/nbsp1221/mediavault:latest
+cp .env.example .env
+# Configure deployment-specific secrets and bootstrap credentials.
+docker compose up --build -d
 ```
 
-The current checked-in `docker-compose.yaml` remains a local source-build path. Do not
-use `docker compose pull` as the GHCR image update path until a future Compose migration
-changes that file to consume the published image.
+The checked-in [Compose configuration](docker-compose.yaml) builds the local source and persists the storage volume. It is not a published-image pull/update workflow. [CI](.github/workflows/ci.yml) can publish the GHCR image after verified main-branch changes; deploying or restarting that image is an operator action.
 
-### Local Source-Build Compose
+### Storage and backups
 
-```bash
-# Start the application
-docker-compose up -d
-
-# Access at http://localhost:3000
-```
-
-For remote browser use, run the container behind an HTTPS reverse proxy. Production auth
-cookies are secure cookies, so plain remote HTTP is not a complete production deployment.
-Reverse proxy routing, TLS certificates, firewall rules, and public port exposure are
-operator-owned infrastructure responsibilities.
-
-### Features
-
-✅ **Pure Bun runtime** - Fast, modern JavaScript runtime  
-✅ **Security hardened** - Non-root user, minimal capabilities  
-✅ **Health monitoring** - Auto-restart on failure  
-✅ **Persistent storage** - Data and videos preserved  
-
-Docker healthchecks use `GET /health/ready`. The endpoint returns `204 No Content` only
-when the production full-vault readiness checks pass, and `503 Service Unavailable` with
-no diagnostic body when they fail. Detailed causes are written to container logs.
-
-### Volumes
-
-The app writes to `/app/storage` inside the container.
-
-By default, Docker Compose backs that path with the named volume
-`mediavault-storage`. If you want a host-visible bind mount, edit
-`docker-compose.yaml` and replace the named volume with a path such as
-`./storage:/app/storage`.
-
-- named volume: Docker-managed storage with fewer host permission issues
-- bind mount: host-visible files, but host ownership and write permissions matter
-
-Storage layout:
+The production default is:
 
 ```text
-storage/db.sqlite
-storage/videos/
-storage/staging/
+storage/
+├── db.sqlite
+├── videos/
+└── staging/
 ```
 
-The production image provisions FFmpeg, ffprobe, and Shaka Packager for browser upload
-commit and encrypted DASH packaging.
+`MEDIAVAULT_STORAGE_DIR` overrides the root. Back up the database and media consistently with their encryption secrets and any customized derivation salt. Losing the database key prevents reopening the database; changing the media derivation configuration can make existing encrypted assets unusable. The entire volume is sensitive: usable media-key files, retained uploads, and processing intermediates are not all encrypted. Restrict host/backup access and follow the [storage](docs/storage-encryption.md), [playback](docs/playback.md), and [ingest](docs/ingest-jobs.md) contracts.
 
-### Commands
+This application targets its current fresh-install schema. Retired storage layouts, synthetic owner identities, and historical compatibility migrations are not supported. Do not point an old vault at a new schema without an explicitly designed import/export procedure.
+
+## Source navigation
+
+```text
+app/
+├── routes/                 # URL and HTTP adapters
+├── pages/                  # Page-owned UI and state
+├── features/               # Focused shared user workflows
+├── entities/               # Shared presentation models
+├── widgets/                # Genuinely shared compositions
+├── modules/                # Domain/application/infrastructure where useful
+├── composition/server/     # Dependency assembly and cross-module wiring
+└── shared/                 # Generated UI primitives, configuration, helpers
+```
+
+This is one private package, not a synthetic apps/packages monorepo. Framework boundaries and business ownership matter more than uniform folder depth. See [repository guidance](AGENTS.md) and [architecture](docs/architecture.md).
+
+## Development gates
+
+The maintainer's shared configuration powers **Oxlint + ESLint + Oxfmt**. Generated shadcn primitive internals are not manually patched or reformatted for page-level fixes.
 
 ```bash
-# Start
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop
-docker-compose down
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm check
+pnpm check:runtime
 ```
 
-### Environment
+- `check:fast` is an iteration shortcut, not a completion gate.
+- `check` includes fixture isolation, design/format/lint/type checks, coverage/regression/changed-file coverage, and development/production runtime smoke.
+- `check:runtime` adds required browser smoke and Docker readiness scenarios.
+- Storage changes additionally require `check:data-integrity` with explicit isolated storage and keys.
+- All Playwright runs use isolated fixtures. Fixture backfill is an explicit maintenance action, not permission for a test to modify local user storage.
+- Real browser QA is required for browser-visible runtime changes; mounting a player or receiving HTTP 200 is not proof of decoded playback.
 
-Create `.env` file before starting the app:
+## Current documentation
 
-```bash
-cp .env.example .env
-```
+- [Product scope](PRD.md), [architecture](docs/architecture.md), and [design system](DESIGN.md)
+- [Playback](docs/playback.md), [ingest jobs](docs/ingest-jobs.md), and [encrypted database storage](docs/storage-encryption.md)
+- [Reverse-proxy deployment](docs/reverse-proxy.md)
+- [Verification contract](docs/verification-contract.md), [browser QA contract](docs/browser-qa-contract.md), [E2E guide](docs/E2E_TESTING_GUIDE.md), and [local CI reproduction](docs/LOCAL_GITHUB_ACTIONS_CI_REPRODUCTION.md)
 
-Required for the full vault feature set:
-
-- `MEDIAVAULT_DATABASE_ENCRYPTION_KEY`: encryption key for the primary SQLite database at rest
-- `MEDIAVAULT_PLAYBACK_JWT_SECRET`: signing secret for protected playback token issuance
-- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET`: secret used to derive per-video encryption keys
-- `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET`: signing secret for client identity cookies
-- at least one SQLite auth account, or first-run bootstrap through `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and `MEDIAVAULT_ADMIN_API_TOKEN`
-
-Generate deployment-specific secret values before starting the full vault path. The
-database encryption key, media key derivation secret, playback JWT secret, auth client
-cookie secret, and admin API token are free-form strings, but they should be cryptographically random. They do not
-need to be hex-encoded.
-
-The app requires the database encryption key before opening the primary SQLite
-database. In production, all secret values must be present and non-blank before the
-app starts.
-Runtime preflight does not score secret strength, so weak values are an operator mistake,
-not something the app can reliably fix at startup.
-
-```bash
-openssl rand -base64 32
-bun -e "const { randomBytes } = await import('node:crypto'); console.log(randomBytes(32).toString('base64url'))"
-```
-
-Optional:
-
-- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT`: salt value used during playback key derivation
-- `MEDIAVAULT_STORAGE_DIR`: override the unified storage root for `db.sqlite`, committed media, and staged uploads
-- `MEDIAVAULT_ADMIN_API_MODE`: account management API mode, one of `disabled`, `bootstrap`, or `always`
-- `MEDIAVAULT_ADMIN_API_TOKEN`: bearer token for the operator-only account management API
-- `MEDIAVAULT_AUTH_CLIENT_COOKIE_NAME`: override the client identity cookie name
-- `MEDIAVAULT_AUTH_SESSION_COOKIE_NAME`: override the auth session cookie name
-- `MEDIAVAULT_AUTH_SESSION_TTL_MS`: session lifetime in milliseconds
-- `MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS`: trust forwarded client IP headers for rate limiting
-- `MEDIAVAULT_AUTH_FAILED_LOGIN_BLOCK_DURATION_MS`: failed-login block duration
-- `MEDIAVAULT_AUTH_FAILED_LOGIN_DELAY_MS`: invalid-login response delay
-- `MEDIAVAULT_AUTH_FAILED_LOGIN_WINDOW_MS`: failed-login tracking window
-- `MEDIAVAULT_AUTH_MAX_FAILED_LOGIN_ATTEMPTS`: failed-login threshold before blocking
-- `FFMPEG_PATH`: override the FFmpeg binary path
-- `FFPROBE_PATH`: override the ffprobe binary path
-- `SHAKA_PACKAGER_PATH`: override the Shaka Packager binary path
-
-Notes:
-
-- Use `/login` for the site auth flow.
-- Production Docker readiness requires the full vault configuration, writable storage,
-  at least one auth account or bootstrap admin API token, and runnable FFmpeg,
-  ffprobe, and Shaka Packager.
-- In `bootstrap` mode, `POST /api/admin/users` is available only until the first
-  account exists. Use `always` only when you intentionally want ongoing account
-  automation. Rotate the token by updating the environment and restarting the
-  container.
-- Back up `MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET` with the storage volume and primary SQLite
-  database. Existing encrypted media depends on preserving that value.
-- Back up `MEDIAVAULT_DATABASE_ENCRYPTION_KEY` with the primary SQLite database.
-  Existing database contents cannot be opened if that value is lost or changed.
-- `MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT` is optional. If you customize it, preserve it with the media key derivation secret
-  and storage backup.
-- Video segments use DASH/CENC/ClearKey with a per-video `key.bin`. Thumbnails use the
-  same per-video key and are stored at `thumbnail.jpg` as a Mediavault AES-128-GCM
-  envelope; authenticated HTTP responses expose only normal `image/jpeg` bytes.
-- The default Compose port binding `3000:3000` is for simple reachability. For a hardened
-  deployment, restrict direct HTTP access with firewall rules, bind the port to loopback,
-  or place the app behind a private proxy network.
-- The protected playback path issues `/videos/:videoId/token`, resolves `/videos/:videoId/manifest.mpd`, and serves `/videos/:videoId/clearkey` for the browser license flow.
-
-## Architecture And Refactor Context
-
-For the current architecture and repo state, start here:
-
-- `docs/roadmap/current-refactor-status.md`
-- `docs/roadmap/personal-video-vault-rearchitecture-phases.md`
-- `docs/architecture/personal-video-vault-target-architecture.md`
-
-## Technology Stack
-
-- **Frontend**: React Router v7 with SSR
-- **Runtime**: Bun (pure Bun, no Node.js)
-- **Styling**: TailwindCSS v4
-- **Persistence**: Primary SQLite database for auth sessions, canonical video metadata, playlists, and ingest state
-- **Video**: FFmpeg for thumbnails and streaming
-- **Streaming**: DASH with JWT token issuance, ClearKey license delivery, and encrypted media packaging
-- **Thumbnail storage**: AES-128-GCM envelope at `thumbnail.jpg`, decrypted server-side after authentication
-
-## Testing
-
-The test suite is split by scope:
-
-- `bun run test:modules`: colocated module and policy tests
-- `bun run test:integration`: route and auth integration tests
-- `bun run test:ui-dom`: jsdom + React Testing Library component tests
-- `bun run vitest:ui`: interactive Vitest UI for local debugging only
-- `bun run test`: all Vitest projects
-- `bun run test:runtime:smoke`: runtime smoke against the dev server and built Bun server
-- `bun run check:fast`: quick local check for iteration, not a completion gate
-- `bun run check`: hermetic lint + typecheck + calibrated coverage + changed-file mutation + runtime smoke
-- `bun run check:runtime`: `check` plus required browser smoke and Docker Compose smoke
-- `bun run check:docker-compose-smoke`: Docker Compose production readiness contract
-- `bun run test:e2e:smoke`: required browser smoke command
-
-Why the smoke layers exist:
-
-- Vitest runs in Node for this repo
-- `bun run dev` and `bun run start` do not execute route code the same way
-- runtime-only regressions, such as unsupported module schemes, must be caught separately
-
-Runtime smoke verifies that the dev server and built Bun server preserve the
-critical startup, auth, protected route, token, thumbnail, and owner playlist
-contracts that ordinary Vitest coverage does not prove.
-
-Browser verification remains a separate step for UI and playback flows. See [docs/E2E_TESTING_GUIDE.md](docs/E2E_TESTING_GUIDE.md).
-
-If Playwright playback fixtures need to be rebuilt for the browser-safe H.264 policy, refresh them with:
-
-```bash
-bun run backfill:browser-playback-fixtures
-```
-
-The script rebuilds only the known Playwright fixture video IDs and leaves already-compatible manifests untouched.
-
----
-
-Built with ❤️ using React Router and Bun.
+Work on a task branch. Commits require explicit authorization and the commit skill; pushes and pull requests require separate permission. Research reports, progress logs, scratch code, and QA screenshots stay outside the repository.

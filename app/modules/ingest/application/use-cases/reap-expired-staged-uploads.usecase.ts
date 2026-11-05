@@ -15,12 +15,12 @@ interface ReapExpiredStagedUploadsResult {
 }
 
 export class ReapExpiredStagedUploadsUseCase {
-  constructor(
-    private readonly deps: ReapExpiredStagedUploadsUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: ReapExpiredStagedUploadsUseCaseDependencies) {}
 
   async execute(command: ReapExpiredStagedUploadsCommand): Promise<ReapExpiredStagedUploadsResult> {
-    const expiredUploads = await this.deps.stagedUploadRepository.listExpired(command.referenceTime);
+    const expiredUploads = await this.deps.stagedUploadRepository.listExpired(
+      command.referenceTime,
+    );
 
     for (const upload of expiredUploads) {
       await this.deps.stagedUploadStorage.delete(upload.storagePath);

@@ -15,10 +15,7 @@ function createAdminAccessResponse(reason: 'FORBIDDEN' | 'UNAUTHORIZED'): Respon
 
 export async function action({ params, request }: ActionFunctionArgs): Promise<Response> {
   if (request.method !== 'DELETE') {
-    return Response.json(
-      { error: 'Method not allowed', success: false },
-      { status: 405 },
-    );
+    return Response.json({ error: 'Method not allowed', success: false }, { status: 405 });
   }
 
   const authServices = getServerAdminAuthServices();
@@ -33,10 +30,7 @@ export async function action({ params, request }: ActionFunctionArgs): Promise<R
 
   const username = params.username;
   if (!username) {
-    return Response.json(
-      { error: 'Username is required', success: false },
-      { status: 400 },
-    );
+    return Response.json({ error: 'Username is required', success: false }, { status: 400 });
   }
 
   const result = await authServices.deleteAuthUser.execute({
@@ -47,7 +41,12 @@ export async function action({ params, request }: ActionFunctionArgs): Promise<R
     return Response.json(
       { error: result.reason, success: false },
       {
-        status: result.reason === 'USER_NOT_FOUND' ? 404 : 400,
+        status:
+          result.reason === 'USER_NOT_FOUND'
+            ? 404
+            : result.reason === 'INVALID_USERNAME'
+              ? 400
+              : 409,
       },
     );
   }

@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 const METRIC_NAMES = ['lines', 'branches', 'functions', 'statements'] as const;
 const BASELINE_PATH = 'tests/coverage-regression-baseline.json';
 
-type CoverageMetricName = typeof METRIC_NAMES[number];
+type CoverageMetricName = (typeof METRIC_NAMES)[number];
 
 type CoverageMetrics = Record<CoverageMetricName, number>;
 
@@ -44,10 +44,9 @@ async function readJsonFile(filePath: string, missingMessage: string): Promise<u
 
   try {
     source = await readFile(filePath, 'utf8');
-  }
-  catch (error) {
+  } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      throw new Error(missingMessage);
+      throw new Error(missingMessage, { cause: error });
     }
     throw error;
   }
@@ -70,7 +69,11 @@ export function parseCoverageRegressionBaseline(value: unknown): CoverageRegress
     throw new Error('Invalid coverage regression baseline: schemaVersion must be 1.');
   }
 
-  if (typeof value.source !== 'string' || typeof value.scope !== 'string' || typeof value.lastReviewed !== 'string') {
+  if (
+    typeof value.source !== 'string' ||
+    typeof value.scope !== 'string' ||
+    typeof value.lastReviewed !== 'string'
+  ) {
     throw new Error('Invalid coverage regression baseline: metadata fields must be strings.');
   }
 
@@ -83,7 +86,7 @@ export function parseCoverageRegressionBaseline(value: unknown): CoverageRegress
     throw new Error('Invalid coverage regression baseline: metrics must be an object.');
   }
 
-  const metrics = {} as CoverageMetrics;
+  const metrics: CoverageMetrics = { lines: 0, branches: 0, functions: 0, statements: 0 };
   for (const metricName of METRIC_NAMES) {
     const metricValue = value.metrics[metricName];
     assertMetricNumber(
@@ -108,7 +111,7 @@ function parseCoverageSummary(value: unknown): CoverageMetrics {
     throw new Error('Invalid coverage summary: total metrics are missing.');
   }
 
-  const metrics = {} as CoverageMetrics;
+  const metrics: CoverageMetrics = { lines: 0, branches: 0, functions: 0, statements: 0 };
   for (const metricName of METRIC_NAMES) {
     const metric = value.total[metricName];
     if (!isObject(metric)) {
@@ -124,20 +127,22 @@ function parseCoverageSummary(value: unknown): CoverageMetrics {
   return metrics;
 }
 
-export async function readCoverageRegressionBaseline(rootDir = process.cwd()): Promise<CoverageRegressionBaseline> {
+export async function readCoverageRegressionBaseline(
+  rootDir = process.cwd(),
+): Promise<CoverageRegressionBaseline> {
   const baselinePath = resolve(rootDir, BASELINE_PATH);
-  return parseCoverageRegressionBaseline(await readJsonFile(
-    baselinePath,
-    `Missing coverage regression baseline: ${BASELINE_PATH}`,
-  ));
+  return parseCoverageRegressionBaseline(
+    await readJsonFile(baselinePath, `Missing coverage regression baseline: ${BASELINE_PATH}`),
+  );
 }
 
-export async function readCoverageSummaryMetrics(rootDir = process.cwd()): Promise<CoverageMetrics> {
+export async function readCoverageSummaryMetrics(
+  rootDir = process.cwd(),
+): Promise<CoverageMetrics> {
   const summaryPath = resolve(rootDir, 'coverage', 'coverage-summary.json');
-  return parseCoverageSummary(await readJsonFile(
-    summaryPath,
-    'Missing coverage summary: coverage/coverage-summary.json',
-  ));
+  return parseCoverageSummary(
+    await readJsonFile(summaryPath, 'Missing coverage summary: coverage/coverage-summary.json'),
+  );
 }
 
 export async function checkCoverageRegression(
@@ -163,7 +168,7 @@ export async function checkCoverageRegression(
   });
 
   return {
-    ok: rows.every(row => row.ok),
+    ok: rows.every((row) => row.ok),
     rows,
   };
 }
@@ -181,14 +186,9 @@ function formatRow(row: CoverageRegressionRow): string {
 }
 
 export function formatCoverageRegressionResult(result: CoverageRegressionResult): string {
-  const title = result.ok
-    ? 'Coverage regression gate passed.'
-    : 'Coverage regression gate failed.';
+  const title = result.ok ? 'Coverage regression gate passed.' : 'Coverage regression gate failed.';
 
-  return [
-    title,
-    ...result.rows.map(formatRow),
-  ].join('\n');
+  return [title, ...result.rows.map(formatRow)].join('\n');
 }
 
 if (import.meta.main) {
@@ -197,13 +197,11 @@ if (import.meta.main) {
     const output = formatCoverageRegressionResult(result);
     if (result.ok) {
       console.log(output);
-    }
-    else {
+    } else {
       console.error(output);
       process.exit(1);
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }

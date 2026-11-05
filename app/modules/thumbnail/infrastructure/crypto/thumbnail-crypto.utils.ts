@@ -4,7 +4,8 @@ const THUMBNAIL_MAGIC = Buffer.from('MVTH', 'ascii');
 const THUMBNAIL_VERSION = 1;
 const THUMBNAIL_GCM_NONCE_SIZE = 12;
 const THUMBNAIL_GCM_AUTH_TAG_SIZE = 16;
-const THUMBNAIL_HEADER_SIZE = THUMBNAIL_MAGIC.length + 1 + THUMBNAIL_GCM_NONCE_SIZE + THUMBNAIL_GCM_AUTH_TAG_SIZE;
+const THUMBNAIL_HEADER_SIZE =
+  THUMBNAIL_MAGIC.length + 1 + THUMBNAIL_GCM_NONCE_SIZE + THUMBNAIL_GCM_AUTH_TAG_SIZE;
 const ALGORITHM = 'aes-128-gcm';
 
 export function encryptThumbnailEnvelope(input: {
@@ -19,10 +20,7 @@ export function encryptThumbnailEnvelope(input: {
     authTagLength: THUMBNAIL_GCM_AUTH_TAG_SIZE,
   });
   cipher.setAAD(createThumbnailAad(input.videoId));
-  const ciphertext = Buffer.concat([
-    cipher.update(input.imageData),
-    cipher.final(),
-  ]);
+  const ciphertext = Buffer.concat([cipher.update(input.imageData), cipher.final()]);
   const authTag = cipher.getAuthTag();
 
   return Buffer.concat([
@@ -55,12 +53,8 @@ export function decryptThumbnailEnvelope(input: {
   decipher.setAuthTag(authTag);
 
   try {
-    return Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final(),
-    ]);
-  }
-  catch (error) {
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  } catch (error) {
     throw new Error('Failed to authenticate thumbnail envelope', {
       cause: error,
     });
@@ -76,11 +70,11 @@ export function looksLikeJpeg(buffer: Buffer | undefined): buffer is Buffer {
     return false;
   }
 
-  if (buffer[0] !== 0xFF || buffer[1] !== 0xD8) {
+  if (buffer[0] !== 0xff || buffer[1] !== 0xd8) {
     return false;
   }
 
-  if (buffer[buffer.length - 2] !== 0xFF || buffer[buffer.length - 1] !== 0xD9) {
+  if (buffer[buffer.length - 2] !== 0xff || buffer[buffer.length - 1] !== 0xd9) {
     return false;
   }
 
@@ -95,11 +89,13 @@ export function looksLikeJpeg(buffer: Buffer | undefined): buffer is Buffer {
       return false;
     }
 
-    if (segment.marker === 0xD9) {
-      return sawStartOfScan &&
+    if (segment.marker === 0xd9) {
+      return (
+        sawStartOfScan &&
         sawFrameMarker &&
         sawScanHeaderDependency &&
-        segment.nextCursor === buffer.length;
+        segment.nextCursor === buffer.length
+      );
     }
 
     cursor = segment.nextCursor;
@@ -120,7 +116,7 @@ export function looksLikeJpeg(buffer: Buffer | undefined): buffer is Buffer {
       sawFrameMarker = true;
     }
 
-    if (segment.marker === 0xDA) {
+    if (segment.marker === 0xda) {
       if (!sawFrameMarker || !sawScanHeaderDependency) {
         return false;
       }
@@ -152,7 +148,7 @@ interface JpegSegment {
 
 function readNextJpegMarkerOffset(buffer: Buffer, startIndex: number): number {
   for (let index = Math.max(startIndex, 0); index < buffer.length - 1; index += 1) {
-    if (buffer[index] === 0xFF && buffer[index + 1] !== 0x00 && buffer[index + 1] !== 0xFF) {
+    if (buffer[index] === 0xff && buffer[index + 1] !== 0x00 && buffer[index + 1] !== 0xff) {
       return index;
     }
   }
@@ -208,18 +204,22 @@ function readNextJpegSegment(buffer: Buffer, startIndex: number): JpegSegment | 
 }
 
 function isStandaloneJpegMarker(marker: number): boolean {
-  return marker === 0xD8 || marker === 0xD9 || (marker >= 0xD0 && marker <= 0xD7) || marker === 0x01;
+  return (
+    marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01
+  );
 }
 
 function isStartOfFrameMarker(marker: number): boolean {
-  return (marker >= 0xC0 && marker <= 0xC3) ||
-    (marker >= 0xC5 && marker <= 0xC7) ||
-    (marker >= 0xC9 && marker <= 0xCB) ||
-    (marker >= 0xCD && marker <= 0xCF);
+  return (
+    (marker >= 0xc0 && marker <= 0xc3) ||
+    (marker >= 0xc5 && marker <= 0xc7) ||
+    (marker >= 0xc9 && marker <= 0xcb) ||
+    (marker >= 0xcd && marker <= 0xcf)
+  );
 }
 
 function isScanHeaderDependencyMarker(marker: number): boolean {
-  return marker === 0xC4 || marker === 0xDB;
+  return marker === 0xc4 || marker === 0xdb;
 }
 
 function validateJpegSegment(segment: JpegSegment, buffer: Buffer): boolean {
@@ -229,7 +229,7 @@ function validateJpegSegment(segment: JpegSegment, buffer: Buffer): boolean {
     return false;
   }
 
-  if (segment.marker === 0xDA) {
+  if (segment.marker === 0xda) {
     return validateStartOfScanSegment(segment, payloadLength, buffer);
   }
 
@@ -237,28 +237,32 @@ function validateJpegSegment(segment: JpegSegment, buffer: Buffer): boolean {
     return payloadLength >= 6;
   }
 
-  if (segment.marker === 0xC4) {
+  if (segment.marker === 0xc4) {
     return payloadLength >= 17;
   }
 
-  if (segment.marker === 0xDB) {
+  if (segment.marker === 0xdb) {
     return payloadLength >= 65;
   }
 
-  if (segment.marker === 0xDD) {
+  if (segment.marker === 0xdd) {
     return payloadLength === 2;
   }
 
   return true;
 }
 
-function validateStartOfScanSegment(segment: JpegSegment, payloadLength: number, buffer: Buffer): boolean {
+function validateStartOfScanSegment(
+  segment: JpegSegment,
+  payloadLength: number,
+  buffer: Buffer,
+): boolean {
   if (payloadLength < 6) {
     return false;
   }
 
   const componentCount = buffer[segment.segmentDataStart];
-  const expectedMinimumPayload = 1 + (componentCount * 2) + 3;
+  const expectedMinimumPayload = 1 + componentCount * 2 + 3;
 
   return componentCount > 0 && payloadLength >= expectedMinimumPayload;
 }
@@ -280,7 +284,9 @@ function assertThumbnailEnvelopeFormat(encryptedBuffer: Buffer): void {
 }
 
 function isThumbnailEnvelopeFormat(encryptedBuffer: Buffer): boolean {
-  return encryptedBuffer.length > THUMBNAIL_HEADER_SIZE &&
+  return (
+    encryptedBuffer.length > THUMBNAIL_HEADER_SIZE &&
     encryptedBuffer.subarray(0, THUMBNAIL_MAGIC.length).equals(THUMBNAIL_MAGIC) &&
-    encryptedBuffer[THUMBNAIL_MAGIC.length] === THUMBNAIL_VERSION;
+    encryptedBuffer[THUMBNAIL_MAGIC.length] === THUMBNAIL_VERSION
+  );
 }

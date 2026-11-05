@@ -53,10 +53,12 @@ describe('SessionPolicy', () => {
       userId: 'user-1',
     });
 
-    expect(SessionPolicy.validate({
-      now: new Date('2026-03-07T00:00:01.000Z'),
-      session,
-    })).toEqual({
+    expect(
+      SessionPolicy.validate({
+        now: new Date('2026-03-07T00:00:01.000Z'),
+        session,
+      }),
+    ).toEqual({
       allowed: false,
       reason: 'AUTH_SESSION_EXPIRED',
     });
@@ -83,6 +85,27 @@ describe('SessionPolicy', () => {
       reason: 'AUTH_SESSION_REVOKED',
     });
   });
+
+  test.each(['expiry', 'current time'] as const)(
+    'fails closed for an invalid %s timestamp',
+    (invalid) => {
+      const session = SessionPolicy.create({
+        id: 'invalid-time',
+        now: new Date('2026-03-07T00:00:00Z'),
+        ttlMs: 60_000,
+        userId: 'user-1',
+      });
+      const now =
+        invalid === 'current time' ? new Date(Number.NaN) : new Date('2026-03-07T00:00:00Z');
+      if (invalid === 'expiry') {
+        session.expiresAt = new Date(Number.NaN);
+      }
+      expect(SessionPolicy.validate({ now, session })).toEqual({
+        allowed: false,
+        reason: 'AUTH_SESSION_EXPIRED',
+      });
+    },
+  );
 
   test('allows active sessions', () => {
     const session = SessionPolicy.create({

@@ -1,3 +1,4 @@
+import type * as ReactRouter from 'react-router';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, test, vi } from 'vitest';
@@ -7,7 +8,7 @@ const navigateMock = vi.fn();
 let currentSearchParams = new URLSearchParams();
 
 vi.mock('react-router', async () => {
-  const actual = await vi.importActual<typeof import('react-router')>('react-router');
+  const actual = await vi.importActual<typeof ReactRouter>('react-router');
 
   return {
     ...actual,
@@ -37,7 +38,9 @@ describe('LoginPage', () => {
   test('renders accessible username and password fields', () => {
     renderLoginPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Sign in to Mediavault' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Sign in to Mediavault' }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Username')).toHaveAttribute('type', 'text');
     expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password');
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
@@ -47,15 +50,15 @@ describe('LoginPage', () => {
   test('shows an error alert when login fails', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(
-        JSON.stringify({ success: false, error: 'Invalid username or password' }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          status: 401,
-        },
-      )) as unknown as typeof fetch,
+      vi.fn<typeof fetch>(
+        async () =>
+          new Response(JSON.stringify({ success: false, error: 'Invalid username or password' }), {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            status: 401,
+          }),
+      ),
     );
 
     const { user } = renderLoginPage();
@@ -71,15 +74,15 @@ describe('LoginPage', () => {
   test('navigates to redirect target after successful login', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(
-        JSON.stringify({ success: true, user: { id: 'user-1' } }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          status: 200,
-        },
-      )) as unknown as typeof fetch,
+      vi.fn<typeof fetch>(
+        async () =>
+          new Response(JSON.stringify({ success: true, user: { id: 'user-1' } }), {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            status: 200,
+          }),
+      ),
     );
 
     const { user } = renderLoginPage('/login?redirectTo=%2Fvault');
@@ -88,16 +91,56 @@ describe('LoginPage', () => {
     await user.type(screen.getByLabelText('Password'), 'correct-password');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(fetch).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({
-      body: JSON.stringify({
-        password: 'correct-password',
-        username: 'owner',
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/auth/login',
+      expect.objectContaining({
+        body: JSON.stringify({
+          password: 'correct-password',
+          username: 'owner',
+        }),
       }),
-    }));
+    );
 
     await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith('/vault', { replace: true });
     });
+  });
+
+  test.each(
+    [null, { success: 'true' }, { success: true, error: 42 }, { error: 'Unexpected body' }].map(
+      (body) => ({ body }),
+    ),
+  )(
+    'rejects malformed response %j without navigating or changing the password',
+    async ({ body }) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn<typeof fetch>(async () => Response.json(body)),
+      );
+      const { user } = renderLoginPage();
+      await user.type(screen.getByLabelText('Username'), 'owner');
+      await user.type(screen.getByLabelText('Password'), '  Unicode🔒 exact  ');
+      await user.click(screen.getByRole('button', { name: 'Sign in' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Sign in failed');
+      expect(screen.getByLabelText('Password')).toHaveValue('  Unicode🔒 exact  ');
+      expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+      expect(navigateMock).not.toHaveBeenCalled();
+    },
+  );
+
+  test('handles a rejected navigation within the submission error path', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(async () => Response.json({ success: true })),
+    );
+    navigateMock.mockRejectedValueOnce(new Error('Navigation failed'));
+    const { user } = renderLoginPage();
+    await user.type(screen.getByLabelText('Username'), 'owner');
+    await user.type(screen.getByLabelText('Password'), 'exact password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sign in failed');
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();
   });
 
   test('requires both username and password before submitting', async () => {

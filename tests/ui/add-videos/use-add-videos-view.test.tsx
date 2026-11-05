@@ -1,7 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
-import type { UploadBrowserFile } from '../../../app/widgets/add-videos/model/upload-browser-file';
-import { useAddVideosView } from '../../../app/widgets/add-videos/model/useAddVideosView';
+import type { UploadBrowserFile } from '../../../app/pages/add-videos/model/upload-browser-file';
+import { useAddVideosView } from '../../../app/pages/add-videos/model/useAddVideosView';
+import { createIngestJobView } from '../../support/ingest-job-fixture';
 
 function createFile(name: string, content = 'video-data', type = 'video/mp4') {
   return new File([content], name, { type });
@@ -23,10 +24,12 @@ describe('useAddVideosView', () => {
       };
     };
 
-    const { result } = renderHook(() => useAddVideosView({
-      fetchImpl: vi.fn(),
-      uploadBrowserFile,
-    }));
+    const { result } = renderHook(() =>
+      useAddVideosView({
+        fetchImpl: vi.fn(),
+        uploadBrowserFile,
+      }),
+    );
 
     act(() => {
       result.current.handleChooseFiles([createFile('fixture-video.mp4')]);
@@ -36,26 +39,27 @@ describe('useAddVideosView', () => {
       expect(result.current.session?.status).toBe('uploaded');
     });
 
-    expect(result.current.session).toEqual(expect.objectContaining({
-      filename: 'fixture-video.mp4',
-      progressPercent: 100,
-      stagingId: 'staging-123',
-    }));
+    expect(result.current.session).toEqual(
+      expect.objectContaining({
+        filename: 'fixture-video.mp4',
+        progressPercent: 100,
+        stagingId: 'staging-123',
+      }),
+    );
     expect(result.current.session?.metadata.title).toBe('fixture-video');
     expect(result.current.canAddToLibrary).toBe(true);
   });
 
   test('rejects multiple files instead of queueing them', () => {
-    const { result } = renderHook(() => useAddVideosView({
-      fetchImpl: vi.fn(),
-      uploadBrowserFile: vi.fn(),
-    }));
+    const { result } = renderHook(() =>
+      useAddVideosView({
+        fetchImpl: vi.fn(),
+        uploadBrowserFile: vi.fn(),
+      }),
+    );
 
     act(() => {
-      result.current.handleChooseFiles([
-        createFile('first.mp4'),
-        createFile('second.mp4'),
-      ]);
+      result.current.handleChooseFiles([createFile('first.mp4'), createFile('second.mp4')]);
     });
 
     expect(result.current.pageError).toBe('Only one file can be uploaded at a time.');
@@ -63,13 +67,17 @@ describe('useAddVideosView', () => {
   });
 
   test('posts the staged commit request and moves the session into completed on success', async () => {
-    const fetchImpl = vi.fn(async (_input: string, _init?: RequestInit) => new Response(JSON.stringify({
-      dashEnabled: true,
-      message: 'Video added to library successfully with video conversion',
-      success: true,
-      videoId: 'video-123',
-    })));
-    const uploadBrowserFile: UploadBrowserFile = file => ({
+    const fetchImpl = vi.fn(
+      async (_input: string, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            job: createIngestJobView({ state: 'succeeded' }),
+            success: true,
+          }),
+        ),
+    );
+
+    const uploadBrowserFile: UploadBrowserFile = (file) => ({
       abort: vi.fn(),
       done: Promise.resolve({
         filename: file.name,
@@ -78,10 +86,13 @@ describe('useAddVideosView', () => {
         stagingId: 'staging-123',
       }),
     });
-    const { result } = renderHook(() => useAddVideosView({
-      fetchImpl,
-      uploadBrowserFile,
-    }));
+
+    const { result } = renderHook(() =>
+      useAddVideosView({
+        fetchImpl,
+        uploadBrowserFile,
+      }),
+    );
 
     act(() => {
       result.current.handleChooseFiles([createFile('fixture-video.mp4')]);
@@ -101,21 +112,29 @@ describe('useAddVideosView', () => {
       await result.current.handleAddToLibrary();
     });
 
-    expect(fetchImpl).toHaveBeenCalledWith('/api/uploads/staging-123/commit', expect.objectContaining({
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
-    }));
-    const commitRequest = fetchImpl.mock.calls[0]?.[1] as RequestInit | undefined;
-    expect(JSON.parse(String(commitRequest?.body))).toEqual({
+    expect(fetchImpl).toHaveBeenCalledWith(
+      '/api/uploads/staging-123/commit',
+      expect.objectContaining({
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      }),
+    );
+    const commitRequest = fetchImpl.mock.calls[0]?.[1];
+    if (typeof commitRequest?.body !== 'string') {
+      throw new Error('Expected serialized metadata body.');
+    }
+    expect(JSON.parse(commitRequest.body)).toEqual({
       description: 'Custom description',
       genreSlugs: [],
       tags: ['one', 'two'],
       title: 'Custom title',
     });
     expect(result.current.session?.status).toBe('completed');
-    expect(result.current.session?.successMessage).toBe('"Custom title" has been added to the library.');
+    expect(result.current.session?.successMessage).toBe(
+      '"Custom title" has been added to the library.',
+    );
   });
 
   test('aborts the active upload when the session is removed mid-transfer', async () => {
@@ -126,16 +145,20 @@ describe('useAddVideosView', () => {
       size: number;
       stagingId: string;
     }) => void;
+
     const uploadBrowserFile: UploadBrowserFile = () => ({
       abort,
       done: new Promise((resolve) => {
         resolveUpload = resolve;
       }),
     });
-    const { result } = renderHook(() => useAddVideosView({
-      fetchImpl: vi.fn(),
-      uploadBrowserFile,
-    }));
+
+    const { result } = renderHook(() =>
+      useAddVideosView({
+        fetchImpl: vi.fn(),
+        uploadBrowserFile,
+      }),
+    );
 
     act(() => {
       result.current.handleChooseFiles([createFile('fixture-video.mp4')]);
@@ -162,7 +185,8 @@ describe('useAddVideosView', () => {
 
   test('keeps the session visible when staged-upload removal fails', async () => {
     const fetchImpl = vi.fn(async () => new Response('nope', { status: 500 }));
-    const uploadBrowserFile: UploadBrowserFile = file => ({
+
+    const uploadBrowserFile: UploadBrowserFile = (file) => ({
       abort: vi.fn(),
       done: Promise.resolve({
         filename: file.name,
@@ -171,10 +195,13 @@ describe('useAddVideosView', () => {
         stagingId: 'staging-123',
       }),
     });
-    const { result } = renderHook(() => useAddVideosView({
-      fetchImpl,
-      uploadBrowserFile,
-    }));
+
+    const { result } = renderHook(() =>
+      useAddVideosView({
+        fetchImpl,
+        uploadBrowserFile,
+      }),
+    );
 
     act(() => {
       result.current.handleChooseFiles([createFile('fixture-video.mp4')]);
@@ -199,12 +226,15 @@ describe('useAddVideosView', () => {
         resolveCommit = resolve;
       });
 
-      return new Response(JSON.stringify({
-        success: true,
-        videoId: 'video-123',
-      }));
+      return new Response(
+        JSON.stringify({
+          success: true,
+          job: createIngestJobView({ state: 'succeeded' }),
+        }),
+      );
     });
-    const uploadBrowserFile: UploadBrowserFile = file => ({
+
+    const uploadBrowserFile: UploadBrowserFile = (file) => ({
       abort: vi.fn(),
       done: Promise.resolve({
         filename: file.name,
@@ -213,10 +243,13 @@ describe('useAddVideosView', () => {
         stagingId: 'staging-123',
       }),
     });
-    const { result } = renderHook(() => useAddVideosView({
-      fetchImpl,
-      uploadBrowserFile,
-    }));
+
+    const { result } = renderHook(() =>
+      useAddVideosView({
+        fetchImpl,
+        uploadBrowserFile,
+      }),
+    );
 
     act(() => {
       result.current.handleChooseFiles([createFile('fixture-video.mp4')]);
@@ -247,5 +280,39 @@ describe('useAddVideosView', () => {
     });
 
     expect(result.current.session?.status).toBe('completed');
+  });
+
+  test('202 is submitted rather than completed, prevents duplicate acceptance, and hands off persisted job monitoring', async () => {
+    const queued = createIngestJobView();
+    const fetchImpl = vi.fn(async () =>
+      Response.json({ success: true, job: queued }, { status: 202 }),
+    );
+    const onAccepted = vi.fn();
+    const { result } = renderHook(() =>
+      useAddVideosView({
+        fetchImpl,
+        onAccepted,
+        uploadBrowserFile: (file) => ({
+          abort: vi.fn(),
+          done: Promise.resolve({
+            filename: file.name,
+            mimeType: file.type,
+            size: file.size,
+            stagingId: 'staging-123',
+          }),
+        }),
+      }),
+    );
+    act(() => result.current.handleChooseFiles([createFile('fixture.mp4')]));
+    await waitFor(() => expect(result.current.session?.status).toBe('uploaded'));
+    await act(async () => {
+      await Promise.all([result.current.handleAddToLibrary(), result.current.handleAddToLibrary()]);
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(onAccepted).toHaveBeenCalledWith(queued);
+    expect(result.current.session?.status).toBe('submitted');
+    expect(result.current.session?.successMessage).not.toContain('has been added');
+    act(() => result.current.handleClearSession());
+    expect(result.current.session).toBeNull();
   });
 });

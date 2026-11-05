@@ -1,0 +1,29 @@
+diff --git a/dist/typegen-CqlAVM2O.js b/dist/typegen-CqlAVM2O.js
+index aed5198666fb5523fad2622c4f25a1f1e6eb6a4c..35727193e3387d731dd1a041e9134eca5d816c28 100644
+--- a/dist/typegen-CqlAVM2O.js
++++ b/dist/typegen-CqlAVM2O.js
+@@ -97,6 +97,8 @@ async function createContext$1({ root, mode, customLogger }) {
+ 		mode,
+ 		customLogger,
+ 		server: {
++			middlewareMode: true,
++			ws: false,
+ 			preTransformRequests: false,
+ 			hmr: false,
+ 			watch: null
+diff --git a/dist/vite.js b/dist/vite.js
+index 9507a2f2be78dba2843833c0857e96ef73b2062c..680f72f31bb61ab9766ec39ba57e0af167316624 100644
+--- a/dist/vite.js
++++ b/dist/vite.js
+@@ -1610,8 +1610,11 @@ const reactRouterVitePlugin = () => {
+ 				viteChildCompiler = await vite.createServer({
+ 					...viteUserConfig,
+ 					cacheDir: "node_modules/.vite-child-compiler",
++					optimizeDeps: { noDiscovery: true, include: [] },
+ 					mode: viteConfig.mode,
+ 					server: {
++						middlewareMode: true,
++						ws: false,
+ 						watch: viteConfig.command === "build" ? null : viteConfig.server.watch,
+ 						preTransformRequests: false,
+ 						hmr: false

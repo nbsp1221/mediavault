@@ -31,10 +31,12 @@ describe('ResolveAuthSessionUseCase', () => {
       sessionTtlMs: 60_000,
     });
 
-    await expect(useCase.execute({
-      now: new Date('2026-03-07T00:00:05.000Z'),
-      sessionId: 'session-1',
-    })).resolves.toBeNull();
+    await expect(
+      useCase.execute({
+        now: new Date('2026-03-07T00:00:05.000Z'),
+        sessionId: 'session-1',
+      }),
+    ).resolves.toBeNull();
     expect(touch).not.toHaveBeenCalled();
   });
 

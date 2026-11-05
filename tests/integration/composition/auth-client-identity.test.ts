@@ -7,65 +7,72 @@ async function importAuthClientIdentity() {
 describe('auth-client identity helpers', () => {
   beforeEach(() => {
     process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET = 'auth-client-identity-secret-012345';
+    delete process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS;
     vi.resetModules();
   });
-
   afterEach(() => {
     delete process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET;
     delete process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS;
     vi.resetModules();
   });
 
-  test('uses the leftmost X-Forwarded-For hop as the trusted IP fallback when proxy trust is enabled', async () => {
+  test('uses only the Caddy-owned X-Forwarded-For header when explicitly trusted', async () => {
     process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS = 'true';
-
-    const { getLoginAttemptKey, getTrustedClientIP } = await importAuthClientIdentity();
-
+    const { getLoginAttemptKeys, getTrustedClientIP } = await importAuthClientIdentity();
     const request = new Request('http://localhost/api/auth/login', {
       headers: {
         'X-Forwarded-For': '198.51.100.24, 203.0.113.10',
+        'CF-Connecting-IP': '192.0.2.1',
+        'X-Real-IP': '192.0.2.2',
+        'Forwarded': 'for=192.0.2.3',
       },
     });
-
     expect(getTrustedClientIP(request)).toBe('198.51.100.24');
-    expect(getLoginAttemptKey(request)).toBe('ip:198.51.100.24');
+    expect(getLoginAttemptKeys(request)).toEqual(['ip:198.51.100.24']);
   });
 
-  test('prefers a valid signed client cookie over trusted proxy headers', async () => {
+  test('retains signed client and trusted IP keys without any shared unknown identity', async () => {
     process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS = 'true';
-
-    const {
-      createAuthClientCookieHeader,
-      getLoginAttemptKey,
-    } = await importAuthClientIdentity();
-
-    const clientCookie = createAuthClientCookieHeader('client-123');
-    const cookieValue = clientCookie.split(';')[0];
+    const { createAuthClientCookieHeader, getLoginAttemptKeys } = await importAuthClientIdentity();
+    const cookie = createAuthClientCookieHeader('client-123').split(';')[0];
+    if (!cookie) {
+      throw new Error('Expected client cookie');
+    }
     const request = new Request('http://localhost/api/auth/login', {
-      headers: {
-        'X-Real-IP': '203.0.113.10',
-        'cookie': cookieValue ?? '',
-      },
+      headers: { 'X-Forwarded-For': '203.0.113.10', cookie },
     });
-
-    expect(getLoginAttemptKey(request)).toBe('client:client-123');
+    expect(getLoginAttemptKeys(request)).toEqual(['client:client-123', 'ip:203.0.113.10']);
   });
 
-  test('ignores malformed auth-client cookies and falls back to anonymous identity', async () => {
-    delete process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS;
+  test('ignores forwarded IP spoofing when proxy trust is off', async () => {
+    const { getLoginAttemptKeys, getTrustedClientIP } = await importAuthClientIdentity();
+    const request = new Request('http://localhost/api/auth/login', {
+      headers: { 'X-Forwarded-For': '198.51.100.24', 'CF-Connecting-IP': '192.0.2.1' },
+    });
+    expect(getTrustedClientIP(request)).toBeUndefined();
+    expect(getLoginAttemptKeys(request)).toEqual([]);
+  });
 
-    const {
-      getAuthClientId,
-      getLoginAttemptKey,
-    } = await importAuthClientIdentity();
-
+  test('does not interpret unrelated forwarding headers as a trusted client IP', async () => {
+    process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS = 'true';
+    const { getLoginAttemptKeys, getTrustedClientIP } = await importAuthClientIdentity();
     const request = new Request('http://localhost/api/auth/login', {
       headers: {
-        cookie: '__Host-mediavault-client=%E0%A4%A',
+        'CF-Connecting-IP': '192.0.2.1',
+        'X-Real-IP': '192.0.2.2',
+        'Forwarded': 'for=192.0.2.3',
       },
     });
+    expect(getTrustedClientIP(request)).toBeUndefined();
+    expect(getLoginAttemptKeys(request)).toEqual([]);
+  });
 
+  test('ignores malformed client cookies without creating an anonymous bucket', async () => {
+    const { getAuthClientId, getLoginAttemptKeys } = await importAuthClientIdentity();
+    const request = new Request('http://localhost/api/auth/login', {
+      headers: { cookie: '__Host-mediavault-client=%E0%A4%A' },
+    });
     expect(getAuthClientId(request)).toBeNull();
-    expect(getLoginAttemptKey(request)).toBe('anonymous');
+    expect(getLoginAttemptKeys(request)).toEqual([]);
   });
 });

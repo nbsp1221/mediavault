@@ -1,10 +1,12 @@
 import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import type { MediaKeyDerivationConfig } from '~/shared/config/app-config.server';
-import type { RuntimeEnvInput } from '~/shared/config/app-config.server';
-import { getMediaKeyDerivationConfig } from '~/shared/config/app-config.server';
-import { getStoragePaths } from '~/shared/config/app-config.server';
+import {
+  type MediaKeyDerivationConfig,
+  type RuntimeEnvInput,
+  getMediaKeyDerivationConfig,
+  getStoragePaths,
+} from '~/shared/config/app-config.server';
 
 interface ThumbnailKeyGenerationResult {
   key: Buffer;
@@ -46,14 +48,14 @@ export class Pbkdf2ThumbnailKeyManager {
       const { videosDir } = getStoragePaths();
       await fs.access(join(videosDir, videoId, 'key.bin'));
       return true;
-    }
-    catch {
+    } catch {
       return false;
     }
   }
 
   private generateVideoKey(videoId: string): Buffer {
-    const salt = crypto.createHash('sha256')
+    const salt = crypto
+      .createHash('sha256')
       .update(this.saltPrefix + videoId)
       .digest();
 

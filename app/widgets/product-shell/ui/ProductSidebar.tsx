@@ -1,14 +1,7 @@
 import { Shield } from 'lucide-react';
 import { Link } from 'react-router';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-} from '~/shared/ui/sidebar';
-import type {
-  ProductNavigationItem,
-  ProductShellActiveRoute,
-} from '../model/product-navigation';
+import { Sidebar, SidebarContent, SidebarHeader } from '~/shared/ui/sidebar';
+import type { ProductNavigationItem, ProductShellActiveRoute } from '../model/product-navigation';
 import { ProductNavigation } from './ProductNavigation';
 
 interface ProductSidebarProps {
@@ -17,11 +10,7 @@ interface ProductSidebarProps {
   onNavigate?: () => void;
 }
 
-export function ProductSidebar({
-  activeRoute,
-  items,
-  onNavigate,
-}: ProductSidebarProps) {
+export function ProductSidebar({ activeRoute, items, onNavigate }: ProductSidebarProps) {
   return (
     <Sidebar
       aria-label="Product sidebar"

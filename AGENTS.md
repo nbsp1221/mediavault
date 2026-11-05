@@ -1,38 +1,47 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-The React Router app lives in `app/` and follows feature-sliced design: `pages/` expose route shells, `widgets/` bundle UI compositions, `features/` handle workflow logic, `entities/` shape domain models, and shared helpers belong in `shared/`. For new frontend work, reusable primitives live in `app/shared/ui`, shared UI helpers live in `app/shared/lib`, and feature-specific UI stays inside its owning slice. Compatibility behavior must have an active owner in the current module or composition structure; do not revive migration scaffolds as a parallel namespace. Treat `app/shared/ui/*` as generated shadcn source: do not hand-edit primitive internals unless the maintainer explicitly requests it; prefer regenerating via shadcn CLI, version updates, or fixing semantics in the usage layer. Use the `~/*` alias from `tsconfig.json` for internal imports. Static assets stay in `public/`, runtime data in `storage/`, generated bundles in `build/`, and command scripts in `scripts/`. Architectural notes and investigations reside in `docs/`. Vitest coverage is split between colocated module tests under `app/modules/**/*.{test,spec}.ts` and the broader `tests/` tree for integration, UI, smoke, and E2E coverage.
+## Runtime and package management
 
-## Build, Test, and Development Commands
-Install once with `bun install` (other package managers are unsupported). Use `bun run dev` to serve the app at `http://localhost:5173`. Local auth setup creates accounts through the operator-only admin API: set `MEDIAVAULT_DATABASE_ENCRYPTION_KEY`, `MEDIAVAULT_ADMIN_API_MODE=bootstrap`, `MEDIAVAULT_ADMIN_API_TOKEN`, and `MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET`, start the server, then call `POST /api/admin/users` with `Authorization: Bearer <token>`. Before any PR, run the required base verification authority: `bun run check`; it expands to `bun run check:hermetic-inputs`, `bun run design:lint`, `bun run lint`, `bun run typecheck`, `bun run test:coverage`, `bun run test:mutation:changed`, and `bun run test:runtime:smoke`. Use `bun run check:fast` only for quick iteration; it is not sufficient for completion or handoff. Use `bun run lint:fix` as an optional local fixer when you want automatic lint rewrites before rerunning `bun run lint`. `bun run test` is the canonical non-watch Vitest entrypoint and does not include smoke tests. The default `bun run test*` verification commands are env-scrubbed by design: Bun `.env` autoloading is disabled and Vite env-file loading is disabled for the test-facing entrypoints, so they must not depend on an ambient local `.env`. `bun run test:coverage` is the calibrated coverage gate: it runs `bun run test:coverage:collect` to generate Vitest coverage and enforce the native 80% floor, then runs `bun run test:coverage:regression` to compare `coverage/coverage-regression-baseline.json` against `tests/coverage-regression-baseline.json` with a 0.25 percentage-point tolerance. Use `bun run test:coverage:update-baseline` only for explicit, reviewable baseline ratchets after coverage improves; `bun run check` must not mutate the baseline. `bun run download:ffmpeg` and `bun run download:shaka` fetch media tooling, and `bun run start` exercises the built server for manual smoke checks.
+Mediavault is a single-deployment React Router Framework application. The maintainer approved replacing the former Bun-only toolchain with Node.js LTS and pnpm. Use pnpm for repository dependency management and scripts; do not introduce competing lockfiles. The exact supported versions belong in the package/runtime configuration. Keep development, verification, CI, and Docker aligned with that contract.
 
-## Coding Style & Naming Conventions
-TypeScript operates in strict mode, so prefer explicit interfaces and avoid `any`. Match the prevailing two-space indentation and split multiline JSX props per the Stylistic ESLint rules. Components, hooks, and providers use PascalCase; helpers and state setters use camelCase; file names mirror their primary export. New reusable UI primitives must be generated or maintained through shadcn in `app/shared/ui`; do not hand-roll repeated primitive controls in page/widget files, do not create parallel primitive layers, and do not patch shadcn-generated primitive files to solve page-level semantics or layout concerns.
+## Architecture and ownership
 
-## Testing Guidelines
-Vitest drives unit and integration coverage. Name files `*.test.ts`, keep arrange/act/assert sections clear, and use `bun run test:coverage` for the calibrated coverage gate. Use `bun run test:coverage:collect` only when you need to regenerate Vitest coverage output before a focused regression check. Use `bun run test`, `bun run test:modules`, `bun run test:integration`, and `bun run test:ui-dom` for focused Vitest work; use `bun run vitest:ui` only as a developer UI launcher, not as verification. Prefer `jsdom + React Testing Library + jest-dom + user-event` for new component-level UI tests instead of string-based markup assertions. Use `bun run check` before handoff so the runtime smoke layer runs too. For end-to-end work, follow `docs/E2E_TESTING_GUIDE.md`: use `bun run test:e2e:smoke` for the required hermetic browser path, use HTTP checks first where they are sufficient, and start `bun run dev` only for optional manual QA or local investigation.
+- Keep URL adapters, loaders, and actions in `app/routes/`; they authenticate, validate input, call application code, and translate HTTP responses. Do not assemble database or media-tool dependencies in routes.
+- `app/composition/server/` owns explicit dependency assembly and cross-module adapters, not duplicated business logic or a generic dependency-injection framework.
+- Backend features live in `app/modules/`. Business modules use `domain`, `application/use-cases`, `application/ports`, and `infrastructure` where those boundaries provide real value. Technical modules need only the layers they actually use. Do not create empty layers, command/query buses, or speculative interfaces.
+- Prefer page-owned UI, hooks, and state under `app/pages/<page>/`. Keep single-page code together without making giant components. Extract shared features, entity view models, and widgets only for a focused responsibility or actual reuse.
+- `app/shared/ui/` is the canonical generated shadcn primitive layer. Do not hand-edit primitive internals unless explicitly requested. Fix page-level semantics and layout in the usage layer; generate or update primitives through shadcn.
+- Raw `radix-ui` and `@radix-ui/*` imports belong only in the primitive layer. Other UI consumes `~/shared/ui/*`.
+- Use `~/*` for internal imports. Keep database, filesystem, process execution, and secrets out of browser imports. Make server-only boundaries explicit.
+- Keep authorization policies centralized. Public video access and authenticated ownership are separate concepts; do not restore the obsolete all-pages-private or config-owned-user model.
 
-Treat `docs/verification-contract.md` as the source of truth for required verification and escalation rules.
-Treat `docs/browser-qa-contract.md` as the source of truth for when Playwright MCP or equivalent isolated browser QA is required.
-Use `docs/E2E_TESTING_GUIDE.md` for the practical workflow and test-layer guidance.
+## Compatibility and modernization
 
-High-signal summary:
-- always run the base verification bundle before handoff
-- add `bun run check:runtime` for runtime-sensitive auth, playback, route wiring, or storage changes
-- add the required browser smoke and escalate to Playwright MCP or equivalent isolated browser QA when the change is browser-visible and runtime-sensitive
-- keep tests environment-independent and free from hidden local-state coupling per the verification contract
+The maintainer confirmed there are no deployed users, data, or legacy consumers to preserve. Remove obsolete data-migration and compatibility scaffolding instead of maintaining parallel namespaces or old/new implementations. Test the intended fresh-install model. This does not authorize deleting the developer's actual local files as a testing shortcut.
 
-## Commit & Pull Request Guidelines
-Commits follow the gitmoji + capitalized imperative subject pattern visible in history (e.g., `♻️ Refactor home library view`). Keep subjects under 72 characters, group related work, and avoid force-pushing shared branches. PRs should describe the problem, summarize changes in bullets, list verification steps (lint/test/typecheck/build or Playwright runs), and attach screenshots or clips for UI updates. Link issues or follow-up tasks when available.
+Consequential architecture changes, ambiguous security/product policies, and changes with substantial reversal cost require an explicit contextual question with a recommended option. Routine reversible choices should follow researched official guidance and established ecosystem conventions. Do not treat existing vulnerabilities, placeholders, or TODO buttons as approved behavior to preserve or complete silently.
 
-## Agent-Specific Notes
-Documentation and code comments stay in English, while progress reports to the project owner are delivered in Korean. Maintain Clean Architecture boundaries by routing business logic through `app/modules/` or dedicated hooks and keeping routes thin. For frontend work, prefer shadcn-driven primitives from `~/shared/ui/*`; raw `radix-ui` or `@radix-ui/*` imports belong only inside that primitive layer. Consult `docs/clearkey-investigation.md` before modifying playback flows.
+## Verification
 
-## Architecture Doc Entry Points
-Use the docs in this order when you need current architecture or project-state context:
+`package.json` and `docs/verification-contract.md` define supported commands and gates. The base completion authority is `pnpm check`; `pnpm check:fast` is for iteration only. Runtime-sensitive changes require the runtime escalation bundle, storage-sensitive changes require data-integrity verification, and browser-visible/runtime-sensitive work requires isolated browser QA.
 
-1. `docs/roadmap/current-refactor-status.md` for the current state and next recommended work.
-2. `docs/roadmap/personal-video-vault-rearchitecture-phases.md` for phase definitions and per-phase status.
-3. `docs/architecture/personal-video-vault-target-architecture.md` for the stable north-star architecture only.
-4. explicitly topic-specific notes in `docs/`, such as `docs/clearkey-investigation.md` or `docs/browser-qa-contract.md`. Do not treat archived root docs marked as historical as current guidance.
-5. `docs/plans/*` when present for temporary execution plans. If that directory is empty, fall back to explicitly marked root `docs/*.md` execution notes and treat them as working notes, not the source of truth for current repo state.
+- Keep module tests close to their implementation; integration, UI, runtime smoke, and browser tests remain distinct test layers.
+- Prefer React Testing Library, jest-dom, and user-event for UI behavior, not string-based markup or tests that merely freeze historical file paths.
+- Preserve the coverage floor, regression gate, and changed-file validation unless the maintainer explicitly approves a verification-policy change. Never weaken a gate to hide a regression or update a baseline automatically.
+- Tests and QA must not depend on the real `.env`, ignored local storage, existing browser state, or untracked media. Use explicit isolated fixture workspaces and test-owned assets.
+- Browser QA must observe actual login, navigation, upload/management outcomes, and video playback when relevant, not just successful HTTP responses or a mounted player.
+- Run required gates before handoff and report precisely what ran, passed, failed, or remains unverified. Do not claim performance targets without measurement.
+
+## Security and code quality
+
+Use strict TypeScript and avoid `any` in new code. Follow the existing two-space/ESLint formatting conventions. Keep routes thin, validate untrusted input, and inject meaningful I/O dependencies. Never log passwords, bearer tokens, cookies, encryption keys, or their values in QA artifacts. Preserve DASH/ClearKey media authorization and AES-encrypted asset handling unless an explicit approved decision changes them. Consult the current [playback contract](docs/playback.md) before changing playback.
+
+## Deliverables, language, and Git
+
+- Code, comments, permanent documentation, and UI copy are in English; owner-facing communication is in Korean.
+- Commit candidates are product code, tests, lockfiles, build/deployment configuration, and useful long-lived documentation.
+- Research reports, feature inventories, decision logs, task tracking, scratch code, raw logs, and QA screenshots belong outside the repository. Do not add temporary execution reports under `docs/plans/` or stage ignored runtime artifacts.
+- Protect `main`: work on a task branch, never commit refactoring directly to `main`, and preserve unrelated changes and stashes.
+- Do not create commits without explicit authorization. For authorized commits, load and follow the `commit` skill, including its convention reference and commit guard; never run `git commit` directly.
+- Do not push a branch or create a pull request without explicit user permission for that action.
+- If asked to commit, use the repository's gitmoji plus capitalized imperative convention and keep subjects under 72 characters.

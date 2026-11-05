@@ -1,13 +1,14 @@
 import type { ActionFunctionArgs } from 'react-router';
-import {
-  createSessionCookieHeader,
-  getServerAuthServices,
-} from '~/composition/server/auth';
+import { z } from 'zod';
+import { createSessionCookieHeader, getServerAuthServices } from '~/composition/server/auth';
 import {
   getAuthClientCookieHeaderForRequest,
   getLoginAttemptKeys,
   getTrustedClientIP,
 } from '~/composition/server/auth-client-identity';
+import { rejectCrossOriginMutation } from '~/shared/lib/http/csrf.server';
+
+const credentialsSchema = z.object({ password: z.string(), username: z.string() });
 
 async function extractCredentials(request: Request): Promise<{
   password: string | null;
@@ -16,15 +17,17 @@ async function extractCredentials(request: Request): Promise<{
   const contentType = request.headers.get('Content-Type') || '';
 
   if (contentType.includes('application/json')) {
-    const body = await request.json() as {
-      password?: string;
-      username?: string;
-    };
-
-    return {
-      password: body.password ?? null,
-      username: body.username?.trim() || null,
-    };
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return { password: null, username: null };
+    }
+    const parsed = credentialsSchema.safeParse(body);
+    if (!parsed.success) {
+      return { password: null, username: null };
+    }
+    return { password: parsed.data.password, username: parsed.data.username.trim() || null };
   }
 
   const formData = await request.formData();
@@ -54,10 +57,12 @@ function createLoginResponseHeaders(request: Request, additionalCookies: string[
 
 export async function action({ request }: ActionFunctionArgs): Promise<Response> {
   if (request.method !== 'POST') {
-    return Response.json(
-      { success: false, error: 'Method not allowed' },
-      { status: 405 },
-    );
+    return Response.json({ success: false, error: 'Method not allowed' }, { status: 405 });
+  }
+
+  const csrfResponse = rejectCrossOriginMutation(request);
+  if (csrfResponse) {
+    return csrfResponse;
   }
 
   try {
@@ -118,8 +123,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
         ]),
       },
     );
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Login error:', error);
 
     return Response.json(

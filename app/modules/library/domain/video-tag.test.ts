@@ -1,48 +1,79 @@
 import { describe, expect, test } from 'vitest';
 import {
+  MAX_VIDEO_TAGS,
+  MAX_VIDEO_TAG_LENGTH,
   formatVideoTagLabel,
   normalizeVideoTag,
   normalizeVideoTags,
+  videoTagsSchema,
 } from './video-tag';
 
-describe('video tag helpers', () => {
-  test('normalizes tags into canonical storage values', () => {
-    expect(normalizeVideoTag('magic')).toBe('magic');
-    expect(normalizeVideoTag('Good Boy-comedy')).toBe('good_boy-comedy');
-    expect(normalizeVideoTag('  Mixed   Case 123  ')).toBe('mixed_case_123');
+describe('Unicode text tag policy', () => {
+  test('preserves Korean, punctuation, symbols, spaces, and existing ASCII underscores', () => {
+    expect(
+      normalizeVideoTags([
+        ' 가족 여행 ',
+        'C++',
+        'Good/Boy!',
+        '_good__boy_',
+        'good - boy',
+        '!!!',
+        '👨‍👩‍👧‍👦',
+      ]),
+    ).toEqual(['가족 여행', 'c++', 'good/boy!', '_good__boy_', 'good - boy', '!!!', '👨‍👩‍👧‍👦']);
+    expect(formatVideoTagLabel('good_boy-comedy')).toBe('good_boy-comedy');
+    expect(formatVideoTagLabel('가족 여행 C++')).toBe('가족 여행 C++');
   });
-
-  test('removes unsupported characters and drops empty normalized tags', () => {
-    expect(normalizeVideoTag('Good/Boy!')).toBe('goodboy');
-    expect(normalizeVideoTag('!!!')).toBeNull();
+  test('deduplicates NFC-equivalent and case-equivalent labels without conflating punctuation or underscores with spaces', () => {
+    expect(
+      normalizeVideoTags([
+        ' Café ',
+        'CAFE\u0301',
+        '가족',
+        '가족'.normalize('NFD'),
+        '  Good   Boy  ',
+        'good boy',
+        'good_boy',
+        'C++',
+        'c',
+      ]),
+    ).toEqual(['café', '가족', 'good boy', 'good_boy', 'c++', 'c']);
   });
-
-  test('normalizes underscore separators only when surrounded by letters or numbers', () => {
-    expect(normalizeVideoTag('_good_')).toBe('good');
-    expect(normalizeVideoTag('good__boy')).toBe('good_boy');
-    expect(normalizeVideoTag('good - boy')).toBe('good-boy');
+  test.each([
+    '',
+    '  ',
+    'hello\u0000world',
+    'line\nbreak',
+    '\tlabel',
+    '\u007f',
+    '\u0085',
+    '\u2028',
+    '\u2029',
+    '\ud800',
+    '\udfff',
+    '가'.repeat(MAX_VIDEO_TAG_LENGTH + 1),
+  ])('rejects invalid tag %j rather than stripping or truncating it', (tag) => {
+    expect(normalizeVideoTag(tag)).toBeNull();
+    expect(() => normalizeVideoTags(['valid', tag])).toThrow();
   });
-
-  test('drops separator-only tags because they render as blank or meaningless labels', () => {
-    expect(normalizeVideoTag('_')).toBeNull();
-    expect(normalizeVideoTag('__')).toBeNull();
-    expect(normalizeVideoTag('___')).toBeNull();
-    expect(normalizeVideoTag('--')).toBeNull();
-    expect(normalizeVideoTag('----')).toBeNull();
-    expect(normalizeVideoTags(['valid', '___', '----', 'also_valid'])).toEqual(['valid', 'also_valid']);
+  test('counts normalized Unicode code points rather than UTF-16 units', () => {
+    expect(normalizeVideoTag('😀'.repeat(MAX_VIDEO_TAG_LENGTH))).toBe(
+      '😀'.repeat(MAX_VIDEO_TAG_LENGTH),
+    );
+    expect(normalizeVideoTag('😀'.repeat(MAX_VIDEO_TAG_LENGTH + 1))).toBeNull();
+    expect(normalizeVideoTag('é'.normalize('NFD').repeat(MAX_VIDEO_TAG_LENGTH))).toBe(
+      'é'.repeat(MAX_VIDEO_TAG_LENGTH),
+    );
   });
-
-  test('deduplicates tags by canonical value while preserving first-seen order', () => {
-    expect(normalizeVideoTags([
-      'Magic',
-      'magic',
-      'Good Boy-comedy',
-      'good_boy-comedy',
-      '  ',
-    ])).toEqual(['magic', 'good_boy-comedy']);
+  test('limits unique labels and permits duplicate input at the limit', () => {
+    const tags = Array.from({ length: MAX_VIDEO_TAGS }, (_, index) => `태그 ${index}`);
+    expect(normalizeVideoTags([...tags, tags[0]])).toEqual(tags);
+    expect(() => normalizeVideoTags([...tags, 'extra'])).toThrow('Use at most 100 tags.');
   });
-
-  test('derives display labels from canonical values without changing hyphens', () => {
-    expect(formatVideoTagLabel('good_boy-comedy')).toBe('good boy-comedy');
-  });
+  test.each([null, 'label', [42], ['valid', null]].map((tags) => ({ tags })))(
+    'rejects malformed raw input %j',
+    ({ tags }) => {
+      expect(videoTagsSchema.safeParse(tags).success).toBe(false);
+    },
+  );
 });

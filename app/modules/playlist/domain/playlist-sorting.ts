@@ -1,6 +1,6 @@
 import type { Playlist } from './playlist';
 
-export type PlaylistSortField = 'name' | 'createdAt' | 'updatedAt' | 'videoCount' | 'popularity';
+export type PlaylistSortField = 'name' | 'createdAt' | 'updatedAt' | 'videoCount';
 export type PlaylistSortOrder = 'asc' | 'desc';
 
 export function sortPlaylists(
@@ -24,13 +24,10 @@ export function sortPlaylists(
         comparison = left.updatedAt.getTime() - right.updatedAt.getTime();
         break;
       case 'videoCount':
-      case 'popularity':
         comparison = left.videoIds.length - right.videoIds.length;
         break;
     }
 
-    return options.sortOrder === 'desc'
-      ? -comparison
-      : comparison;
+    return options.sortOrder === 'desc' ? -comparison : comparison;
   });
 }

@@ -1,35 +1,40 @@
 import { describe, expect, test } from 'vitest';
 import {
-  type MediaToolCommandRunner,
   DEFAULT_MEDIA_TOOL_PROBE_TIMEOUT_MS,
+  type MediaToolCommandRunner,
   probeMediaTools,
 } from './media-tool-runtime-probes.server';
 
 describe('media tool runtime probes', () => {
   test('accepts ffmpeg, ffprobe, and packager when all version commands succeed', async () => {
     const calls: Array<{ args: string[]; command: string }> = [];
+
     const runner: MediaToolCommandRunner = async (command, args) => {
       calls.push({ args, command });
       return { exitCode: 0, stderr: '', stdout: 'version' };
     };
 
-    await expect(probeMediaTools({
-      paths: {
-        ffmpeg: '/tools/ffmpeg',
-        ffprobe: '/tools/ffprobe',
-        packager: '/tools/packager',
-      },
-      runner,
-    })).resolves.toEqual([
+    await expect(
+      probeMediaTools({
+        paths: {
+          ffmpeg: '/tools/ffmpeg',
+          ffprobe: '/tools/ffprobe',
+          packager: '/tools/packager',
+        },
+        runner,
+      }),
+    ).resolves.toEqual([
       { ok: true, tool: 'ffmpeg' },
       { ok: true, tool: 'ffprobe' },
       { ok: true, tool: 'packager' },
     ]);
-    expect(calls).toEqual(expect.arrayContaining([
-      { args: ['-version'], command: '/tools/ffmpeg' },
-      { args: ['-version'], command: '/tools/ffprobe' },
-      { args: ['--version'], command: '/tools/packager' },
-    ]));
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { args: ['-version'], command: '/tools/ffmpeg' },
+        { args: ['-version'], command: '/tools/ffprobe' },
+        { args: ['--version'], command: '/tools/packager' },
+      ]),
+    );
   });
 
   test('maps command runner errors to the failing tool name', async () => {
@@ -41,62 +46,71 @@ describe('media tool runtime probes', () => {
       return { exitCode: 0, stderr: '', stdout: 'version' };
     };
 
-    await expect(probeMediaTools({
-      paths: {
-        ffmpeg: '/tools/ffmpeg',
-        ffprobe: '/missing/ffprobe',
-        packager: '/tools/packager',
-      },
-      runner,
-    })).resolves.toEqual(expect.arrayContaining([
-      { ok: false, reason: 'ENOENT', tool: 'ffprobe' },
-    ]));
+    await expect(
+      probeMediaTools({
+        paths: {
+          ffmpeg: '/tools/ffmpeg',
+          ffprobe: '/missing/ffprobe',
+          packager: '/tools/packager',
+        },
+        runner,
+      }),
+    ).resolves.toEqual(expect.arrayContaining([{ ok: false, reason: 'ENOENT', tool: 'ffprobe' }]));
   });
 
   test('resolves media tool paths from the injected env when explicit paths are not provided', async () => {
     const calls: Array<{ args: string[]; command: string }> = [];
+
     const runner: MediaToolCommandRunner = async (command, args) => {
       calls.push({ args, command });
       return { exitCode: 0, stderr: '', stdout: 'version' };
     };
 
-    await expect(probeMediaTools({
-      env: {
-        FFMPEG_PATH: '/env/bin/ffmpeg',
-        FFPROBE_PATH: '/env/bin/ffprobe',
-        SHAKA_PACKAGER_PATH: '/env/bin/packager',
-      },
-      runner,
-    })).resolves.toEqual([
+    await expect(
+      probeMediaTools({
+        env: {
+          FFMPEG_PATH: '/env/bin/ffmpeg',
+          FFPROBE_PATH: '/env/bin/ffprobe',
+          SHAKA_PACKAGER_PATH: '/env/bin/packager',
+        },
+        runner,
+      }),
+    ).resolves.toEqual([
       { ok: true, tool: 'ffmpeg' },
       { ok: true, tool: 'ffprobe' },
       { ok: true, tool: 'packager' },
     ]);
 
-    expect(calls).toEqual(expect.arrayContaining([
-      { args: ['-version'], command: '/env/bin/ffmpeg' },
-      { args: ['-version'], command: '/env/bin/ffprobe' },
-      { args: ['--version'], command: '/env/bin/packager' },
-    ]));
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { args: ['-version'], command: '/env/bin/ffmpeg' },
+        { args: ['-version'], command: '/env/bin/ffprobe' },
+        { args: ['--version'], command: '/env/bin/packager' },
+      ]),
+    );
   });
 
   test('maps non-zero version commands to the failing tool name', async () => {
-    const runner: MediaToolCommandRunner = async command => ({
+    const runner: MediaToolCommandRunner = async (command) => ({
       exitCode: command.endsWith('packager') ? 127 : 0,
       stderr: command.endsWith('packager') ? 'cannot execute' : '',
       stdout: 'version',
     });
 
-    await expect(probeMediaTools({
-      paths: {
-        ffmpeg: '/tools/ffmpeg',
-        ffprobe: '/tools/ffprobe',
-        packager: '/tools/packager',
-      },
-      runner,
-    })).resolves.toEqual(expect.arrayContaining([
-      { ok: false, reason: 'version command exited with 127', tool: 'packager' },
-    ]));
+    await expect(
+      probeMediaTools({
+        paths: {
+          ffmpeg: '/tools/ffmpeg',
+          ffprobe: '/tools/ffprobe',
+          packager: '/tools/packager',
+        },
+        runner,
+      }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        { ok: false, reason: 'version command exited with 127', tool: 'packager' },
+      ]),
+    );
   });
 
   test('maps timeouts to the failing tool name', async () => {
@@ -108,17 +122,19 @@ describe('media tool runtime probes', () => {
       return { exitCode: 0, stderr: '', stdout: 'version' };
     };
 
-    await expect(probeMediaTools({
-      paths: {
-        ffmpeg: '/tools/ffmpeg',
-        ffprobe: '/tools/ffprobe',
-        packager: '/tools/packager',
-      },
-      runner,
-      timeoutMs: 5,
-    })).resolves.toEqual(expect.arrayContaining([
-      { ok: false, reason: `timed out after 5ms`, tool: 'ffmpeg' },
-    ]));
+    await expect(
+      probeMediaTools({
+        paths: {
+          ffmpeg: '/tools/ffmpeg',
+          ffprobe: '/tools/ffprobe',
+          packager: '/tools/packager',
+        },
+        runner,
+        timeoutMs: 5,
+      }),
+    ).resolves.toEqual(
+      expect.arrayContaining([{ ok: false, reason: `timed out after 5ms`, tool: 'ffmpeg' }]),
+    );
   });
 
   test('uses the documented default per-tool timeout', () => {

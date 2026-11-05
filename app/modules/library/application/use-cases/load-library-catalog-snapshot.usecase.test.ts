@@ -42,7 +42,7 @@ describe('LoadLibraryCatalogSnapshotUseCase', () => {
 
     const result = await useCase.execute({
       rawQuery: '  Action  ',
-      rawIncludeTags: ['Action', '', 'Drama'],
+      rawIncludeTags: ['Action', 'Drama'],
       viewer: {
         type: 'authenticated',
         userId: 'owner-1',
@@ -71,12 +71,8 @@ describe('LoadLibraryCatalogSnapshotUseCase', () => {
           normalizedQuery: 'action',
         },
         vocabulary: {
-          contentTypes: [
-            { active: true, label: 'Movie', slug: 'movie', sortOrder: 10 },
-          ],
-          genres: [
-            { active: true, label: 'Drama', slug: 'drama', sortOrder: 20 },
-          ],
+          contentTypes: [{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }],
+          genres: [{ active: true, label: 'Drama', slug: 'drama', sortOrder: 20 }],
         },
       },
     });
@@ -93,6 +89,21 @@ describe('LoadLibraryCatalogSnapshotUseCase', () => {
     expect(result.data.videos[0]?.createdAt).toBeInstanceOf(Date);
   });
 
+  test('rejects invalid filters explicitly before reading data instead of reporting a source outage', async () => {
+    const listLibraryVideos = vi.fn();
+    const useCase = new LoadLibraryCatalogSnapshotUseCase({
+      videoSource: {
+        listLibraryVideos,
+        listActiveContentTypes: vi.fn(),
+        listActiveGenres: vi.fn(),
+      },
+    });
+    await expect(
+      useCase.execute({ rawIncludeTags: ['bad\u0000tag'], viewer: { type: 'anonymous' } }),
+    ).rejects.toThrow('Tags cannot contain');
+    expect(listLibraryVideos).not.toHaveBeenCalled();
+  });
+
   test('returns an explicit unavailable result when the source port cannot provide catalog data', async () => {
     const useCase = new LoadLibraryCatalogSnapshotUseCase({
       videoSource: {
@@ -104,13 +115,15 @@ describe('LoadLibraryCatalogSnapshotUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      rawQuery: 'Anything',
-      rawIncludeTags: [],
-      viewer: {
-        type: 'anonymous',
-      },
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        rawQuery: 'Anything',
+        rawIncludeTags: [],
+        viewer: {
+          type: 'anonymous',
+        },
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'CATALOG_SOURCE_UNAVAILABLE',
     });

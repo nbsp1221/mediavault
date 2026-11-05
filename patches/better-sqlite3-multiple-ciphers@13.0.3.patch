@@ -1,0 +1,16 @@
+diff --git a/package.json b/package.json
+index 52eea5f2de8d9a0c6644e87009b4db1bebe173a1..cbc60a8002f5e420c30002a856f003c467a52a06 100644
+--- a/package.json
++++ b/package.json
+@@ -10,7 +10,10 @@
+   },
+   "main": "lib/index.js",
+   "exports": {
+-    ".": "./lib/index.js",
++    ".": {
++      "types": "./index.d.ts",
++      "default": "./lib/index.js"
++    },
+     "./linux-x64": "./lib/linux-x64.js",
+     "./linux-arm64": "./lib/linux-arm64.js",
+     "./linuxmusl-x64": "./lib/linuxmusl-x64.js",

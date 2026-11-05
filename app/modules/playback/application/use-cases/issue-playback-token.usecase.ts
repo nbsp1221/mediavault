@@ -1,9 +1,11 @@
 import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
+import type { PlaybackSessionValidator } from '../ports/playback-session-validator.port';
 import type { PlaybackTokenService } from '../ports/playback-token-service.port';
 import { assertValidPlaybackVideoId } from '../../domain/playback-video-id';
 
 interface IssuePlaybackTokenUseCaseDependencies {
+  sessionValidator: PlaybackSessionValidator;
   tokenService: PlaybackTokenService;
   videoRead: LibraryVideoReadPort;
 }
@@ -12,30 +14,38 @@ interface IssuePlaybackTokenUseCaseInput {
   ipAddress?: string;
   userAgent?: string;
   videoId: string;
-  viewer:
-    | { type: 'anonymous' }
-    | { type: 'authenticated'; userId: string };
+  viewer: { type: 'anonymous' } | { sessionId: string; type: 'authenticated'; userId: string };
 }
 
 type IssuePlaybackTokenUseCaseResult =
   | {
-    success: true;
-    token: string;
-    urls: {
-      clearkey: string;
-      manifest: string;
-    };
-  }
+      success: true;
+      token: string;
+      urls: {
+        clearkey: string;
+        manifest: string;
+      };
+    }
   | {
-    reason: 'VIDEO_NOT_FOUND';
-    success: false;
-  };
+      reason: 'VIDEO_NOT_FOUND' | 'PLAYBACK_SESSION_REQUIRED';
+      success: false;
+    };
 
 export class IssuePlaybackTokenUseCase {
   constructor(private readonly deps: IssuePlaybackTokenUseCaseDependencies) {}
 
   async execute(input: IssuePlaybackTokenUseCaseInput): Promise<IssuePlaybackTokenUseCaseResult> {
     assertValidPlaybackVideoId(input.videoId);
+    if (
+      input.viewer.type === 'authenticated' &&
+      (!input.viewer.sessionId ||
+        !(await this.deps.sessionValidator.isSessionActive({
+          sessionId: input.viewer.sessionId,
+          userId: input.viewer.userId,
+        })))
+    ) {
+      return { success: false, reason: 'PLAYBACK_SESSION_REQUIRED' };
+    }
 
     const video = await this.deps.videoRead.findLibraryVideoById(
       input.videoId,
@@ -49,22 +59,24 @@ export class IssuePlaybackTokenUseCase {
       };
     }
 
-    const token = input.viewer.type === 'anonymous'
-      ? await this.deps.tokenService.issue({
-          ipAddress: input.ipAddress,
-          readScope: 'public_only',
-          userAgent: input.userAgent,
-          videoId: input.videoId,
-          viewerType: 'anonymous',
-        })
-      : await this.deps.tokenService.issue({
-          ipAddress: input.ipAddress,
-          readScope: 'public_or_owned',
-          subjectUserId: input.viewer.userId,
-          userAgent: input.userAgent,
-          videoId: input.videoId,
-          viewerType: 'authenticated',
-        });
+    const token =
+      input.viewer.type === 'anonymous'
+        ? await this.deps.tokenService.issue({
+            ipAddress: input.ipAddress,
+            readScope: 'public_only',
+            userAgent: input.userAgent,
+            videoId: input.videoId,
+            viewerType: 'anonymous',
+          })
+        : await this.deps.tokenService.issue({
+            ipAddress: input.ipAddress,
+            readScope: 'public_or_owned',
+            sessionId: input.viewer.sessionId,
+            subjectUserId: input.viewer.userId,
+            userAgent: input.userAgent,
+            videoId: input.videoId,
+            viewerType: 'authenticated',
+          });
 
     return {
       success: true,

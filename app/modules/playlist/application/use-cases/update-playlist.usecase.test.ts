@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { Playlist } from '../../domain/playlist';
+import type { UpdatePlaylistPortInput } from '../ports/playlist-repository.port';
 import { UpdatePlaylistUseCase } from './update-playlist.usecase';
 
 function createPlaylist(overrides: Partial<Playlist> = {}): Playlist {
@@ -33,13 +34,15 @@ describe('UpdatePlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      description: 'Original description',
-      isPublic: false,
-      name: 'Vault',
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        description: 'Original description',
+        isPublic: false,
+        name: 'Vault',
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+      }),
+    ).resolves.toEqual({
       ok: true,
       data: {
         fieldsUpdated: [],
@@ -63,11 +66,13 @@ describe('UpdatePlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      name: '  Vault  ',
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        name: '  Vault  ',
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+      }),
+    ).resolves.toEqual({
       ok: true,
       data: {
         fieldsUpdated: [],
@@ -83,7 +88,7 @@ describe('UpdatePlaylistUseCase', () => {
   test('updates changed fields, merges metadata, and reports the changed field list', async () => {
     const playlist = createPlaylist();
     const nameExistsForOwner = vi.fn(async () => false);
-    const update = vi.fn(async (_id, updates) => ({
+    const update = vi.fn(async (_id: string, updates: UpdatePlaylistPortInput) => ({
       ...playlist,
       ...updates,
       metadata: updates.metadata,
@@ -99,21 +104,23 @@ describe('UpdatePlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      description: '  Updated description  ',
-      isPublic: true,
-      metadata: {
-        year: 2026,
-      },
-      name: '  Updated Vault  ',
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        description: '  Updated description  ',
+        isPublic: true,
+        metadata: {
+          year: 2026,
+        },
+        name: '  Updated Vault  ',
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       data: {
         fieldsUpdated: ['name', 'description', 'isPublic', 'metadata'],
         message: 'Playlist "Updated Vault" updated successfully',
-        playlist: expect.objectContaining({
+        playlist: {
           description: 'Updated description',
           isPublic: true,
           metadata: {
@@ -122,7 +129,7 @@ describe('UpdatePlaylistUseCase', () => {
             year: 2026,
           },
           name: 'Updated Vault',
-        }),
+        },
       },
     });
 

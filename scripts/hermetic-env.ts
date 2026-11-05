@@ -28,8 +28,7 @@ export function applyHermeticTestEnv(
   for (const [key, value] of Object.entries(hermeticEnv)) {
     if (value === undefined) {
       delete env[key];
-    }
-    else {
+    } else {
       env[key] = value;
     }
   }

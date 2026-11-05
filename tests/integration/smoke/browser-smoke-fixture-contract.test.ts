@@ -17,21 +17,31 @@ describe('browser smoke fixture contract', () => {
 
     const manifestSource = await readFile('tests/support/playback-fixture-manifest.ts', 'utf8');
     expect(manifestSource).toContain('tests/fixtures/playback');
-    expect(manifestSource).not.toContain('process.cwd(), \'storage\'');
+    expect(manifestSource).not.toContain("process.cwd(), 'storage'");
 
     for (const fixtureId of REQUIRED_PLAYBACK_FIXTURE_IDS) {
-      await expect(access(`tests/fixtures/playback/${fixtureId}/manifest.mpd`)).resolves.toBeUndefined();
-      await expect(access(`tests/fixtures/playback/${fixtureId}/video/init.mp4`)).resolves.toBeUndefined();
-      await expect(access(`tests/fixtures/playback/${fixtureId}/audio/init.mp4`)).resolves.toBeUndefined();
+      await expect(
+        access(`tests/fixtures/playback/${fixtureId}/manifest.mpd`),
+      ).resolves.toBeUndefined();
+      await expect(
+        access(`tests/fixtures/playback/${fixtureId}/video/init.mp4`),
+      ).resolves.toBeUndefined();
+      await expect(
+        access(`tests/fixtures/playback/${fixtureId}/audio/init.mp4`),
+      ).resolves.toBeUndefined();
       await expect(access(`tests/fixtures/playback/${fixtureId}/key.bin`)).resolves.toBeUndefined();
-      await expect(access(`tests/fixtures/playback/${fixtureId}/thumbnail.jpg`)).resolves.toBeUndefined();
+      await expect(
+        access(`tests/fixtures/playback/${fixtureId}/thumbnail.jpg`),
+      ).resolves.toBeUndefined();
     }
   });
 
   test('stores required playback fixture thumbnails as decryptable MVTH JPEG envelopes', async () => {
     for (const fixtureId of REQUIRED_PLAYBACK_FIXTURE_IDS) {
       const key = await readFile(`tests/fixtures/playback/${fixtureId}/key.bin`);
-      const encryptedThumbnail = await readFile(`tests/fixtures/playback/${fixtureId}/thumbnail.jpg`);
+      const encryptedThumbnail = await readFile(
+        `tests/fixtures/playback/${fixtureId}/thumbnail.jpg`,
+      );
       const plaintextThumbnail = decryptThumbnailEnvelope({
         encryptedBuffer: encryptedThumbnail,
         key,

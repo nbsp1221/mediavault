@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
-import type { MediaKeyDerivationConfig } from '~/shared/config/app-config.server';
-import type { RuntimeEnvInput } from '~/shared/config/app-config.server';
-import { getMediaKeyDerivationConfig } from '~/shared/config/app-config.server';
+import {
+  type MediaKeyDerivationConfig,
+  type RuntimeEnvInput,
+  getMediaKeyDerivationConfig,
+} from '~/shared/config/app-config.server';
 
 export function derivePlaybackEncryptionKey(input: {
   config?: MediaKeyDerivationConfig;
@@ -9,7 +11,8 @@ export function derivePlaybackEncryptionKey(input: {
   videoId: string;
 }): Buffer {
   const config = input.config ?? getMediaKeyDerivationConfig(input.env);
-  const salt = crypto.createHash('sha256')
+  const salt = crypto
+    .createHash('sha256')
     .update(config.saltPrefix + input.videoId)
     .digest();
 

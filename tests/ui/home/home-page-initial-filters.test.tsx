@@ -3,7 +3,6 @@ import { hydrateRoot } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
 import { HomePage } from '../../../app/pages/home/ui/HomePage';
 

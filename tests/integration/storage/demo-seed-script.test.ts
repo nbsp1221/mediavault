@@ -1,102 +1,87 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, test } from 'vitest';
-import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { z } from 'zod';
+import { createInitializedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { PUBLIC_ENV_KEYS } from '../../../app/shared/config/public-env.server';
 import { seedDemoStorage } from '../../../scripts/seed-demo-storage';
 import { verifyPrimaryStorageIntegrity } from '../../../scripts/verify-data-integrity';
-import { createRuntimeTestEnv, RUNTIME_TEST_SECRETS } from '../../support/runtime-test-env';
+import { seedRuntimeAuthUser } from '../../support/auth-account';
+import { RUNTIME_TEST_SECRETS, createRuntimeTestEnv } from '../../support/runtime-test-env';
 
-const REPO_ROOT = process.cwd();
-const DEMO_SEED_SCRIPT = './scripts/seed-demo-storage.ts';
-const ORIGINAL_DATABASE_ENCRYPTION_KEY = process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
-const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
-const ORIGINAL_MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
-
-let workspace: string | null = null;
+const workspaces: string[] = [];
 
 async function createWorkspace() {
-  workspace = await mkdtemp(path.join(tmpdir(), 'local-streamer-demo-seed-test-'));
-  return workspace;
+  const root = await mkdtemp(path.join(tmpdir(), 'mediavault-demo-seed-'));
+  workspaces.push(root);
+  return {
+    root,
+    storageDir: path.join(root, 'storage'),
+    databasePath: path.join(root, 'storage/db.sqlite'),
+  };
 }
 
-function runSeedScript(args: string[], env: Record<string, string | undefined> = {}) {
-  return spawnSync('bun', ['--no-env-file', DEMO_SEED_SCRIPT, ...args], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      MEDIAVAULT_DISABLE_VITE_ENV_FILES: 'true',
-      ...env,
+function runSeedScript(
+  args: string[],
+  storageDir: string,
+  overrides: Record<string, string | undefined> = {},
+) {
+  return spawnSync(
+    process.execPath,
+    ['--import', import.meta.resolve('tsx'), './scripts/seed-demo-storage.ts', ...args],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { ...createRuntimeTestEnv({ [PUBLIC_ENV_KEYS.storageDir]: storageDir }), ...overrides },
     },
-  });
+  );
+}
+
+function useWorkspace(storageDir: string): void {
+  vi.stubEnv(PUBLIC_ENV_KEYS.storageDir, storageDir);
+  vi.stubEnv(PUBLIC_ENV_KEYS.databaseEncryptionKey, RUNTIME_TEST_SECRETS.databaseEncryptionKey);
+  vi.stubEnv(
+    PUBLIC_ENV_KEYS.mediaKeyDerivationSecret,
+    RUNTIME_TEST_SECRETS.mediaKeyDerivationSecret,
+  );
 }
 
 afterEach(async () => {
-  if (workspace) {
-    await rm(workspace, { force: true, recursive: true });
-    workspace = null;
-  }
-
-  if (ORIGINAL_DATABASE_ENCRYPTION_KEY === undefined) {
-    delete process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
-  }
-  else {
-    process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = ORIGINAL_DATABASE_ENCRYPTION_KEY;
-  }
-
-  if (ORIGINAL_STORAGE_DIR === undefined) {
-    delete process.env.MEDIAVAULT_STORAGE_DIR;
-  }
-  else {
-    process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
-  }
-
-  if (ORIGINAL_MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET === undefined) {
-    delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
-  }
-  else {
-    process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = ORIGINAL_MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
-  }
+  vi.unstubAllEnvs();
+  await Promise.all(workspaces.splice(0).map((root) => rm(root, { force: true, recursive: true })));
 });
 
 describe('demo storage seed script', () => {
-  test('dry-run reports the generated demo plan without creating runtime storage', async () => {
-    const rootDir = await createWorkspace();
-    const storageDir = path.join(rootDir, 'storage');
-    const databasePath = path.join(storageDir, 'db.sqlite');
-
-    const result = runSeedScript(['--dry-run'], {
-      ...createRuntimeTestEnv({
-        [PUBLIC_ENV_KEYS.storageDir]: storageDir,
-      }),
-    });
-
+  test('dry-run reports the generated plan without creating runtime storage', async () => {
+    const workspace = await createWorkspace();
+    const result = runSeedScript(['--dry-run'], workspace.storageDir);
     expect(result.status, result.stderr).toBe(0);
     expect(result.stderr).toBe('');
-
-    const report = JSON.parse(result.stdout) as {
-      dryRun: boolean;
-      existingDemoVideos: number;
-      plannedVideo: {
-        contentTypeSlug: string;
-        genreSlugs: string[];
-        source: string;
-        tags: string[];
-        title: string;
-      };
-      primary: {
-        databasePath: string;
-        storageDir: string;
-        videosDir: string;
-      };
-    };
-
+    const report = z
+      .object({
+        dryRun: z.boolean(),
+        existingDemoJobs: z.number(),
+        existingDemoVideos: z.number(),
+        plannedVideo: z.object({
+          contentTypeSlug: z.string(),
+          genreSlugs: z.array(z.string()),
+          source: z.string(),
+          tags: z.array(z.string()),
+          title: z.string(),
+        }),
+        primary: z.object({
+          databasePath: z.string(),
+          storageDir: z.string(),
+          videosDir: z.string(),
+        }),
+      })
+      .parse(JSON.parse(result.stdout));
     expect(report).toMatchObject({
       dryRun: true,
+      existingDemoJobs: 0,
       existingDemoVideos: 0,
       plannedVideo: {
         contentTypeSlug: 'clip',
@@ -105,240 +90,84 @@ describe('demo storage seed script', () => {
         tags: ['demo', 'seed'],
         title: 'Demo Seed Video',
       },
-      primary: {
-        databasePath,
-        storageDir,
-        videosDir: path.join(storageDir, 'videos'),
-      },
+      primary: { databasePath: workspace.databasePath, storageDir: workspace.storageDir },
     });
-    expect(existsSync(databasePath)).toBe(false);
-    expect(existsSync(path.join(storageDir, 'videos'))).toBe(false);
+    expect(existsSync(workspace.storageDir)).toBe(false);
   });
 
-  test('actual seed fails before media work when the encryption seed is missing', async () => {
-    const rootDir = await createWorkspace();
-    const storageDir = path.join(rootDir, 'storage');
-
-    const result = runSeedScript([], {
-      ...createRuntimeTestEnv({
-        [PUBLIC_ENV_KEYS.storageDir]: storageDir,
-      }),
+  test('requires the configured media secret before generating or staging a source', async () => {
+    const workspace = await createWorkspace();
+    const result = runSeedScript([], workspace.storageDir, {
       [PUBLIC_ENV_KEYS.mediaKeyDerivationSecret]: undefined,
     });
-
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET is required');
-    expect(existsSync(storageDir)).toBe(false);
+    expect(existsSync(workspace.storageDir)).toBe(false);
   });
 
-  test('seeds primary storage records and media assets once through the ingest contract', async () => {
-    const rootDir = await createWorkspace();
-    const storageDir = path.join(rootDir, 'storage');
-    const databasePath = path.join(storageDir, 'db.sqlite');
-    const videoId = 'demo-seed-video-id';
-    const stagedId = 'demo-seed-staging-id';
-    const now = '2026-04-28T00:00:00.000Z';
-    let commitCalls = 0;
-    let generatedSources = 0;
-    let startCalls = 0;
-
-    process.env[PUBLIC_ENV_KEYS.databaseEncryptionKey] = RUNTIME_TEST_SECRETS.databaseEncryptionKey;
-    process.env[PUBLIC_ENV_KEYS.storageDir] = storageDir;
-    process.env[PUBLIC_ENV_KEYS.mediaKeyDerivationSecret] = RUNTIME_TEST_SECRETS.mediaKeyDerivationSecret;
-    const ownerDatabase = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
-    await ownerDatabase.prepare(`
-      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      'owner-1',
-      'Owner',
-      'owner',
-      'test-password-hash',
-      'user',
-      now,
+  test('requires an existing account instead of inventing an implicit owner', async () => {
+    const workspace = await createWorkspace();
+    useWorkspace(workspace.storageDir);
+    await createInitializedPrimarySqliteDatabase({ dbPath: workspace.databasePath });
+    const generateDemoSource = vi.fn<() => Promise<string>>();
+    await expect(seedDemoStorage({}, { generateDemoSource })).rejects.toThrow(
+      'before creating a user account',
     );
+    expect(generateDemoSource).not.toHaveBeenCalled();
+  });
 
-    const report = await seedDemoStorage({}, {
-      async generateDemoSource(root) {
-        generatedSources += 1;
-        const sourcePath = path.join(root, 'source.mp4');
-        await writeFile(sourcePath, 'demo source');
-        return sourcePath;
+  test('queues a real owned stage once without publishing media or starting another worker', async () => {
+    const workspace = await createWorkspace();
+    useWorkspace(workspace.storageDir);
+    await mkdir(path.join(workspace.storageDir, 'videos'), { recursive: true });
+    await seedRuntimeAuthUser(workspace.databasePath);
+    const generateDemoSource = vi.fn(async (root: string) => {
+      const source = path.join(root, 'demo-seed.mp4');
+      await copyFile('tests/fixtures/upload/smoke-upload.mp4', source);
+      return source;
+    });
+    const report = await seedDemoStorage({}, { generateDemoSource });
+    expect(report.ownerId).toBe('seeded-owner-1');
+    expect(report.queuedJobId).toMatch(/\S/);
+    expect(report.reservedVideoId).toMatch(/\S/);
+    expect(report.existingDemoJobs).toBe(0);
+    expect(generateDemoSource).toHaveBeenCalledOnce();
+    const database = await createInitializedPrimarySqliteDatabase({
+      dbPath: workspace.databasePath,
+    });
+    const job = await database
+      .prepare<{ id: string; owner_id: string; state: string; reserved_video_id: string }>(
+        'SELECT id, owner_id, state, reserved_video_id FROM ingest_jobs WHERE id = ?',
+      )
+      .get(report.queuedJobId ?? 'missing');
+    expect(job).toEqual({
+      id: report.queuedJobId,
+      owner_id: 'seeded-owner-1',
+      state: 'queued',
+      reserved_video_id: report.reservedVideoId,
+    });
+    expect(
+      await database.prepare<{ count: number }>('SELECT COUNT(*) AS count FROM videos').get(),
+    ).toEqual({ count: 0 });
+    expect(await verifyPrimaryStorageIntegrity()).toMatchObject({ ok: true, findings: [] });
+    const skipped = await seedDemoStorage({}, { generateDemoSource });
+    expect(skipped).toMatchObject({ existingDemoVideos: 0, existingDemoJobs: 1, skipped: true });
+    expect(generateDemoSource).toHaveBeenCalledOnce();
+  });
+
+  test('does not regenerate an already published demo', async () => {
+    const workspace = await createWorkspace();
+    useWorkspace(workspace.storageDir);
+    const generateDemoSource = vi.fn<() => Promise<string>>();
+    const report = await seedDemoStorage(
+      {},
+      {
+        countExistingDemoVideos: () => Promise.resolve(1),
+        countExistingDemoJobs: () => Promise.resolve(0),
+        generateDemoSource,
       },
-      createIngestServices() {
-        return {
-          startStagedUpload: {
-            async execute(command) {
-              startCalls += 1;
-              expect(command).toMatchObject({
-                filename: 'demo-seed.mp4',
-                mimeType: 'video/mp4',
-              });
-              expect(command.size).toBeGreaterThan(0);
-              expect(existsSync(command.tempFilePath)).toBe(true);
-
-              return {
-                ok: true,
-                data: {
-                  filename: command.filename,
-                  mimeType: command.mimeType,
-                  size: command.size,
-                  stagingId: stagedId,
-                },
-              };
-            },
-          },
-          commitStagedUploadToLibrary: {
-            async execute(command) {
-              commitCalls += 1;
-              expect(command).toEqual({
-                contentTypeSlug: 'clip',
-                description: 'Tiny generated demo video for local development.',
-                genreSlugs: ['animation'],
-                ownerId: 'owner-1',
-                stagingId: stagedId,
-                tags: ['demo', 'seed'],
-                title: 'Demo Seed Video',
-              });
-
-              const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
-              await database.transaction(async (transaction) => {
-                await transaction.prepare(`
-                  INSERT INTO videos (
-                    id,
-                    title,
-                    description,
-                    duration_seconds,
-                    content_type_slug,
-                    owner_id,
-                    visibility,
-                    created_at,
-                    updated_at,
-                    sort_index
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `).run(
-                  videoId,
-                  command.title,
-                  command.description ?? null,
-                  1,
-                  command.contentTypeSlug ?? null,
-                  command.ownerId,
-                  'private',
-                  now,
-                  now,
-                  1,
-                );
-                await transaction.prepare(`
-                  INSERT INTO tags (slug, label, created_at)
-                  VALUES (?, ?, ?), (?, ?, ?)
-                `).run('demo', 'demo', now, 'seed', 'seed', now);
-                await transaction.prepare(`
-                  INSERT INTO video_tags (video_id, tag_slug)
-                  VALUES (?, ?), (?, ?)
-                `).run(videoId, 'demo', videoId, 'seed');
-                await transaction.prepare(`
-                  INSERT INTO video_genre_assignments (video_id, genre_slug)
-                  VALUES (?, ?)
-                `).run(videoId, 'animation');
-                await transaction.prepare(`
-                  INSERT INTO video_media_assets (
-                    video_id,
-                    layout_version,
-                    status,
-                    preparation_strategy,
-                    manifest_relpath,
-                    key_relpath,
-                    thumbnail_relpath,
-                    video_init_relpath,
-                    video_segment_glob,
-                    audio_init_relpath,
-                    audio_segment_glob,
-                    prepared_at
-                  ) VALUES (?, 1, 'ready', 'demo-seed', ?, ?, ?, ?, ?, ?, ?, ?)
-                `).run(
-                  videoId,
-                  `${videoId}/manifest.mpd`,
-                  `${videoId}/key.bin`,
-                  `${videoId}/thumbnail.jpg`,
-                  `${videoId}/video/init.mp4`,
-                  `${videoId}/video/segment-*.m4s`,
-                  `${videoId}/audio/init.mp4`,
-                  `${videoId}/audio/segment-*.m4s`,
-                  now,
-                );
-              });
-
-              const videoDir = path.join(storageDir, 'videos', videoId);
-              await mkdir(path.join(videoDir, 'audio'), { recursive: true });
-              await mkdir(path.join(videoDir, 'video'), { recursive: true });
-              await writeFile(path.join(videoDir, 'manifest.mpd'), '<MPD />');
-              await writeFile(path.join(videoDir, 'key.bin'), 'key');
-              await writeFile(path.join(videoDir, 'thumbnail.jpg'), 'thumbnail');
-              await writeFile(path.join(videoDir, 'audio', 'init.mp4'), 'audio init');
-              await writeFile(path.join(videoDir, 'audio', 'segment-0001.m4s'), 'audio segment');
-              await writeFile(path.join(videoDir, 'video', 'init.mp4'), 'video init');
-              await writeFile(path.join(videoDir, 'video', 'segment-0001.m4s'), 'video segment');
-
-              return {
-                ok: true,
-                data: {
-                  dashEnabled: true,
-                  message: 'seeded',
-                  videoId,
-                },
-              };
-            },
-          },
-        };
-      },
-    });
-
-    expect(report).toMatchObject({
-      dryRun: false,
-      existingDemoVideos: 0,
-      ownerId: 'owner-1',
-      seededVideoId: videoId,
-    });
-    expect({ commitCalls, generatedSources, startCalls }).toEqual({
-      commitCalls: 1,
-      generatedSources: 1,
-      startCalls: 1,
-    });
-
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
-    await expect(database.prepare(`
-      SELECT title
-      FROM videos
-      WHERE id = ?
-    `).get(videoId)).resolves.toMatchObject({ title: 'Demo Seed Video' });
-    await expect(database.prepare(`
-      SELECT COUNT(*) AS count
-      FROM video_media_assets
-      WHERE video_id = ? AND status = 'ready'
-    `).get(videoId)).resolves.toMatchObject({ count: 1 });
-    expect(await verifyPrimaryStorageIntegrity()).toMatchObject({
-      ok: true,
-      findings: [],
-    });
-
-    const skipped = await seedDemoStorage({}, {
-      createIngestServices() {
-        throw new Error('idempotent seed must not build ingest services when demo data exists');
-      },
-      async generateDemoSource() {
-        throw new Error('idempotent seed must not generate a source when demo data exists');
-      },
-    });
-
-    expect(skipped).toMatchObject({
-      dryRun: false,
-      existingDemoVideos: 1,
-      skipped: true,
-    });
-    expect({ commitCalls, generatedSources, startCalls }).toEqual({
-      commitCalls: 1,
-      generatedSources: 1,
-      startCalls: 1,
-    });
+    );
+    expect(report).toMatchObject({ existingDemoVideos: 1, skipped: true });
+    expect(generateDemoSource).not.toHaveBeenCalled();
   });
 });

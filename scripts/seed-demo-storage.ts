@@ -3,8 +3,10 @@ import { mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createServerIngestServices } from '../app/composition/server/ingest';
+import { getServerIngestJobServices } from '../app/composition/server/ingest-jobs';
 import { SqliteLibraryVideoMetadataRepository } from '../app/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
-import { createMigratedPrimarySqliteDatabase } from '../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '../app/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
+import { createPrimarySqliteDatabase } from '../app/modules/storage/infrastructure/sqlite/primary-sqlite.database';
 import { getPrimaryStorageConfig } from '../app/shared/config/app-config.server';
 import { getFFmpegPath } from '../app/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '../app/shared/lib/server/ffmpeg-process-manager.server';
@@ -21,52 +23,40 @@ interface SeedDemoStorageOptions {
 }
 
 interface DemoSeedIngestServices {
-  commitStagedUploadToLibrary: {
-    execute: (command: {
-      contentTypeSlug?: string;
-      description?: string;
-      genreSlugs?: string[];
-      ownerId: string;
-      stagingId: string;
-      tags: string[];
-      title: string;
-    }) => Promise<{
-      data: {
-        videoId: string;
-      };
-      ok: true;
-    } | {
-      message: string;
-      ok: false;
-    }>;
-  };
   startStagedUpload: {
     execute: (command: {
+      ownerId: string;
       filename: string;
       mimeType: string;
       size: number;
       tempFilePath: string;
-    }) => Promise<{
-      data: {
-        stagingId: string;
-      };
-      ok: true;
-    } | {
-      message: string;
-      ok: false;
-    }>;
+    }) => Promise<
+      | {
+          data: {
+            stagingId: string;
+          };
+          ok: true;
+        }
+      | {
+          message: string;
+          ok: false;
+        }
+    >;
   };
 }
 
 interface SeedDemoStorageDependencies {
   countExistingDemoVideos?: () => Promise<number>;
+  countExistingDemoJobs?: () => Promise<number>;
   createIngestServices?: () => DemoSeedIngestServices;
+  enqueueJob?: typeof enqueueDemoJob;
   generateDemoSource?: (rootDir: string) => Promise<string>;
 }
 
 interface DemoSeedReport {
   dryRun: boolean;
   existingDemoVideos: number;
+  existingDemoJobs: number;
   plannedVideo: {
     contentTypeSlug: string;
     genreSlugs: string[];
@@ -80,7 +70,8 @@ interface DemoSeedReport {
     storageDir: string;
     videosDir: string;
   };
-  seededVideoId?: string;
+  queuedJobId?: string;
+  reservedVideoId?: string;
   skipped?: boolean;
 }
 
@@ -93,12 +84,14 @@ function parseArgs(argv: string[]): SeedDemoStorageOptions {
 function createBaseReport(input: {
   dryRun: boolean;
   existingDemoVideos: number;
+  existingDemoJobs: number;
 }): DemoSeedReport {
   const config = getPrimaryStorageConfig();
 
   return {
     dryRun: input.dryRun,
     existingDemoVideos: input.existingDemoVideos,
+    existingDemoJobs: input.existingDemoJobs,
     plannedVideo: {
       contentTypeSlug: DEMO_CONTENT_TYPE_SLUG,
       genreSlugs: DEMO_GENRE_SLUGS,
@@ -124,22 +117,54 @@ async function countExistingDemoVideos(): Promise<number> {
   const repository = new SqliteLibraryVideoMetadataRepository({
     dbPath: config.databasePath,
   });
-  const existingVideos = await repository.findByTag(DEMO_TAGS[0]!);
+  const existingVideos = await repository.findByTag(DEMO_TAGS[0]);
 
-  return existingVideos.filter(video => video.title === DEMO_TITLE).length;
+  return existingVideos.filter((video) => video.title === DEMO_TITLE).length;
+}
+
+async function countExistingDemoJobs(): Promise<number> {
+  const config = getPrimaryStorageConfig();
+  if (!existsSync(config.databasePath)) {
+    return 0;
+  }
+  const database = await createPrimarySqliteDatabase({ dbPath: config.databasePath });
+  const row = await database
+    .prepare<{ count: number }>(`
+    SELECT COUNT(*) AS count FROM ingest_jobs
+    WHERE state IN ('queued', 'running')
+      AND json_extract(metadata_json, '$.title') = ?
+      AND EXISTS (SELECT 1 FROM json_each(metadata_json, '$.tags') WHERE value = ?)
+  `)
+    .get(DEMO_TITLE, DEMO_TAGS[0]);
+  return row?.count ?? 0;
+}
+
+type DemoJobInput = Parameters<
+  Awaited<ReturnType<typeof getServerIngestJobServices>>['jobs']['accept']
+>[0];
+
+async function enqueueDemoJob(input: DemoJobInput): Promise<{ jobId: string; videoId: string }> {
+  const { jobs } = await getServerIngestJobServices();
+  const result = await jobs.accept(input);
+  if (result.kind !== 'accepted') {
+    throw new Error(`The demo upload could not be queued: ${result.kind}.`);
+  }
+  return { jobId: result.job.id, videoId: result.job.videoId };
 }
 
 async function findDemoSeedOwnerId(): Promise<string> {
   const config = getPrimaryStorageConfig();
-  const database = await createMigratedPrimarySqliteDatabase({
+  const database = await createInitializedPrimarySqliteDatabase({
     dbPath: config.databasePath,
   });
-  const owner = await database.prepare<{ id: string }>(`
+  const owner = await database
+    .prepare<{ id: string }>(`
     SELECT id
     FROM auth_users
     ORDER BY created_at ASC, id ASC
     LIMIT 1
-  `).get();
+  `)
+    .get();
 
   if (!owner) {
     throw new Error('Cannot seed demo storage before creating a user account.');
@@ -150,7 +175,9 @@ async function findDemoSeedOwnerId(): Promise<string> {
 
 function assertSeedRuntimeEnv(): void {
   if (!process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET?.trim()) {
-    throw new Error('MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET is required to seed encrypted demo media.');
+    throw new Error(
+      'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET is required to seed encrypted demo media.',
+    );
   }
 }
 
@@ -199,10 +226,14 @@ export async function seedDemoStorage(
   options: SeedDemoStorageOptions = {},
   dependencies: SeedDemoStorageDependencies = {},
 ): Promise<DemoSeedReport> {
-  const existingDemoVideos = await (dependencies.countExistingDemoVideos ?? countExistingDemoVideos)();
+  const existingDemoVideos = await (
+    dependencies.countExistingDemoVideos ?? countExistingDemoVideos
+  )();
+  const existingDemoJobs = await (dependencies.countExistingDemoJobs ?? countExistingDemoJobs)();
   const baseReport = createBaseReport({
     dryRun: options.dryRun ?? false,
     existingDemoVideos,
+    existingDemoJobs,
   });
 
   if (options.dryRun) {
@@ -211,7 +242,7 @@ export async function seedDemoStorage(
 
   assertSeedRuntimeEnv();
 
-  if (existingDemoVideos > 0) {
+  if (existingDemoVideos > 0 || existingDemoJobs > 0) {
     return {
       ...baseReport,
       skipped: true,
@@ -226,6 +257,7 @@ export async function seedDemoStorage(
     const sourceFile = await stat(sourcePath);
     const services = (dependencies.createIngestServices ?? createServerIngestServices)();
     const staged = await services.startStagedUpload.execute({
+      ownerId,
       filename: DEMO_FILENAME,
       mimeType: 'video/mp4',
       size: sourceFile.size,
@@ -236,27 +268,25 @@ export async function seedDemoStorage(
       throw new Error(staged.message);
     }
 
-    const committed = await services.commitStagedUploadToLibrary.execute({
-      contentTypeSlug: DEMO_CONTENT_TYPE_SLUG,
-      description: 'Tiny generated demo video for local development.',
-      genreSlugs: DEMO_GENRE_SLUGS,
+    const queued = await (dependencies.enqueueJob ?? enqueueDemoJob)({
       ownerId,
       stagingId: staged.data.stagingId,
-      tags: DEMO_TAGS,
-      title: DEMO_TITLE,
+      metadata: {
+        contentTypeSlug: DEMO_CONTENT_TYPE_SLUG,
+        description: 'Tiny generated demo video for local development.',
+        genreSlugs: DEMO_GENRE_SLUGS,
+        tags: DEMO_TAGS,
+        title: DEMO_TITLE,
+      },
     });
-
-    if (!committed.ok) {
-      throw new Error(committed.message);
-    }
 
     return {
       ...baseReport,
       ownerId,
-      seededVideoId: committed.data.videoId,
+      queuedJobId: queued.jobId,
+      reservedVideoId: queued.videoId,
     };
-  }
-  finally {
+  } finally {
     await rm(tempDir, { force: true, recursive: true });
   }
 }
@@ -265,8 +295,7 @@ async function main() {
   try {
     const report = await seedDemoStorage(parseArgs(process.argv.slice(2)));
     console.log(JSON.stringify(report, null, 2));
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   }

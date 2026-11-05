@@ -47,18 +47,12 @@ export function DeleteVideoConfirmDialog({
 
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>
-              {error}
-            </AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel
-            disabled={isDeleting}
-          >
-            Cancel
-          </AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             disabled={isDeleting}
             variant="destructive"
@@ -67,19 +61,17 @@ export function DeleteVideoConfirmDialog({
               onConfirm();
             }}
           >
-            {isDeleting
-              ? (
-                  <>
-                    <Loader2 data-icon="inline-start" className="animate-spin" />
-                    Deleting...
-                  </>
-                )
-              : (
-                  <>
-                    <Trash2 data-icon="inline-start" />
-                    Delete video
-                  </>
-                )}
+            {isDeleting ? (
+              <>
+                <Loader2 data-icon="inline-start" className="animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <Trash2 data-icon="inline-start" />
+                Delete video
+              </>
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

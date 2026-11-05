@@ -24,7 +24,6 @@ describe('SqliteUserCredentialReaderAdapter', () => {
       createdAt: new Date('2026-05-16T00:00:00.000Z'),
       id: 'user-1',
       passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
       username: 'Owner',
       usernameKey: 'owner',
     });

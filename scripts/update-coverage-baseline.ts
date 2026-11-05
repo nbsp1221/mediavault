@@ -48,18 +48,14 @@ export async function updateCoverageBaseline(
     if (currentMetric > baseline.metrics[metricName]) {
       nextBaseline.metrics[metricName] = currentMetric;
       updatedMetrics.push(metricName);
-    }
-    else {
+    } else {
       unchangedMetrics.push(metricName);
     }
   }
 
   if (updatedMetrics.length > 0) {
     nextBaseline.lastReviewed = options.currentDate ?? getCurrentDate();
-    await writeFile(
-      resolve(rootDir, BASELINE_PATH),
-      `${JSON.stringify(nextBaseline, null, 2)}\n`,
-    );
+    await writeFile(resolve(rootDir, BASELINE_PATH), `${JSON.stringify(nextBaseline, null, 2)}\n`);
   }
 
   return {
@@ -85,8 +81,7 @@ if (import.meta.main) {
   try {
     const result = await updateCoverageBaseline();
     console.log(formatUpdateResult(result));
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }

@@ -7,9 +7,7 @@ import {
 import { getCookieValue, serializeCookie } from '~/shared/lib/http/cookies.server';
 
 function signAuthClientId(clientId: string, secret: string): string {
-  return createHmac('sha256', secret)
-    .update(clientId)
-    .digest('hex');
+  return createHmac('sha256', secret).update(clientId).digest('hex');
 }
 
 function getAuthClientCookieSecret(): string {
@@ -41,37 +39,8 @@ function parseSignedAuthClientCookieValue(cookieValue: string): string | null {
 }
 
 function getRawTrustedClientIP(request: Request): string | undefined {
-  const cloudflareIp = request.headers.get('CF-Connecting-IP');
-  if (cloudflareIp) {
-    return cloudflareIp;
-  }
-
-  const forwardedFor = request.headers.get('X-Forwarded-For');
-  if (forwardedFor) {
-    const leftmostHop = forwardedFor
-      .split(',')
-      .map(value => value.trim())
-      .find(Boolean);
-
-    if (leftmostHop) {
-      return leftmostHop;
-    }
-  }
-
-  const realIp = request.headers.get('X-Real-IP');
-  if (realIp) {
-    return realIp;
-  }
-
-  const forwardedHeader = request.headers.get('Forwarded');
-  if (forwardedHeader) {
-    const match = forwardedHeader.match(/for="?([^;,"]+)"?/i);
-    if (match?.[1]) {
-      return match[1];
-    }
-  }
-
-  return undefined;
+  // Opt-in assumes a private backend behind Caddy, which overwrites client-supplied XFF.
+  return request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || undefined;
 }
 
 export function getAuthClientId(request: Request): string | null {
@@ -97,9 +66,7 @@ export function createAuthClientCookieHeader(clientId: string = randomUUID()): s
 }
 
 export function getAuthClientCookieHeaderForRequest(request: Request): string | null {
-  return !getAuthClientId(request)
-    ? createAuthClientCookieHeader()
-    : null;
+  return !getAuthClientId(request) ? createAuthClientCookieHeader() : null;
 }
 
 export function getTrustedClientIP(request: Request): string | undefined {
@@ -110,16 +77,12 @@ export function getTrustedClientIP(request: Request): string | undefined {
   return getRawTrustedClientIP(request);
 }
 
-export function getLoginAttemptKey(request: Request): string {
-  return getLoginAttemptKeys(request)[0] ?? 'anonymous';
-}
-
 export function getLoginAttemptKeys(request: Request): string[] {
   const clientId = getAuthClientId(request);
   const ipAddress = getTrustedClientIP(request);
   const keys = [
     clientId ? `client:${clientId}` : null,
-    ipAddress ? `ip:${ipAddress}` : 'anonymous',
+    ipAddress ? `ip:${ipAddress}` : null,
   ].filter((value): value is string => Boolean(value));
 
   return [...new Set(keys)];

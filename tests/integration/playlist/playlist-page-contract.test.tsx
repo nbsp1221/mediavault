@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { routeArgs } from '../../helpers/route-args';
 import { createPlaylistRuntimeTestWorkspace } from '../../support/create-playlist-runtime-test-workspace';
 
 async function importPlaylistsPageRoute() {
@@ -13,7 +14,7 @@ async function importPlaylistDetailApiRoute() {
   return import('../../../app/routes/api.playlists.$id');
 }
 
-describe.sequential('playlist page contract', () => {
+describe('playlist page contract', { concurrent: false }, () => {
   afterEach(() => {
     vi.doUnmock('~/composition/server/auth');
     vi.doUnmock('~/composition/server/playlist');
@@ -40,30 +41,29 @@ describe.sequential('playlist page contract', () => {
     try {
       const cookie = await workspace.login();
       const { loader } = await importPlaylistsPageRoute();
-      const payload = await loader({
-        request: new Request('http://localhost/playlists', {
-          headers: {
-            cookie,
-          },
+      const payload = await loader(
+        routeArgs({
+          request: new Request('http://localhost/playlists', {
+            headers: {
+              cookie,
+            },
+          }),
         }),
-      } as never);
+      );
 
-      expect(payload).toEqual({
+      expect(payload.data).toMatchObject({
         playlists: [
-          expect.objectContaining({
+          {
             id: 'playlist-1',
             name: 'Owned Playlist',
             videoIds: ['video-1', 'video-2'],
-          }),
+          },
         ],
         searchQuery: '',
         total: 1,
-        videoCountMap: {
-          'playlist-1': 2,
-        },
+        hasMore: false,
       });
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -88,24 +88,25 @@ describe.sequential('playlist page contract', () => {
     try {
       const cookie = await workspace.login();
       const { loader } = await importPlaylistsPageRoute();
-      const payload = await loader({
-        request: new Request('http://localhost/playlists?q=vault', {
-          headers: {
-            cookie,
-          },
+      const payload = await loader(
+        routeArgs({
+          request: new Request('http://localhost/playlists?q=vault', {
+            headers: {
+              cookie,
+            },
+          }),
         }),
-      } as never);
+      );
 
-      expect(payload).toEqual(expect.objectContaining({
+      expect(payload.data).toMatchObject({
         searchQuery: 'vault',
-      }));
-    }
-    finally {
+      });
+    } finally {
       await workspace.cleanup();
     }
   });
 
-  test('playlist detail loader returns playlist, stats, related playlists, pagination, and permissions', async () => {
+  test('playlist detail loader returns playlist, related playlists, pagination, and permissions', async () => {
     const workspace = await createPlaylistRuntimeTestWorkspace({
       playlists: [
         {
@@ -128,40 +129,36 @@ describe.sequential('playlist page contract', () => {
     try {
       const cookie = await workspace.login();
       const { loader } = await importPlaylistDetailPageRoute();
-      const payload = await loader({
-        params: { id: 'playlist-1' },
-        request: new Request('http://localhost/playlists/playlist-1', {
-          headers: {
-            cookie,
-          },
+      const payload = await loader(
+        routeArgs({
+          params: { id: 'playlist-1' },
+          request: new Request('http://localhost/playlists/playlist-1', {
+            headers: {
+              cookie,
+            },
+          }),
         }),
-      } as never);
+      );
 
-      expect(payload).toEqual({
-        permissions: expect.objectContaining({
+      expect(payload.data).toMatchObject({
+        permissions: {
           canAddVideos: true,
           canDelete: true,
           canEdit: true,
-          canShare: true,
-        }),
-        playlist: expect.objectContaining({
+        },
+        playlist: {
           id: 'playlist-1',
           name: 'Owned Playlist',
-        }),
-        relatedPlaylists: [],
-        stats: expect.objectContaining({
-          id: 'playlist-1',
-          totalVideos: 1,
-        }),
-        videoPagination: expect.objectContaining({
+        },
+        relatedPlaylists: undefined,
+        videoPagination: {
           hasMore: false,
           limit: 50,
           offset: 0,
           total: 1,
-        }),
+        },
       });
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -173,28 +170,22 @@ describe.sequential('playlist page contract', () => {
       const cookie = await workspace.login();
       const { loader } = await importPlaylistDetailPageRoute();
 
-      try {
-        await loader({
-          params: { id: 'missing-playlist' },
-          request: new Request('http://localhost/playlists/missing-playlist', {
-            headers: {
-              cookie,
-            },
+      await expect(
+        loader(
+          routeArgs({
+            params: { id: 'missing-playlist' },
+            request: new Request('http://localhost/playlists/missing-playlist', {
+              headers: { cookie },
+            }),
           }),
-        } as never);
-        throw new Error('Expected loader to throw');
-      }
-      catch (error) {
-        expect(error).toBeInstanceOf(Response);
-        expect((error as Response).status).toBe(404);
-      }
-    }
-    finally {
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+    } finally {
       await workspace.cleanup();
     }
   });
 
-  test('playlist detail loader preserves 403 failures for private playlists owned by someone else', async () => {
+  test('playlist detail loader does not disclose private playlists owned by someone else', async () => {
     const workspace = await createPlaylistRuntimeTestWorkspace({
       playlists: [
         {
@@ -224,23 +215,17 @@ describe.sequential('playlist page contract', () => {
       const cookie = await workspace.login();
       const { loader } = await importPlaylistDetailPageRoute();
 
-      try {
-        await loader({
-          params: { id: 'playlist-private-other-owner' },
-          request: new Request('http://localhost/playlists/playlist-private-other-owner', {
-            headers: {
-              cookie,
-            },
+      await expect(
+        loader(
+          routeArgs({
+            params: { id: 'playlist-private-other-owner' },
+            request: new Request('http://localhost/playlists/playlist-private-other-owner', {
+              headers: { cookie },
+            }),
           }),
-        } as never);
-        throw new Error('Expected loader to throw');
-      }
-      catch (error) {
-        expect(error).toBeInstanceOf(Response);
-        expect((error as Response).status).toBe(403);
-      }
-    }
-    finally {
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -300,21 +285,22 @@ describe.sequential('playlist page contract', () => {
     try {
       const cookie = await workspace.login();
       const { loader } = await importPlaylistDetailApiRoute();
-      const response = await loader({
-        params: { id: 'season-public' },
-        request: new Request('http://localhost/api/playlists/season-public?includeRelated=true', {
-          headers: {
-            cookie,
-          },
+      const response = await loader(
+        routeArgs({
+          params: { id: 'season-public' },
+          request: new Request('http://localhost/api/playlists/season-public?includeRelated=true', {
+            headers: {
+              cookie,
+            },
+          }),
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toEqual(expect.objectContaining({
+      await expect(response.json()).resolves.toMatchObject({
         relatedPlaylists: [],
-      }));
-    }
-    finally {
+      });
+    } finally {
       await workspace.cleanup();
     }
   });

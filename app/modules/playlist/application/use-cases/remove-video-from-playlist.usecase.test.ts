@@ -26,11 +26,13 @@ describe('RemoveVideoFromPlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-      videoId: 'missing-video',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        videoId: 'missing-video',
+      }),
+    ).resolves.toEqual({
       message: 'Video "missing-video" not found in playlist "playlist-1"',
       ok: false,
       reason: 'VIDEO_NOT_FOUND_IN_PLAYLIST',
@@ -46,7 +48,8 @@ describe('RemoveVideoFromPlaylistUseCase', () => {
     const playlistAfter = createPlaylist({
       videoIds: ['video-1'],
     });
-    const findById = vi.fn()
+    const findById = vi
+      .fn()
       .mockResolvedValueOnce(playlistBefore)
       .mockResolvedValueOnce(playlistAfter);
     const useCase = new RemoveVideoFromPlaylistUseCase({
@@ -56,11 +59,13 @@ describe('RemoveVideoFromPlaylistUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-      videoId: 'video-2',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        videoId: 'video-2',
+      }),
+    ).resolves.toEqual({
       ok: true,
       data: {
         message: 'Video removed from playlist "Owned Playlist" successfully',

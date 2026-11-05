@@ -6,6 +6,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import {
   type CoverageRegressionBaseline,
   checkCoverageRegression,
+  parseCoverageRegressionBaseline,
 } from '../../../scripts/check-coverage-regression';
 import { updateCoverageBaseline } from '../../../scripts/update-coverage-baseline';
 
@@ -14,7 +15,9 @@ const checkScriptPath = resolve('scripts/check-coverage-regression.ts');
 const updateScriptPath = resolve('scripts/update-coverage-baseline.ts');
 
 afterEach(async () => {
-  await Promise.all(cleanupPaths.splice(0).map(path => rm(path, { force: true, recursive: true })));
+  await Promise.all(
+    cleanupPaths.splice(0).map((path) => rm(path, { force: true, recursive: true })),
+  );
 });
 
 async function createRoot(): Promise<string> {
@@ -25,7 +28,9 @@ async function createRoot(): Promise<string> {
   return rootDir;
 }
 
-function createBaseline(overrides: Partial<CoverageRegressionBaseline> = {}): CoverageRegressionBaseline {
+function createBaseline(
+  overrides: Partial<CoverageRegressionBaseline> = {},
+): CoverageRegressionBaseline {
   return {
     schemaVersion: 1,
     source: 'Vitest coverage-summary.json total metrics',
@@ -49,17 +54,24 @@ async function writeBaseline(rootDir: string, baseline = createBaseline()): Prom
   );
 }
 
-async function writeCoverageSummary(rootDir: string, metrics: Record<string, number>): Promise<void> {
+async function writeCoverageSummary(
+  rootDir: string,
+  metrics: Record<string, number>,
+): Promise<void> {
   await writeFile(
     join(rootDir, 'coverage', 'coverage-summary.json'),
-    `${JSON.stringify({
-      total: {
-        lines: { pct: metrics.lines },
-        branches: { pct: metrics.branches },
-        functions: { pct: metrics.functions },
-        statements: { pct: metrics.statements },
+    `${JSON.stringify(
+      {
+        total: {
+          lines: { pct: metrics.lines },
+          branches: { pct: metrics.branches },
+          functions: { pct: metrics.functions },
+          statements: { pct: metrics.statements },
+        },
       },
-    }, null, 2)}\n`,
+      null,
+      2,
+    )}\n`,
   );
 }
 
@@ -69,7 +81,7 @@ describe('coverage regression policy', () => {
     await writeBaseline(rootDir);
     await writeCoverageSummary(rootDir, {
       lines: 84.48,
-      branches: 80.00,
+      branches: 80.0,
       functions: 86.91,
       statements: 84.48,
     });
@@ -77,16 +89,18 @@ describe('coverage regression policy', () => {
     const result = await checkCoverageRegression({ rootDir });
 
     expect(result.ok).toBe(true);
-    expect(result.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        baseline: 84.73,
-        current: 84.48,
-        minimum: 84.48,
-        name: 'lines',
-        ok: true,
-        tolerance: 0.25,
-      }),
-    ]));
+    expect(result.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          baseline: 84.73,
+          current: 84.48,
+          minimum: 84.48,
+          name: 'lines',
+          ok: true,
+          tolerance: 0.25,
+        }),
+      ]),
+    );
   });
 
   test('fails when a metric drops below baseline minus tolerance', async () => {
@@ -102,26 +116,29 @@ describe('coverage regression policy', () => {
     const result = await checkCoverageRegression({ rootDir });
 
     expect(result.ok).toBe(false);
-    expect(result.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        name: 'lines',
-        ok: false,
-      }),
-    ]));
+    expect(result.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'lines',
+          ok: false,
+        }),
+      ]),
+    );
   });
 
   test('fails when coverage summary output is missing', async () => {
     const rootDir = await createRoot();
     await writeBaseline(rootDir);
 
-    await expect(checkCoverageRegression({ rootDir })).rejects.toThrow(
-      'Missing coverage summary',
-    );
+    await expect(checkCoverageRegression({ rootDir })).rejects.toThrow('Missing coverage summary');
   });
 
   test('fails when the baseline is malformed', async () => {
     const rootDir = await createRoot();
-    await writeFile(join(rootDir, 'tests', 'coverage-regression-baseline.json'), '{"schemaVersion":1}\n');
+    await writeFile(
+      join(rootDir, 'tests', 'coverage-regression-baseline.json'),
+      '{"schemaVersion":1}\n',
+    );
     await writeCoverageSummary(rootDir, {
       lines: 84.73,
       branches: 80.17,
@@ -136,14 +153,17 @@ describe('coverage regression policy', () => {
 
   test('does not read, duplicate, or enforce the 80% absolute floor', async () => {
     const rootDir = await createRoot();
-    await writeBaseline(rootDir, createBaseline({
-      metrics: {
-        lines: 79,
-        branches: 79,
-        functions: 79,
-        statements: 79,
-      },
-    }));
+    await writeBaseline(
+      rootDir,
+      createBaseline({
+        metrics: {
+          lines: 79,
+          branches: 79,
+          functions: 79,
+          statements: 79,
+        },
+      }),
+    );
     await writeCoverageSummary(rootDir, {
       lines: 78.75,
       branches: 78.75,
@@ -166,10 +186,14 @@ describe('coverage regression policy', () => {
       statements: 84.73,
     });
 
-    const result = spawnSync('bun', ['--no-env-file', checkScriptPath], {
-      cwd: rootDir,
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['--import', import.meta.resolve('tsx'), checkScriptPath],
+      {
+        cwd: rootDir,
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Coverage regression gate passed.');
@@ -187,10 +211,14 @@ describe('coverage regression policy', () => {
       statements: 84.73,
     });
 
-    const result = spawnSync('bun', ['--no-env-file', checkScriptPath], {
-      cwd: rootDir,
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      process.execPath,
+      ['--import', import.meta.resolve('tsx'), checkScriptPath],
+      {
+        cwd: rootDir,
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     expect(result.stdout).toBe('');
@@ -206,7 +234,7 @@ describe('coverage baseline update policy', () => {
     await writeCoverageSummary(rootDir, {
       lines: 85.01,
       branches: 80.17,
-      functions: 87.00,
+      functions: 87.0,
       statements: 84.73,
     });
 
@@ -214,7 +242,11 @@ describe('coverage baseline update policy', () => {
       currentDate: '2026-05-15',
       rootDir,
     });
-    const updated = JSON.parse(await readFile(join(rootDir, 'tests', 'coverage-regression-baseline.json'), 'utf8')) as CoverageRegressionBaseline;
+    const updated = parseCoverageRegressionBaseline(
+      JSON.parse(
+        await readFile(join(rootDir, 'tests', 'coverage-regression-baseline.json'), 'utf8'),
+      ),
+    );
 
     expect(result.updatedMetrics).toEqual(['lines']);
     expect(updated).toMatchObject({
@@ -237,17 +269,21 @@ describe('coverage baseline update policy', () => {
     const baseline = createBaseline();
     await writeBaseline(rootDir, baseline);
     await writeCoverageSummary(rootDir, {
-      lines: 84.50,
+      lines: 84.5,
       branches: 80.17,
       functions: 87.16,
-      statements: 84.70,
+      statements: 84.7,
     });
 
     const result = await updateCoverageBaseline({
       currentDate: '2026-05-15',
       rootDir,
     });
-    const updated = JSON.parse(await readFile(join(rootDir, 'tests', 'coverage-regression-baseline.json'), 'utf8')) as CoverageRegressionBaseline;
+    const updated = parseCoverageRegressionBaseline(
+      JSON.parse(
+        await readFile(join(rootDir, 'tests', 'coverage-regression-baseline.json'), 'utf8'),
+      ),
+    );
 
     expect(result.updatedMetrics).toEqual([]);
     expect(updated).toEqual(baseline);
@@ -263,11 +299,19 @@ describe('coverage baseline update policy', () => {
       statements: 84.73,
     });
 
-    const result = spawnSync('bun', ['--no-env-file', updateScriptPath], {
-      cwd: rootDir,
-      encoding: 'utf8',
-    });
-    const updated = JSON.parse(await readFile(join(rootDir, 'tests', 'coverage-regression-baseline.json'), 'utf8')) as CoverageRegressionBaseline;
+    const result = spawnSync(
+      process.execPath,
+      ['--import', import.meta.resolve('tsx'), updateScriptPath],
+      {
+        cwd: rootDir,
+        encoding: 'utf8',
+      },
+    );
+    const updated = parseCoverageRegressionBaseline(
+      JSON.parse(
+        await readFile(join(rootDir, 'tests', 'coverage-regression-baseline.json'), 'utf8'),
+      ),
+    );
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Coverage regression baseline updated.');
