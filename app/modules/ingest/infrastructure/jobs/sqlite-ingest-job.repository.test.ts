@@ -11,7 +11,7 @@ const roots: string[] = [];
 const now = Date.parse('2026-11-02T12:00:00Z');
 const metadata = parseIngestJobMetadata({
   title: 'Video',
-  tags: ['Some Tag'],
+  tags: ['Cut/Scene\\Take..2'],
   genreSlugs: ['drama'],
 });
 
@@ -260,7 +260,7 @@ describe('persisted SQLite ingest jobs', () => {
       status: 'ready',
     });
     expect(await f.database.prepare('SELECT tag_slug FROM video_tags').get()).toMatchObject({
-      tag_slug: 'some tag',
+      tag_slug: 'cut/scene\\take..2',
     });
     expect(
       await f.database.prepare('SELECT genre_slug FROM video_genre_assignments').get(),

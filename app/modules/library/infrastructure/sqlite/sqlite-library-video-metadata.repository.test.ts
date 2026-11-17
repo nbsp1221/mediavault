@@ -218,7 +218,7 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       description: 'Updated description',
       duration: 240,
       genreSlugs: ['documentary'],
-      tags: ['Neo'],
+      tags: ['Neo/Scene\\Take..2'],
       thumbnailUrl: '/api/thumbnail/video-1',
       title: 'Updated title',
       videoUrl: '/videos/video-1/manifest.mpd',
@@ -230,7 +230,7 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
       description: 'Updated description',
       duration: 240,
       genreSlugs: ['documentary'],
-      tags: ['neo'],
+      tags: ['neo/scene\\take..2'],
       thumbnailUrl: '/api/thumbnail/video-1',
       title: 'Updated title',
       videoUrl: '/videos/video-1/manifest.mpd',
@@ -238,13 +238,13 @@ describe('SqliteLibraryVideoMetadataRepository', () => {
     await expect(repository.findByTitle('updated')).resolves.toEqual([
       expect.objectContaining({ id: 'video-1' }),
     ]);
-    await expect(repository.findByTag('neo')).resolves.toEqual([
+    await expect(repository.findByTag('Neo/Scene\\Take..2')).resolves.toEqual([
       expect.objectContaining({ id: 'video-1' }),
     ]);
     await expect(repository.search('updated')).resolves.toEqual([
       expect.objectContaining({ id: 'video-1' }),
     ]);
-    await expect(repository.getAllTags()).resolves.toEqual(['neo']);
+    await expect(repository.getAllTags()).resolves.toEqual(['neo/scene\\take..2']);
     await expect(repository.exists('video-1')).resolves.toBe(true);
     await expect(repository.count()).resolves.toBe(1);
 

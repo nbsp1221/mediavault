@@ -1,5 +1,5 @@
-import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
+import { createHttpServer } from './app/modules/runtime/infrastructure/http/create-http-server.ts';
 
 const development = process.argv.includes('--development');
 process.env.NODE_ENV = development ? 'development' : (process.env.NODE_ENV ?? 'production');
@@ -9,7 +9,7 @@ const [{ createRequestHandler }, { default: express }] = await Promise.all([
   import('express'),
 ]);
 const app = express();
-const server = createServer(app);
+const server = createHttpServer(app);
 app.disable('x-powered-by');
 
 let vite;

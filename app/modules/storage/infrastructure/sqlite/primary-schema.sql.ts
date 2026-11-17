@@ -65,10 +65,6 @@ CREATE TABLE tags (
   slug TEXT PRIMARY KEY CHECK (
     length(trim(slug)) > 0
     AND slug = trim(slug)
-    AND slug NOT IN ('.', '..')
-    AND instr(slug, '..') = 0
-    AND instr(slug, '/') = 0
-    AND instr(slug, char(92)) = 0
     AND instr(slug, char(0)) = 0
   ),
   label TEXT NOT NULL CHECK (length(trim(label)) > 0),

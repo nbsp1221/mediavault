@@ -4,7 +4,7 @@ Mediavault runs one Node application/container and stores ingest jobs in its enc
 
 ## Upload and acceptance
 
-1. The browser transfers one file to a request-scoped temporary path. This byte transfer is **not resumable**. Temporary paths never derive their directory structure from the submitted filename.
+1. The browser transfers one file of up to 4 GiB to a request-scoped temporary path. This byte transfer is **not resumable**. The HTTP server allows up to four hours for the upload, with a 60-second timeout between incoming data. Other request bodies have a five-minute deadline after headers. Temporary paths never derive their directory structure from the submitted filename.
 2. The application validates the file type, creates an owner-bound staged upload and releases request-temporary bytes. Unaccepted staged uploads have a 24-hour expiry.
 3. Submitting metadata atomically creates a job, reserves its final video identity and pins the staged source. HTTP `202` means **accepted for processing**, not added to the library.
 4. The browser can now navigate away or reload. The upload page retrieves the authenticated account's active and recent jobs from the server.

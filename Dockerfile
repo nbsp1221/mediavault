@@ -24,6 +24,7 @@ COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/build ./build
 COPY --from=build --chown=node:node /app/server.mjs ./server.mjs
+COPY --from=build --chown=node:node /app/app/modules/runtime/infrastructure/http/create-http-server.ts ./app/modules/runtime/infrastructure/http/create-http-server.ts
 COPY --from=build --chown=node:node /app/binaries ./binaries
 RUN mkdir -p storage/videos storage/staging && chown -R node:node storage
 USER node

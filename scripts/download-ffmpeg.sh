@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # FFmpeg Binary Downloader
-# Downloads the latest FFmpeg binary with NVENC support from BtbN/FFmpeg-Builds
+# Downloads the latest FFmpeg binary with NVENC support from FFmpeg-Builds
 # and extracts only the required binaries
 
 set -e
@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR/.."
 BINARIES_DIR="$PROJECT_ROOT/binaries"
 TEMP_DIR="$PROJECT_ROOT/.ffmpeg-download-temp"
-GITHUB_API_URL="https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest"
+GITHUB_API_URL="https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/latest"
 
 echo "🚀 FFmpeg Binary Downloader"
 echo ""
@@ -30,8 +30,8 @@ if [ -f "$BINARIES_DIR/ffmpeg" ] || [ -f "$BINARIES_DIR/ffprobe" ]; then
 fi
 
 # Get latest release info and find download URL
-echo "🔍 Fetching latest release from BtbN/FFmpeg-Builds..."
-DOWNLOAD_URL=$(curl -s "$GITHUB_API_URL" | grep "browser_download_url" | grep "linux64-gpl.tar.xz" | grep -v "shared" | head -n1 | cut -d'"' -f4)
+echo "🔍 Fetching latest release from FFmpeg-Builds..."
+DOWNLOAD_URL=$(curl -fsSL "$GITHUB_API_URL" | grep "browser_download_url" | grep "linux64-gpl.tar.xz" | grep -v "shared" | head -n1 | cut -d'"' -f4)
 
 if [ -z "$DOWNLOAD_URL" ]; then
     echo "❌ Failed to find Linux x64 GPL build URL"

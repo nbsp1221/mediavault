@@ -55,7 +55,12 @@ describe('verification command surface contract', () => {
   test('uses the maintained shared Oxlint, ESLint, and Oxfmt policies', async () => {
     const { scripts, devDependencies } = await readPackageContract();
     expect(steps(scripts.lint)).toEqual(['pnpm lint:oxlint', 'pnpm lint:eslint']);
-    expect(scripts['lint:oxlint']).toBe('oxlint .');
+    expect(steps(scripts['lint:oxlint'])).toEqual(['pnpm typegen', 'oxlint .']);
+    expect(steps(scripts['lint:fix'])).toEqual([
+      'pnpm typegen',
+      'oxlint --fix .',
+      'eslint . --fix',
+    ]);
     expect(scripts['lint:eslint']).toBe('eslint .');
     expect(scripts['format:check']).toBe('oxfmt --check .');
     for (const name of [
@@ -128,7 +133,8 @@ describe('verification command surface contract', () => {
 
   test('isolates test entrypoints from dotenv loading and ambient runtime data', async () => {
     const { scripts } = await readPackageContract();
-    expect(scripts.typecheck).toContain('MEDIAVAULT_DISABLE_VITE_ENV_FILES=true');
+    expect(steps(scripts.typecheck)).toEqual(['pnpm typegen', 'tsc']);
+    expect(scripts.typegen).toBe('MEDIAVAULT_DISABLE_VITE_ENV_FILES=true react-router typegen');
     for (const script of [
       'test',
       'test:modules',

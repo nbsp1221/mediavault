@@ -7,6 +7,8 @@ import { hasBearerHeader, playVideoThroughControls } from './support/playback';
 
 const uploadFixturePath = path.resolve('tests/fixtures/upload/smoke-upload.mp4');
 const jobResponseSchema = z.object({ success: z.literal(true), job: ingestJobViewSchema });
+const tagInput = '가족 여행 C++/Scene';
+const storedTag = '가족 여행 c++/scene';
 
 test.describe('add-videos owner upload smoke', () => {
   test('accepts a background job, publishes the ready video, and decodes it from the library', async ({
@@ -30,9 +32,9 @@ test.describe('add-videos owner upload smoke', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'smoke-upload.mp4' })).toBeVisible();
     await expect(page.getByText('Ready to Add')).toBeVisible();
     await page.getByLabel('Title *').fill('Uploaded Smoke Fixture');
-    await page.getByLabel('Tags').fill('가족 여행 C++');
+    await page.getByLabel('Tags').fill(tagInput);
     await page.getByLabel('Tags').press('Enter');
-    await expect(page.getByText('가족 여행 c++')).toBeVisible();
+    await expect(page.getByText(storedTag)).toBeVisible();
     const acceptedPromise = page.waitForResponse(
       (response) =>
         response.url().includes('/api/uploads/') &&
@@ -43,7 +45,7 @@ test.describe('add-videos owner upload smoke', () => {
     const accepted = await acceptedPromise;
     expect(accepted.status()).toBe(202);
     const acceptedJob = jobResponseSchema.parse(await accepted.json()).job;
-    expect(acceptedJob.metadata.tags).toContain('가족 여행 c++');
+    expect(acceptedJob.metadata.tags).toContain(storedTag);
     expect(acceptedJob.videoId).toBeNull();
     const statusUrl = `/api/ingest-jobs/${encodeURIComponent(acceptedJob.id)}`;
     expect(accepted.headers().location).toBe(statusUrl);
@@ -79,8 +81,8 @@ test.describe('add-videos owner upload smoke', () => {
     );
     await page.getByRole('button', { name: 'Upload Another Video' }).click();
     await expect(page.getByRole('button', { name: 'Choose Video' })).toBeVisible();
-    await page.goto(`/?${new URLSearchParams({ q: '가족 여행 C++', tag: '가족 여행 c++' })}`);
-    await expect(page.getByText('Has: 가족 여행 c++')).toBeVisible();
+    await page.goto(`/?${new URLSearchParams({ q: tagInput, tag: storedTag })}`);
+    await expect(page.getByText(`Has: ${storedTag}`)).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 3, name: 'Uploaded Smoke Fixture' }).first(),
     ).toBeVisible();
