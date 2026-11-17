@@ -40,30 +40,46 @@ describe('sortPlaylists', () => {
       }),
     ];
 
-    expect(sortPlaylists(playlists, {
-      sortBy: 'name',
-      sortOrder: 'asc',
-    }).map(playlist => playlist.id)).toEqual(['playlist-a', 'playlist-b', 'playlist-c']);
-    expect(sortPlaylists(playlists, {
-      sortBy: 'updatedAt',
-      sortOrder: 'desc',
-    }).map(playlist => playlist.id)).toEqual(['playlist-c', 'playlist-a', 'playlist-b']);
-    expect(sortPlaylists(playlists, {
-      sortBy: 'updatedAt',
-      sortOrder: 'asc',
-    }).map(playlist => playlist.id)).toEqual(['playlist-b', 'playlist-a', 'playlist-c']);
-    expect(sortPlaylists(playlists, {
-      sortBy: 'createdAt',
-      sortOrder: 'asc',
-    }).map(playlist => playlist.id)).toEqual(['playlist-a', 'playlist-b', 'playlist-c']);
-    expect(sortPlaylists(playlists, {
-      sortBy: 'videoCount',
-      sortOrder: 'desc',
-    }).map(playlist => playlist.id)).toEqual(['playlist-b', 'playlist-a', 'playlist-c']);
-    expect(sortPlaylists(playlists, {
-      sortBy: 'popularity',
-      sortOrder: 'asc',
-    }).map(playlist => playlist.id)).toEqual(['playlist-c', 'playlist-a', 'playlist-b']);
-    expect(playlists.map(playlist => playlist.id)).toEqual(['playlist-c', 'playlist-a', 'playlist-b']);
+    expect(
+      sortPlaylists(playlists, {
+        sortBy: 'name',
+        sortOrder: 'asc',
+      }).map((playlist) => playlist.id),
+    ).toEqual(['playlist-a', 'playlist-b', 'playlist-c']);
+    expect(
+      sortPlaylists(playlists, {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      }).map((playlist) => playlist.id),
+    ).toEqual(['playlist-c', 'playlist-a', 'playlist-b']);
+    expect(
+      sortPlaylists(playlists, {
+        sortBy: 'updatedAt',
+        sortOrder: 'asc',
+      }).map((playlist) => playlist.id),
+    ).toEqual(['playlist-b', 'playlist-a', 'playlist-c']);
+    expect(
+      sortPlaylists(playlists, {
+        sortBy: 'createdAt',
+        sortOrder: 'asc',
+      }).map((playlist) => playlist.id),
+    ).toEqual(['playlist-a', 'playlist-b', 'playlist-c']);
+    expect(
+      sortPlaylists(playlists, {
+        sortBy: 'videoCount',
+        sortOrder: 'desc',
+      }).map((playlist) => playlist.id),
+    ).toEqual(['playlist-b', 'playlist-a', 'playlist-c']);
+    expect(
+      sortPlaylists(playlists, {
+        sortBy: 'videoCount',
+        sortOrder: 'asc',
+      }).map((playlist) => playlist.id),
+    ).toEqual(['playlist-c', 'playlist-a', 'playlist-b']);
+    expect(playlists.map((playlist) => playlist.id)).toEqual([
+      'playlist-c',
+      'playlist-a',
+      'playlist-b',
+    ]);
   });
 });

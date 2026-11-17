@@ -2,10 +2,9 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-
 import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import { SqliteLibraryVideoMetadataRepository } from '~/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
-import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { SqlitePlaylistVideoCatalog } from './sqlite-playlist-video-catalog.adapter';
 
 describe('SqlitePlaylistVideoCatalog', () => {
@@ -30,9 +29,14 @@ describe('SqlitePlaylistVideoCatalog', () => {
     });
     const catalog = new SqlitePlaylistVideoCatalog({ dbPath });
 
-    await expect(catalog.findById('public-video', createVideoReadAccessScope({
-      type: 'anonymous',
-    }))).resolves.toEqual({
+    await expect(
+      catalog.findById(
+        'public-video',
+        createVideoReadAccessScope({
+          type: 'anonymous',
+        }),
+      ),
+    ).resolves.toEqual({
       duration: 60,
       id: 'public-video',
       thumbnailUrl: '/api/thumbnail/public-video',
@@ -49,17 +53,29 @@ describe('SqlitePlaylistVideoCatalog', () => {
     });
     const catalog = new SqlitePlaylistVideoCatalog({ dbPath });
 
-    await expect(catalog.findById('private-video', createVideoReadAccessScope({
-      type: 'authenticated',
-      userId: 'owner-1',
-    }))).resolves.toEqual(expect.objectContaining({
-      id: 'private-video',
-      title: 'Private video',
-    }));
-    await expect(catalog.findById('private-video', createVideoReadAccessScope({
-      type: 'authenticated',
-      userId: 'owner-2',
-    }))).resolves.toBeNull();
+    await expect(
+      catalog.findById(
+        'private-video',
+        createVideoReadAccessScope({
+          type: 'authenticated',
+          userId: 'owner-1',
+        }),
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'private-video',
+        title: 'Private video',
+      }),
+    );
+    await expect(
+      catalog.findById(
+        'private-video',
+        createVideoReadAccessScope({
+          type: 'authenticated',
+          userId: 'owner-2',
+        }),
+      ),
+    ).resolves.toBeNull();
   });
 
   test('omits videos whose media assets are not ready', async () => {
@@ -72,9 +88,14 @@ describe('SqlitePlaylistVideoCatalog', () => {
     });
     const catalog = new SqlitePlaylistVideoCatalog({ dbPath });
 
-    await expect(catalog.findById('processing-video', createVideoReadAccessScope({
-      type: 'anonymous',
-    }))).resolves.toBeNull();
+    await expect(
+      catalog.findById(
+        'processing-video',
+        createVideoReadAccessScope({
+          type: 'anonymous',
+        }),
+      ),
+    ).resolves.toBeNull();
   });
 
   async function seedVideo(input: {
@@ -85,7 +106,7 @@ describe('SqlitePlaylistVideoCatalog', () => {
     visibility: 'private' | 'public';
   }) {
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath });
     await seedOwner(database, input.ownerId);
 
     await repository.create({
@@ -103,7 +124,8 @@ describe('SqlitePlaylistVideoCatalog', () => {
       videoUrl: `/videos/${input.id}/manifest.mpd`,
       visibility: input.visibility,
     });
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO video_media_assets (
         video_id,
         status,
@@ -118,42 +140,37 @@ describe('SqlitePlaylistVideoCatalog', () => {
         audio_segment_glob,
         prepared_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      input.id,
-      input.mediaStatus ?? 'ready',
-      1,
-      'fixture',
-      `${input.id}/manifest.mpd`,
-      `${input.id}/key.bin`,
-      `${input.id}/thumbnail.jpg`,
-      `${input.id}/video/init.mp4`,
-      `${input.id}/video/segment-*.m4s`,
-      `${input.id}/audio/init.mp4`,
-      `${input.id}/audio/segment-*.m4s`,
-      '2026-05-27T00:00:00.000Z',
-    );
+    `)
+      .run(
+        input.id,
+        input.mediaStatus ?? 'ready',
+        1,
+        'fixture',
+        `${input.id}/manifest.mpd`,
+        `${input.id}/key.bin`,
+        `${input.id}/thumbnail.jpg`,
+        `${input.id}/video/init.mp4`,
+        `${input.id}/video/segment-*.m4s`,
+        `${input.id}/audio/init.mp4`,
+        `${input.id}/audio/segment-*.m4s`,
+        '2026-05-27T00:00:00.000Z',
+      );
   }
 });
 
-type TestDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
+type TestDatabase = Awaited<ReturnType<typeof createInitializedPrimarySqliteDatabase>>;
 
 async function seedOwner(database: TestDatabase, ownerId: string) {
-  await database.prepare(`
+  await database
+    .prepare(`
     INSERT INTO auth_users (
       id,
       username,
       username_key,
       password_hash,
-      role,
       created_at
-    ) VALUES (?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(id) DO NOTHING
-  `).run(
-    ownerId,
-    ownerId,
-    ownerId,
-    'test-password-hash',
-    'user',
-    '2026-05-23T00:00:00.000Z',
-  );
+  `)
+    .run(ownerId, ownerId, ownerId, 'test-password-hash', '2026-05-23T00:00:00.000Z');
 }

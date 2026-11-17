@@ -1,205 +1,60 @@
-# End-to-End Testing Guide
+# End-to-end testing guide
 
-This guide defines the current test layers for Mediavault.
+The [verification contract](verification-contract.md) owns required gates. The [browser QA contract](browser-qa-contract.md) owns personal browser evidence and secret-safe recording. Use the Node.js/pnpm versions from [package.json](../package.json), not a second runtime or lockfile.
 
-`docs/verification-contract.md` is the source of truth for the required verification bundle and escalation rules.
-`docs/browser-qa-contract.md` defines when browser-visible work must escalate beyond HTTP checks into Playwright MCP or equivalent isolated browser QA.
+## Test layers
 
-`bun run test` is the canonical non-watch Vitest command. It does not run Bun
-runtime smoke tests.
+| Layer                        | Command                   | Purpose                                                                                                                          |
+| ---------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Module                       | `pnpm test:modules`       | Policies, use cases, and focused infrastructure behavior                                                                         |
+| Integration                  | `pnpm test:integration`   | HTTP adapters, session/access policy, persistence, processing, and tooling contracts                                             |
+| UI DOM                       | `pnpm test:ui-dom`        | React Testing Library/jest-dom/user-event behavior; not real media decoding                                                      |
+| All ordinary tests           | `pnpm test`               | Non-watch Vitest projects                                                                                                        |
+| Node runtime                 | `pnpm test:runtime:smoke` | Actual development and built server startup, HTTP security, persistent worker recovery, child exit, and graceful backend restart |
+| Required browser smoke       | `pnpm test:e2e:smoke`     | Public/owner browsing, upload/jobs, playlists, product shell, player layout, and decoded playback                                |
+| Browser developer entrypoint | `pnpm test:e2e`           | The same isolated Playwright configuration, with optional focused spec arguments                                                 |
 
-Use:
+Start with deterministic module/integration/HTTP assertions. Use browser locators and web-first waits when the success condition involves cookies, navigation, UI, or decoding. Do not replace required runtime/browser coverage with a DOM render or a mocked engine.
 
-- `bun run check` for the base commit-readiness gate
-- `bun run check:fast` for quick iteration
-- `bun run check:runtime` for runtime-sensitive work that also needs browser and
-  Docker Compose smoke coverage
-
-The default `bun run test*` verification commands are env-scrubbed by design.
-Bun `.env` autoloading is disabled and Vite env-file loading is disabled for the
-test-facing entrypoints. Unit, integration, and runtime smoke tests must not depend on
-an ambient local `.env`; any required env must be seeded explicitly inside the
-test or the test-local helper.
-
-## Execution Paths
-
-### Required Hermetic Verification
-
-The required verification paths do not depend on a repo-local `.env`.
-
-- `bun run test*` entrypoints disable Bun `.env` autoloading and Vite env-file loading
-- the required browser smoke path runs against an isolated runtime workspace
-- required verification must not rely on repo-local auth DB state, repo-local uploaded files, or ambient shell env
-
-### Optional Manual Dev-Server QA
-
-Only use this path when you intentionally want ad-hoc local investigation with `bun run dev`.
-
-1. **Configure auth for manual dev QA**
-   ```bash
-   cp .env.example .env
-   ```
-
-2. **Start Development Server**
-   ```bash
-   bun run dev
-   ```
-
-The manual dev server will be available at `http://localhost:5173`.
-
-`bun run dev` is not a deployment path. Use it only from a trusted local
-machine, and do not expose it through a public tunnel, reverse proxy, or
-untrusted LAN. Browser/device testing over LAN requires explicit trust in that
-network and should remain temporary manual QA.
-
-When `MEDIAVAULT_STORAGE_DIR` is not set, development runtime storage defaults to a
-checkout-specific directory outside the repository root. If you override
-`MEDIAVAULT_STORAGE_DIR` for manual investigation, do not place secrets, test media, SQLite
-databases, or generated key material under `public/`, because Vite serves
-`public/` without filesystem deny filtering and copies it into build output.
-
-## CI-Like Verification
-
-For auth, playback, route wiring, or other runtime-sensitive changes, run the
-runtime escalation gate:
+## Supported browser setup
 
 ```bash
-bun run check:runtime
+pnpm install --frozen-lockfile
+pnpm test:e2e:smoke
 ```
 
-This runs the base gate, required browser smoke, and Docker Compose smoke.
+The smoke runner verifies hermetic inputs, provisions missing media tools without replacing a complete existing local installation, installs Chromium, and runs the required specs. Linux CI can set `LOCAL_STREAMER_PLAYWRIGHT_INSTALL_DEPS=true` to request Playwright's browser OS dependencies. Host package installation is an intentional setup action, not an invisible test dependency.
 
-When investigating a CI-like container failure for the current dirty worktree, use:
+For a focused browser investigation after prerequisites are installed:
 
 ```bash
-bun run check:docker-worktree
+pnpm test:e2e tests/e2e/player-browser-playback.spec.ts
 ```
 
-- `check:runtime` is the normal runtime-sensitive completion gate.
-- `check:docker-worktree` is a heavy diagnostic for dirty-worktree container
-  reproduction. It is not the normal local completion gate.
+Both entrypoints always allocate a temporary [runtime workspace](../tests/support/create-runtime-test-workspace.ts), seed accounts/metadata from shared fixture authorities, copy tracked playback assets, build/start the Node server, and clean up test-owned state. [Playwright configuration](../playwright.config.ts) uses one worker, explicit locale/timezone, no server reuse, and tracing off. Do not add a flag that switches the normal suite to a developer's vault.
 
-Only fall back to an ad hoc raw Docker command when investigating the harness itself. If you do, use a Bun image matching the repo `packageManager` Bun version instead of a hardcoded tag:
+Vitest, runtime, and browser runners scrub public runtime overrides and disable Vite environment-file loading. Tests must seed their own explicit environment rather than depend on shell secrets or the real local environment file. Shared fixture secrets belong in [runtime-test-env](../tests/support/runtime-test-env.ts); do not print or duplicate their values in guides or reports.
 
-```bash
-docker run --rm --user "$(id -u):$(id -g)" -e CI=true -e GITHUB_ACTIONS=true -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -e TZ=Etc/UTC -v "$PWD":/workspace -w /workspace oven/bun:<matching-packageManager-version> bash -lc 'bun install --frozen-lockfile && bun run check'
-```
+## Fixtures and maintenance are different
 
-Use `--user "$(id -u):$(id -g)"` or a read-only/exported workspace so the container does not leave root-owned files behind in the bind-mounted repository. If you forget this, local `bun run dev`, `bun run typecheck`, or `bun run build` may fail until ownership is fixed for `.react-router/`, `build/`, or `node_modules/.vite/`.
+- Packaged playback fixtures live under [tests/fixtures/playback](../tests/fixtures/playback/README.md); their [manifest](../tests/support/playback-fixture-manifest.ts) defines ownership.
+- Upload tests use the tracked [upload sample](../tests/fixtures/upload/smoke-upload.mp4) or explicitly generated temporary media.
+- Never source a required test from ignored `storage/`, untracked user media, or an existing browser profile.
+- `pnpm backfill:browser-playback-fixtures` is an explicit maintenance operation for deliberately selected runtime state. Playwright does not automatically run it against a local vault.
+- `pnpm storage:seed-demo` queues an owned demo job for the application's worker; it is not an alternative hidden browser-fixture setup or a synchronous publication command.
 
-When debugging CI-only failures:
+## Personal browser QA
 
-- reproduce the exact failing command inside Docker before changing production code
-- assume host-only passing results are insufficient for runtime-sensitive work
-- treat host-specific absolute paths and leaked local env vars as test bugs
-- treat leaked ambient `.env` values as test bugs in unit, integration, and runtime smoke layers
-- prefer tests that seed their own temp storage and configuration explicitly
+For runtime-sensitive rendered flows, use an isolated fixture-backed server and fresh browser context through Playwright MCP or equivalent tooling. Observe the changed outcome directly: actual login and destination, an upload job reaching publication, a persisted management action, or video time advancing with decoded/rendered frames. A loading label disappearing is not playback proof.
 
-For the required browser smoke layer, run:
+Authenticated media traces may expose tokens, cookies, licenses, and keys. Keep trace/HAR capture off, avoid request-body/header dumps, and keep sanitized screenshots/results outside the repository. Use the [playback contract](playback.md) to distinguish codec/EME support failures from routing/session defects.
 
-```bash
-bun run test:e2e:smoke
-```
+`pnpm dev` is a trusted local development convenience that explicitly loads an optional local environment file. It is not the isolated test entrypoint or a production deployment. Do not expose it publicly or put media/secrets/databases under `public/`. Intentional ad-hoc investigation on a configured developer server is not hermetic completion evidence.
 
-with a `bun` matching the repo `packageManager` contract. The raw non-browser
-Docker reference above excludes browser smoke. `bun run check:runtime` includes
-this browser smoke layer.
-The required hermetic smoke command intentionally runs with one Playwright worker while it uses a single built server and a single temporary SQLite runtime workspace. Use explicit `bun run test:e2e -- ... --workers=N` invocations only for targeted stress investigation.
-The current required smoke set covers the home owner path, the add-videos owner upload flow, the playlist owner flow, player layout, and protected playback compatibility.
-When the change is both browser-visible and runtime-sensitive, follow `docs/browser-qa-contract.md` to decide whether Playwright MCP or equivalent isolated browser QA is additionally required.
+## Failure triage and CI
 
-## Test Layers
-
-### 1. Module Tests
-
-```bash
-bun run test:modules
-```
-
-Use for:
-
-- policies
-- use cases
-- small infrastructure tests that do not require the full app surface
-
-### 2. Integration Tests
-
-```bash
-bun run test:integration
-```
-
-Use for:
-
-- route adapters
-- auth/session flows
-- cookie behavior
-- media access denial / response headers
-- active-owned compatibility cases
-
-### 3. Runtime Smoke
-
-```bash
-bun run test:runtime:smoke
-```
-
-Use for:
-
-- dev server startup under Bun
-- built server startup under Bun
-- account login
-- protected page redirect
-- playback token access
-- protected thumbnail access
-- dev-only sensitive file exposure checks
-
-This layer exists because Vitest does not prove that the development server and
-the built Bun server preserve the same critical runtime contracts.
-
-### 4. Browser Verification
-
-Use Playwright when API checks are not enough.
-Use `docs/browser-qa-contract.md` when deciding whether browser QA is required for a given change.
-Use `bun run test:e2e:smoke` for the required hermetic browser smoke path.
-
-## Testing Tools
-
-### Primary Tool: cURL or fetch
-
-- Use HTTP-level checks for API and auth verification first
-- Prefer this layer for deterministic checks
-
-### Secondary Tool: Playwright
-
-- Use Playwright for user-visible flows and browser state
-- Prefer locator-based assertions and web-first waits
-
-## Test Credentials
-
-Use:
-
-- **Auth account:** hermetic browser paths seed a SQLite-backed account through `tests/support/auth-account.ts`
-- **Manual local QA:** start the app with `MEDIAVAULT_ADMIN_API_MODE=bootstrap` and `MEDIAVAULT_ADMIN_API_TOKEN`, then create a local account through `POST /api/admin/users` before signing in through the browser
-
-## Test Assets
-
-### Video Files
-
-- Hermetic playback/browser fixtures under `tests/fixtures/playback/`
-- Hermetic upload smoke fixture under `tests/fixtures/upload/smoke-upload.mp4`
-- Do not treat repo-local `storage/` media as a hermetic fixture source; `storage/` is ignored and is suitable only for optional local manual QA.
-- For automated upload-oriented coverage, prefer temporary generated fixtures or another tracked test-owned surface instead of `storage/`.
-
-For the supported Playwright entrypoints:
-
-- hermetic smoke copies tracked playback fixtures into a temporary runtime workspace
-- developer-full Playwright runs `bun run backfill:browser-playback-fixtures` automatically before starting the built server
-
-Run `bun run backfill:browser-playback-fixtures` manually only when you are investigating playback outside those supported entrypoints.
-
-## Important Notes
-
-- **Security:** All video content is encrypted with AES-128
-- **Authentication:** Page access, token issuance, and thumbnail access must all be protected by the account session
-- **Runtime split:** Node/Vitest passing does not prove Bun runtime correctness
-- **Browser checks:** Use Playwright for playback and UI flows after the lower layers pass
-- **Playback triage:** When `/player/:id` fails in-browser, inspect the browser console and confirm the request mix includes manifest, video, and audio segment requests. Missing video requests usually indicates a codec/package compatibility issue, while missing manifest or token requests points to auth/session wiring.
+- Missing manifest/token requests usually indicate route/session wiring; missing or rejected media tracks can indicate codec/package compatibility. Check actual decoded frames and sanitized request categories, not raw credentials.
+- A job accepted with HTTP `202` is not successful ingest. Inspect its owner-scoped state and resulting ready video.
+- A failing cleanup or leaked child process is a runtime failure, not a reason to reuse a server or delete storage.
+- Reproduce the same failing command and pinned runtime in an exact clean checkout before claiming CI parity. See the [CI reproduction guide](LOCAL_GITHUB_ACTIONS_CI_REPRODUCTION.md).
+- `pnpm check:runtime` is the normal runtime escalation gate. `pnpm check:docker-worktree` is a heavy container diagnostic, not its replacement.

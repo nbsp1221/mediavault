@@ -23,7 +23,8 @@ describe('home library page composition root', () => {
   });
 
   test('composes canonical library data through library services only', async () => {
-    const { createHomeLibraryPageServices } = await import('../../../app/composition/server/home-library-page');
+    const { createHomeLibraryPageServices } =
+      await import('../../../app/composition/server/home-library-page');
     const services = createHomeLibraryPageServices({
       libraryServices: {
         loadLibraryCatalogSnapshot: {
@@ -49,14 +50,16 @@ describe('home library page composition root', () => {
       },
     });
 
-    await expect(services.loadHomeLibraryPageData.execute({
-      rawQuery: ' Action ',
-      rawIncludeTags: ['Action', 'Drama'],
-      viewer: {
-        type: 'authenticated',
-        userId: 'owner-1',
-      },
-    })).resolves.toEqual({
+    await expect(
+      services.loadHomeLibraryPageData.execute({
+        rawQuery: ' Action ',
+        rawIncludeTags: ['Action', 'Drama'],
+        viewer: {
+          type: 'authenticated',
+          userId: 'owner-1',
+        },
+      }),
+    ).resolves.toEqual({
       ok: true,
       data: {
         contentTypes: [{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }],
@@ -77,7 +80,8 @@ describe('home library page composition root', () => {
   });
 
   test('maps public non-owner videos to read-only home DTO permissions', async () => {
-    const { createHomeLibraryPageServices } = await import('../../../app/composition/server/home-library-page');
+    const { createHomeLibraryPageServices } =
+      await import('../../../app/composition/server/home-library-page');
     const services = createHomeLibraryPageServices({
       libraryServices: {
         loadLibraryCatalogSnapshot: {
@@ -138,17 +142,17 @@ describe('home library page composition root', () => {
       throw new Error('Expected successful home data result');
     }
 
-    expect('ownerId' in result.data.videos[0]!).toBe(false);
+    expect(result.data.videos).toHaveLength(1);
+    expect('ownerId' in result.data.videos[0]).toBe(false);
   });
 
   test('returns an explicit failure when catalog data is unavailable', async () => {
-    const { createHomeLibraryPageServices } = await import('../../../app/composition/server/home-library-page');
-    const catalogExecute = vi
-      .fn()
-      .mockResolvedValue({
-        ok: false as const,
-        reason: 'CATALOG_SOURCE_UNAVAILABLE' as const,
-      });
+    const { createHomeLibraryPageServices } =
+      await import('../../../app/composition/server/home-library-page');
+    const catalogExecute = vi.fn().mockResolvedValue({
+      ok: false as const,
+      reason: 'CATALOG_SOURCE_UNAVAILABLE' as const,
+    });
     const services = createHomeLibraryPageServices({
       libraryServices: {
         loadLibraryCatalogSnapshot: {
@@ -157,14 +161,16 @@ describe('home library page composition root', () => {
       },
     });
 
-    await expect(services.loadHomeLibraryPageData.execute({
-      rawQuery: '',
-      rawIncludeTags: [],
-      viewer: {
-        type: 'authenticated',
-        userId: 'owner-1',
-      },
-    })).resolves.toEqual({
+    await expect(
+      services.loadHomeLibraryPageData.execute({
+        rawQuery: '',
+        rawIncludeTags: [],
+        viewer: {
+          type: 'authenticated',
+          userId: 'owner-1',
+        },
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'HOME_DATA_UNAVAILABLE',
     });

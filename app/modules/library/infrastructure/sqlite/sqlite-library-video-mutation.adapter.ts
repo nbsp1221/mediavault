@@ -31,9 +31,11 @@ export class SqliteLibraryVideoMutationAdapter implements LibraryVideoMutationPo
   private readonly repository: SqliteLibraryVideoMutationAdapterRepository;
 
   constructor(deps: SqliteLibraryVideoMutationAdapterDependencies = {}) {
-    this.repository = deps.repository ?? new SqliteLibraryVideoMetadataRepository({
-      dbPath: getPrimaryStorageConfig().databasePath,
-    });
+    this.repository =
+      deps.repository ??
+      new SqliteLibraryVideoMetadataRepository({
+        dbPath: getPrimaryStorageConfig().databasePath,
+      });
   }
 
   async deleteLibraryVideo({ videoId }: { videoId: string }) {
@@ -92,7 +94,11 @@ export class SqliteLibraryVideoMutationAdapter implements LibraryVideoMutationPo
     return this.repository.update(input.videoId, updates);
   }
 
-  async updateLibraryVideoVisibility(input: { ownerId: string; videoId: string; visibility: 'private' | 'public' }) {
+  async updateLibraryVideoVisibility(input: {
+    ownerId: string;
+    videoId: string;
+    visibility: 'private' | 'public';
+  }) {
     return this.repository.updateVisibility(input.videoId, input.ownerId, input.visibility);
   }
 }

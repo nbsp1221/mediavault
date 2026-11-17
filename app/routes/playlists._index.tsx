@@ -1,114 +1,59 @@
-import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
-import { requireProtectedPageSession } from '~/composition/server/auth';
+import type { HeadersFunction, LoaderFunctionArgs, MetaFunction } from 'react-router';
+import { data, useLoaderData } from 'react-router';
+import { resolvePublicVideoAccess } from '~/composition/server/auth';
 import { getServerPlaylistServices } from '~/composition/server/playlist';
 import { PlaylistsPage } from '~/pages/playlists/ui/PlaylistsPage';
 import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Failed to load playlists';
-}
-
 export async function loader({ request }: LoaderFunctionArgs) {
-  const authSession = await requireProtectedPageSession(request);
-
-  const url = new URL(request.url);
-  const searchQuery = url.searchParams.get('q') || '';
-  const ownerId = authSession.userId;
-  const services = getServerPlaylistServices();
-  const result = await services.findPlaylists.execute({
-    filters: {
-      genre: [],
-      searchQuery: searchQuery || undefined,
-      seriesName: undefined,
-      status: undefined,
-      type: undefined,
-    },
+  const access = await resolvePublicVideoAccess(request);
+  const searchQuery = new URL(request.url).searchParams.get('q')?.trim() ?? '';
+  if (searchQuery.length > 255) {
+    throw new Response('Invalid search query', { headers: access.headers, status: 400 });
+  }
+  const result = await getServerPlaylistServices().findPlaylists.execute({
+    filters: { searchQuery: searchQuery || undefined },
     includeEmpty: true,
-    includeStats: false,
     limit: 20,
     offset: 0,
     sortBy: 'updatedAt',
     sortOrder: 'desc',
-    ownerId,
+    ownerId: access.viewer.type === 'authenticated' ? access.viewer.userId : undefined,
   });
-
   if (!result.success) {
-    throw new Error(getErrorMessage(result));
+    throw new Response('Unable to load playlists', {
+      headers: access.headers,
+      status: result.status,
+    });
   }
-
-  const videoCountMap: Record<string, number> = {};
-  result.data.playlists.forEach((playlist: { id: string; videoIds?: string[] }) => {
-    videoCountMap[playlist.id] = playlist.videoIds?.length || 0;
-  });
-
-  return {
-    playlists: result.data.playlists,
-    searchQuery,
-    total: result.data.totalCount,
-    videoCountMap,
-  };
-}
-
-export const meta: MetaFunction = () => ([
-  { title: 'Playlists - Mediavault' },
-  { name: 'description', content: 'Manage your video playlists' },
-]);
-
-export default function Playlists() {
-  const { playlists, videoCountMap, total, searchQuery } = useLoaderData<typeof loader>();
-
-  return (
-    <PlaylistsPage
-      playlists={playlists}
-      videoCountMap={videoCountMap}
-      total={total}
-      searchQuery={searchQuery}
-      onSearchChange={() => {}}
-    />
+  return data(
+    {
+      playlists: result.data.playlists,
+      searchQuery,
+      total: result.data.totalCount,
+      hasMore: result.data.hasMore,
+    },
+    { headers: access.headers },
   );
 }
 
+export const headers: HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
+export const meta: MetaFunction = () => [{ title: 'Playlists - Mediavault' }];
+
+export default function Playlists() {
+  const data = useLoaderData<typeof loader>();
+  return <PlaylistsPage {...data} />;
+}
+
 export function ErrorBoundary() {
-  const error = useRouteError();
-
-  if (isRouteErrorResponse(error)) {
-    return (
-      <ProductRouteErrorView
-        activeRoute="playlists"
-        contentWidth="wide"
-        tone="warning"
-        icon={<RefreshCw className="h-6 w-6" aria-hidden />}
-        title="We couldn’t load your playlists"
-        description={
-          typeof error.data === 'string'
-            ? <p>{error.data}</p>
-            : <p>Please check your connection and try again.</p>
-        }
-        actions={[
-          { label: 'Try again', to: '/playlists' },
-          { label: 'Go to home', to: '/', variant: 'outline' },
-        ]}
-      />
-    );
-  }
-
   return (
     <ProductRouteErrorView
       activeRoute="playlists"
-      contentWidth="wide"
-      tone="critical"
-      icon={<AlertTriangle className="h-6 w-6" aria-hidden />}
-      title="Something went wrong"
-      description={
-        error instanceof Error
-          ? error.message
-          : 'We weren’t able to display your playlists right now. Please try again soon.'
-      }
+      title="Unable to load playlists"
+      description="Please try again."
       actions={[
         { label: 'Try again', to: '/playlists' },
-        { label: 'Go to home', to: '/', variant: 'outline' },
+        { label: 'Videos', to: '/' },
       ]}
     />
   );

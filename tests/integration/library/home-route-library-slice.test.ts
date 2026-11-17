@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { routeArgs } from '../../helpers/route-args';
 
 const resolvePublicVideoAccessMock = vi.fn();
 const loadHomeLibraryPageDataExecuteMock = vi.fn();
@@ -59,9 +60,11 @@ describe('home route library slice adapter', () => {
     });
     const { loader } = await importHomeRoute();
 
-    const result = await loader({
-      request: new Request('http://localhost/?q=%20Action%20&tag=Action&tag=&tag=Drama'),
-    } as never);
+    const result = await loader(
+      routeArgs({
+        request: new Request('http://localhost/?q=%20Action%20&tag=Action&tag=Drama'),
+      }),
+    );
 
     expect(resolvePublicVideoAccessMock).toHaveBeenCalledOnce();
     expect(getHomeLibraryPageServicesMock).toHaveBeenCalledOnce();
@@ -71,7 +74,7 @@ describe('home route library slice adapter', () => {
         userId: 'owner-1',
       },
     });
-    await expect((result as Response).json()).resolves.toEqual({
+    await expect(result.json()).resolves.toEqual({
       contentTypes: [],
       genres: [],
       videos: [
@@ -88,8 +91,8 @@ describe('home route library slice adapter', () => {
         }),
       ],
     });
-    expect((result as Response).headers.get('Cache-Control')).toBe('private, no-store');
-    expect((result as Response).headers.get('Vary')).toBe('Cookie');
+    expect(result.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(result.headers.get('Vary')).toBe('Cookie');
   });
 
   test('returns trimmed bootstrap tags so the current HomePage tag matcher keeps working for direct-navigation URLs', async () => {
@@ -118,9 +121,11 @@ describe('home route library slice adapter', () => {
     });
     const { loader } = await importHomeRoute();
 
-    const result = await loader({
-      request: new Request('http://localhost/?tag=%20Action%20'),
-    } as never);
+    const result = await loader(
+      routeArgs({
+        request: new Request('http://localhost/?tag=%20Action%20'),
+      }),
+    );
 
     expect(loadHomeLibraryPageDataExecuteMock).toHaveBeenCalledWith({
       viewer: {
@@ -128,7 +133,7 @@ describe('home route library slice adapter', () => {
         userId: 'owner-1',
       },
     });
-    await expect((result as Response).json()).resolves.toEqual({
+    await expect(result.json()).resolves.toEqual({
       contentTypes: [],
       genres: [],
       videos: [
@@ -140,6 +145,17 @@ describe('home route library slice adapter', () => {
     });
   });
 
+  test.each(['tag=', 'notTag=', 'tag=bad%00tag'])(
+    'rejects malformed tag filter %s before loading data',
+    async (query) => {
+      const { loader } = await importHomeRoute();
+      await expect(
+        loader(routeArgs({ request: new Request(`http://localhost/?${query}`) })),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(getHomeLibraryPageServicesMock).not.toHaveBeenCalled();
+    },
+  );
+
   test('maps page-level composition failures to HTTP 500', async () => {
     loadHomeLibraryPageDataExecuteMock.mockResolvedValue({
       ok: false,
@@ -147,9 +163,13 @@ describe('home route library slice adapter', () => {
     });
     const { loader } = await importHomeRoute();
 
-    await expect(loader({
-      request: new Request('http://localhost/'),
-    } as never)).rejects.toMatchObject({
+    await expect(
+      loader(
+        routeArgs({
+          request: new Request('http://localhost/'),
+        }),
+      ),
+    ).rejects.toMatchObject({
       status: 500,
     });
   });
@@ -172,41 +192,35 @@ describe('home route library slice adapter', () => {
     });
     const { loader } = await importHomeRoute();
 
-    const result = await loader({
-      request: new Request('http://localhost/?q=Neo&tag=Action&tag=Drama'),
-    } as never);
+    const result = await loader(
+      routeArgs({
+        request: new Request('http://localhost/?q=Neo&tag=Action&tag=Drama'),
+      }),
+    );
 
     expect(loadHomeLibraryPageDataExecuteMock).toHaveBeenCalledWith({
       viewer: { type: 'anonymous' },
     });
-    expect((result as Response).status).toBe(200);
+    expect(result.status).toBe(200);
   });
 
   test('does not revalidate the protected home loader for q/tag-only URL sync updates', async () => {
     const { shouldRevalidate } = await importHomeRoute();
 
-    expect(shouldRevalidate({
-      currentParams: {},
-      currentUrl: new URL('http://localhost/?q=Action'),
-      defaultShouldRevalidate: true,
-      formAction: undefined,
-      formData: undefined,
-      formEncType: undefined,
-      formMethod: undefined,
-      nextParams: {},
-      nextUrl: new URL('http://localhost/?q=Action&tag=Drama'),
-    } as never)).toBe(false);
+    expect(
+      shouldRevalidate({
+        currentUrl: new URL('http://localhost/?q=Action'),
+        defaultShouldRevalidate: true,
+        nextUrl: new URL('http://localhost/?q=Action&tag=Drama'),
+      }),
+    ).toBe(false);
 
-    expect(shouldRevalidate({
-      currentParams: {},
-      currentUrl: new URL('http://localhost/?q=Action'),
-      defaultShouldRevalidate: true,
-      formAction: undefined,
-      formData: undefined,
-      formEncType: undefined,
-      formMethod: undefined,
-      nextParams: {},
-      nextUrl: new URL('http://localhost/playlists'),
-    } as never)).toBe(true);
+    expect(
+      shouldRevalidate({
+        currentUrl: new URL('http://localhost/?q=Action'),
+        defaultShouldRevalidate: true,
+        nextUrl: new URL('http://localhost/playlists'),
+      }),
+    ).toBe(true);
   });
 });

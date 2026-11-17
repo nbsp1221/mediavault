@@ -2,7 +2,9 @@ import type { ProductShellActiveRoute } from './product-navigation';
 
 export type ProductShellContentWidth = 'wide' | 'standard' | 'narrow' | 'full';
 
-export function resolveProductShellActiveRoute(pathname: string): ProductShellActiveRoute | undefined {
+export function resolveProductShellActiveRoute(
+  pathname: string,
+): ProductShellActiveRoute | undefined {
   if (pathname === '/' || pathname.startsWith('/videos/')) {
     return 'videos';
   }

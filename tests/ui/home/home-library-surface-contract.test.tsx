@@ -1,21 +1,20 @@
+import type * as Router from 'react-router';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, test, vi } from 'vitest';
-
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
 import { HomePage } from '../../../app/pages/home/ui/HomePage';
 
 vi.mock('react-router', async () => {
-  const actual = await vi.importActual<typeof import('react-router')>('react-router');
+  const actual = await vi.importActual<typeof Router>('react-router');
 
   return {
     ...actual,
     useRouteLoaderData: () => ({
       user: {
-        email: 'owner@example.com',
         id: 'user-1',
-        role: 'admin',
+        username: 'owner',
       },
     }),
   };
@@ -44,14 +43,13 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
 describe('Home library surface contract', () => {
   test('renders the approved heading, card surface, tags, and owner action menu affordances', async () => {
     const user = userEvent.setup();
-    const expectedDate = new Intl.DateTimeFormat('en-US').format(new Date('2026-03-11T00:00:00.000Z'));
+    const expectedDate = new Intl.DateTimeFormat('en-US').format(
+      new Date('2026-03-11T00:00:00.000Z'),
+    );
 
     render(
       <MemoryRouter>
-        <HomePage
-          initialFilters={{ query: '' }}
-          videos={[createVideo()]}
-        />
+        <HomePage initialFilters={{ query: '' }} videos={[createVideo()]} />
       </MemoryRouter>,
     );
 
@@ -63,9 +61,15 @@ describe('Home library surface contract', () => {
     expect(screen.getByText('#Neo')).toBeInTheDocument();
     expect(screen.getByText('#Vault')).toBeInTheDocument();
     expect(screen.getByText('#Hidden')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Catalog Fixture/ })).toHaveAttribute('href', '/player/video-1');
+    expect(screen.getByRole('link', { name: /Catalog Fixture/ })).toHaveAttribute(
+      'href',
+      '/player/video-1',
+    );
     await user.click(screen.getByRole('button', { name: 'Open actions menu for Catalog Fixture' }));
-    expect(screen.getByRole('menuitem', { name: 'Edit' })).toHaveAttribute('href', '/videos/video-1/edit?redirectTo=%2F');
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toHaveAttribute(
+      'href',
+      '/videos/video-1/edit?redirectTo=%2F',
+    );
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
     expect(screen.queryByRole('menuitem', { name: 'Quick view' })).not.toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Watch' })).not.toBeInTheDocument();
@@ -95,10 +99,7 @@ describe('Home library surface contract', () => {
   test('renders the approved empty-state copy', () => {
     render(
       <MemoryRouter>
-        <HomePage
-          initialFilters={{ query: '' }}
-          videos={[]}
-        />
+        <HomePage initialFilters={{ query: '' }} videos={[]} />
       </MemoryRouter>,
     );
 

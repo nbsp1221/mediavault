@@ -13,16 +13,15 @@ vi.mock('~/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.a
   SqliteLibraryVideoMutationAdapter: SqliteLibraryVideoMutationAdapterMock,
 }));
 
-vi.mock('~/modules/library/infrastructure/storage/filesystem-library-video-artifact-removal.adapter', () => ({
-  FilesystemLibraryVideoArtifactRemovalAdapter: FilesystemLibraryVideoArtifactRemovalAdapterMock,
-}));
+vi.mock(
+  '~/modules/library/infrastructure/storage/filesystem-library-video-artifact-removal.adapter',
+  () => ({
+    FilesystemLibraryVideoArtifactRemovalAdapter: FilesystemLibraryVideoArtifactRemovalAdapterMock,
+  }),
+);
 
-const contentTypesFixture = [
-  { active: true, label: 'Movie', slug: 'movie', sortOrder: 10 },
-];
-const genresFixture = [
-  { active: true, label: 'Action', slug: 'action', sortOrder: 10 },
-];
+const contentTypesFixture = [{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }];
+const genresFixture = [{ active: true, label: 'Action', slug: 'action', sortOrder: 10 }];
 
 function createCatalogVideo(overrides: Partial<LibraryVideo> = {}): LibraryVideo {
   return {
@@ -103,35 +102,23 @@ describe('server library composition root', () => {
     });
   });
 
-  test('returns a cached default library composition that stays ready for route usage', async () => {
-    const listLibraryVideos = vi.fn(async () => [createCatalogVideo()]);
-    SqliteCanonicalVideoMetadataAdapterMock.mockImplementation(() => ({
-      listActiveContentTypes: vi.fn(async () => contentTypesFixture),
-      listActiveGenres: vi.fn(async () => genresFixture),
-      listLibraryVideos,
-      writeVideoRecord: vi.fn(),
-    }));
-    FilesystemLibraryVideoArtifactRemovalAdapterMock.mockImplementation(() => ({
-      cleanupVideoArtifacts: vi.fn(async () => ({})),
-    }));
-    SqliteLibraryVideoMutationAdapterMock.mockImplementation(() => ({
-      deleteLibraryVideo: vi.fn(async () => ({
-        deleted: true,
-        title: 'Catalog Fixture',
-      })),
-      findLibraryVideoById: vi.fn(async videoId => ({
-        ...createCatalogVideo(),
-        id: videoId,
-      })),
-      updateLibraryVideo: vi.fn(async input => ({
-        ...createCatalogVideo(),
-        contentTypeSlug: input.contentTypeSlug,
-        genreSlugs: input.genreSlugs,
-        id: input.videoId,
-        tags: input.tags,
-        title: input.title,
-      })),
-    }));
+  test('caches one default adapter set for repeated catalog service reads', async () => {
+    const listLibraryVideos = vi.fn(async () => [
+      { ...createCatalogVideo(), visibility: 'public' as const },
+    ]);
+    SqliteCanonicalVideoMetadataAdapterMock.mockImplementation(function () {
+      return {
+        listActiveContentTypes: vi.fn(async () => contentTypesFixture),
+        listActiveGenres: vi.fn(async () => genresFixture),
+        listLibraryVideos,
+      };
+    });
+    FilesystemLibraryVideoArtifactRemovalAdapterMock.mockImplementation(function () {
+      return { cleanupVideoArtifacts: vi.fn(async () => ({})) };
+    });
+    SqliteLibraryVideoMutationAdapterMock.mockImplementation(function () {
+      return {};
+    });
     vi.resetModules();
 
     const { getServerLibraryServices } = await import('../../../app/composition/server/library');
@@ -142,13 +129,15 @@ describe('server library composition root', () => {
     expect(SqliteCanonicalVideoMetadataAdapterMock).toHaveBeenCalledOnce();
     expect(SqliteLibraryVideoMutationAdapterMock).toHaveBeenCalledOnce();
     expect(FilesystemLibraryVideoArtifactRemovalAdapterMock).toHaveBeenCalledOnce();
-    await expect(first.loadLibraryCatalogSnapshot.execute({
-      rawQuery: '',
-      rawIncludeTags: [],
-      viewer: {
-        type: 'anonymous',
-      },
-    })).resolves.toEqual({
+    await expect(
+      first.loadLibraryCatalogSnapshot.execute({
+        rawQuery: '',
+        rawIncludeTags: [],
+        viewer: {
+          type: 'anonymous',
+        },
+      }),
+    ).resolves.toEqual({
       ok: true,
       data: {
         videos: [

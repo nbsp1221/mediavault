@@ -1,6 +1,7 @@
-import { createReadStream } from 'node:fs';
+import { type ReadStream, createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 import { getStoragePaths } from '~/shared/config/app-config.server';
 import type { PlaybackMediaSegmentService as PlaybackMediaSegmentServicePort } from '../../application/ports/playback-media-segment-service.port';
 import { assertValidPlaybackVideoId } from '../../domain/playback-video-id';
@@ -10,6 +11,15 @@ import {
   isValidPlaybackSegmentFilename,
   parsePlaybackRangeHeader,
 } from './playback-media-segment-helpers';
+
+function toFetchStream(stream: ReadStream): ReadableStream {
+  const webStream = Readable.toWeb(stream);
+  // Node and DOM declare different BYOB reader types; validate the actual Fetch stream brand.
+  if (!(webStream instanceof ReadableStream)) {
+    throw new TypeError('Expected a standard web readable stream');
+  }
+  return webStream;
+}
 
 export class PlaybackMediaSegmentService implements PlaybackMediaSegmentServicePort {
   async serveSegment(input: Parameters<PlaybackMediaSegmentServicePort['serveSegment']>[0]) {
@@ -30,10 +40,13 @@ export class PlaybackMediaSegmentService implements PlaybackMediaSegmentServiceP
 
     try {
       fileStats = await stat(filePath);
-    }
-    catch (error) {
+    } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-        throw createPlaybackMediaError('NotFoundError', `${input.mediaType} segment not found`, 404);
+        throw createPlaybackMediaError(
+          'NotFoundError',
+          `${input.mediaType} segment not found`,
+          404,
+        );
       }
 
       throw error;
@@ -54,12 +67,12 @@ export class PlaybackMediaSegmentService implements PlaybackMediaSegmentServiceP
       return {
         headers,
         isRangeResponse: false,
-        stream: createReadStream(filePath) as unknown as ReadableStream,
+        stream: toFetchStream(createReadStream(filePath)),
       };
     }
 
     const { end, start } = parsePlaybackRangeHeader(input.rangeHeader, fileStats.size);
-    const contentLength = (end - start) + 1;
+    const contentLength = end - start + 1;
     const headers: Record<string, string> = {
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'no-store',
@@ -74,7 +87,7 @@ export class PlaybackMediaSegmentService implements PlaybackMediaSegmentServiceP
       headers,
       isRangeResponse: true,
       statusCode: 206,
-      stream: createReadStream(filePath, { end, start }) as unknown as ReadableStream,
+      stream: toFetchStream(createReadStream(filePath, { end, start })),
     };
   }
 }

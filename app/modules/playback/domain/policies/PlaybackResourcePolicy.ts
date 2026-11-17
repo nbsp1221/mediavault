@@ -1,8 +1,4 @@
-export type PlaybackResource =
-  | 'manifest'
-  | 'segment'
-  | 'audio-segment'
-  | 'clearkey-license';
+export type PlaybackResource = 'manifest' | 'segment' | 'audio-segment' | 'clearkey-license';
 
 export interface PlaybackTokenScope {
   readScope: 'public_only' | 'public_or_owned';
@@ -13,18 +9,18 @@ export interface PlaybackTokenScope {
 
 export type PlaybackResourceDecision =
   | {
-    allowed: true;
-    resource: PlaybackResource;
-  }
-  | {
-    allowed: false;
-    reason: 'PLAYBACK_TOKEN_REQUIRED' | 'VIDEO_SCOPE_MISMATCH';
-    metadata: {
-      requestedVideoId: string;
+      allowed: true;
       resource: PlaybackResource;
-      tokenVideoId?: string;
+    }
+  | {
+      allowed: false;
+      reason: 'PLAYBACK_TOKEN_REQUIRED' | 'VIDEO_SCOPE_MISMATCH';
+      metadata: {
+        requestedVideoId: string;
+        resource: PlaybackResource;
+        tokenVideoId?: string;
+      };
     };
-  };
 
 interface PlaybackResourcePolicyInput {
   requestedVideoId: string;

@@ -1,11 +1,13 @@
 import { describe, expect, test, vi } from 'vitest';
+import { createLibraryVideoFixture } from '../../../../../tests/support/library-video-fixture';
 
 const accessibleVideoRead = {
-  findLibraryVideoById: vi.fn(async () => ({} as never)),
+  findLibraryVideoById: vi.fn(async () => createLibraryVideoFixture()),
 };
 const authenticatedTokenPayload = {
   jti: 'token-1',
   readScope: 'public_or_owned' as const,
+  sessionId: 'session-1',
   subjectUserId: 'owner-1',
   videoId: 'video-1',
   viewerType: 'authenticated' as const,
@@ -13,7 +15,8 @@ const authenticatedTokenPayload = {
 
 describe('ServePlaybackClearKeyLicenseUseCase', () => {
   test('validates the playback token and returns the downstream license body and headers untouched', async () => {
-    const { ServePlaybackClearKeyLicenseUseCase } = await import('./serve-playback-clearkey-license.usecase');
+    const { ServePlaybackClearKeyLicenseUseCase } =
+      await import('./serve-playback-clearkey-license.usecase');
     const serveLicense = vi.fn(async () => ({
       body: JSON.stringify({
         keys: [{ k: 'key', kid: 'kid' }],
@@ -28,6 +31,7 @@ describe('ServePlaybackClearKeyLicenseUseCase', () => {
       clearKeyService: {
         serveLicense,
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate: async () => authenticatedTokenPayload,
@@ -57,7 +61,8 @@ describe('ServePlaybackClearKeyLicenseUseCase', () => {
   });
 
   test('maps scope failures to explicit application results before route-level HTTP translation', async () => {
-    const { ServePlaybackClearKeyLicenseUseCase } = await import('./serve-playback-clearkey-license.usecase');
+    const { ServePlaybackClearKeyLicenseUseCase } =
+      await import('./serve-playback-clearkey-license.usecase');
     const useCase = new ServePlaybackClearKeyLicenseUseCase({
       clearKeyService: {
         serveLicense: async () => ({
@@ -65,6 +70,7 @@ describe('ServePlaybackClearKeyLicenseUseCase', () => {
           headers: {},
         }),
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate: async () => null,
@@ -88,12 +94,14 @@ describe('ServePlaybackClearKeyLicenseUseCase', () => {
   });
 
   test('returns not found when current video access is revoked after token issuance', async () => {
-    const { ServePlaybackClearKeyLicenseUseCase } = await import('./serve-playback-clearkey-license.usecase');
+    const { ServePlaybackClearKeyLicenseUseCase } =
+      await import('./serve-playback-clearkey-license.usecase');
     const serveLicense = vi.fn();
     const useCase = new ServePlaybackClearKeyLicenseUseCase({
       clearKeyService: {
         serveLicense,
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate: async () => authenticatedTokenPayload,
@@ -103,10 +111,12 @@ describe('ServePlaybackClearKeyLicenseUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      token: 'signed-token',
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        token: 'signed-token',
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
         resource: 'clearkey-license',

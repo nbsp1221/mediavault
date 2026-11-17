@@ -1,151 +1,61 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+import type { LibraryVideo } from '~/modules/library/domain/library-video';
+import { SqliteCanonicalVideoMetadataAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter';
 
-describe('sqlite canonical video metadata adapter', () => {
-  beforeEach(() => {
-    vi.resetModules();
-    vi.clearAllMocks();
-  });
-
-  test('adapts the sqlite metadata repository to both library reads and ingest metadata writes', async () => {
-    const findAllByReadAccessScope = vi.fn(async () => [
-      {
-        contentTypeSlug: 'movie',
-        createdAt: new Date('2026-03-10T00:00:00.000Z'),
-        description: 'Fixture description',
-        duration: 95,
-        genreSlugs: ['action'],
-        id: 'video-1',
-        ownerId: 'owner-1',
-        tags: ['Action', 'Drama'],
-        thumbnailUrl: '/api/thumbnail/video-1',
-        title: 'Fixture Video',
-        videoUrl: '/videos/video-1/manifest.mpd',
-        visibility: 'private' as const,
-      },
-    ]);
-    const create = vi.fn(async () => ({
-      contentTypeSlug: 'home_video',
+function fixture() {
+  const videos = [
+    {
+      contentTypeSlug: 'movie',
       createdAt: new Date('2026-03-10T00:00:00.000Z'),
-      description: 'A test video',
-      duration: 120,
-      genreSlugs: ['documentary'],
-      id: 'video-123',
+      description: 'Fixture description',
+      duration: 95,
+      genreSlugs: ['action'],
+      id: 'video-1',
       ownerId: 'owner-1',
-      tags: ['fixture', 'test'],
-      thumbnailUrl: '/api/thumbnail/video-123',
+      tags: ['Action', 'Drama'],
+      thumbnailUrl: '/api/thumbnail/video-1',
       title: 'Fixture Video',
-      videoUrl: '/videos/video-123/manifest.mpd',
-      visibility: 'private' as const,
-    }));
-    const deleteVideo = vi.fn(async () => true);
-    const findByIdByReadAccessScope = vi.fn(async () => null);
-
-    const listActiveContentTypes = vi.fn(async () => [
+      videoUrl: '/videos/video-1/manifest.mpd',
+      visibility: 'public' as const,
+    },
+  ] satisfies LibraryVideo[];
+  const repository = {
+    findAllByReadAccessScope: vi.fn(async () => videos),
+    findByIdByReadAccessScope: vi.fn(async () => videos[0] ?? null),
+    listActiveContentTypes: vi.fn(async () => [
       { active: true, label: 'Movie', slug: 'movie', sortOrder: 10 },
-    ]);
-    const listActiveGenres = vi.fn(async () => [
+    ]),
+    listActiveGenres: vi.fn(async () => [
       { active: true, label: 'Documentary', slug: 'documentary', sortOrder: 40 },
-    ]);
-    const { SqliteCanonicalVideoMetadataAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter');
-    const adapter = new SqliteCanonicalVideoMetadataAdapter({
-      repository: {
-        create,
-        delete: deleteVideo,
-        findByIdByReadAccessScope,
-        findAllByReadAccessScope,
-        listActiveContentTypes,
-        listActiveGenres,
-      },
-    });
+    ]),
+  };
+  return { adapter: new SqliteCanonicalVideoMetadataAdapter({ repository }), repository, videos };
+}
 
-    await expect(adapter.listLibraryVideos({
-      ownerId: 'owner-1',
-      type: 'public_or_owned',
-    })).resolves.toEqual([
-      expect.objectContaining({
+describe('canonical video metadata read adapter', () => {
+  test.each([{ type: 'public_only' }, { ownerId: 'owner-1', type: 'public_or_owned' }] as const)(
+    'forwards the complete $type read scope without changing access policy',
+    async (scope) => {
+      const f = fixture();
+      await expect(f.adapter.listLibraryVideos(scope)).resolves.toEqual(f.videos);
+      await expect(f.adapter.findLibraryVideoById('video-1', scope)).resolves.toMatchObject({
         id: 'video-1',
         title: 'Fixture Video',
-      }),
-    ]);
-    await expect(adapter.writeVideoRecord({
-      contentTypeSlug: 'home_video',
-      description: 'A test video',
-      duration: 120,
-      genreSlugs: ['documentary'],
-      id: 'video-123',
-      ownerId: 'owner-1',
-      tags: ['fixture', 'test'],
-      thumbnailUrl: '/api/thumbnail/video-123',
-      title: 'Fixture Video',
-      videoUrl: '/videos/video-123/manifest.mpd',
-      visibility: 'private' as const,
-    })).resolves.toBeUndefined();
-    await expect(adapter.findLibraryVideoById('video-1', {
-      ownerId: 'owner-1',
-      type: 'public_or_owned',
-    })).resolves.toBeNull();
-    await expect(adapter.deleteVideoRecord('video-123')).resolves.toBeUndefined();
+      });
+      expect(f.repository.findAllByReadAccessScope).toHaveBeenCalledWith(scope);
+      expect(f.repository.findByIdByReadAccessScope).toHaveBeenCalledWith('video-1', scope);
+    },
+  );
 
-    expect(findAllByReadAccessScope).toHaveBeenCalledWith({
-      ownerId: 'owner-1',
-      type: 'public_or_owned',
-    });
-    expect(findByIdByReadAccessScope).toHaveBeenCalledWith('video-1', {
-      ownerId: 'owner-1',
-      type: 'public_or_owned',
-    });
-    await expect(adapter.listActiveContentTypes()).resolves.toEqual([
+  test('preserves active content-type and genre vocabulary reads', async () => {
+    const f = fixture();
+    await expect(f.adapter.listActiveContentTypes()).resolves.toEqual([
       { active: true, label: 'Movie', slug: 'movie', sortOrder: 10 },
     ]);
-    await expect(adapter.listActiveGenres()).resolves.toEqual([
+    await expect(f.adapter.listActiveGenres()).resolves.toEqual([
       { active: true, label: 'Documentary', slug: 'documentary', sortOrder: 40 },
     ]);
-    expect(create).toHaveBeenCalledWith({
-      contentTypeSlug: 'home_video',
-      description: 'A test video',
-      duration: 120,
-      genreSlugs: ['documentary'],
-      id: 'video-123',
-      ownerId: 'owner-1',
-      tags: ['fixture', 'test'],
-      thumbnailUrl: '/api/thumbnail/video-123',
-      title: 'Fixture Video',
-      videoUrl: '/videos/video-123/manifest.mpd',
-      visibility: 'private' as const,
-    });
-    expect(deleteVideo).toHaveBeenCalledWith('video-123');
-  });
-
-  test('does not delete an existing video when creating a new record fails', async () => {
-    const create = vi.fn(async () => {
-      throw new Error('UNIQUE constraint failed: videos.id');
-    });
-    const deleteVideo = vi.fn(async () => true);
-    const { SqliteCanonicalVideoMetadataAdapter } = await import('../../../app/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter');
-    const adapter = new SqliteCanonicalVideoMetadataAdapter({
-      repository: {
-        create,
-        delete: deleteVideo,
-        findByIdByReadAccessScope: vi.fn(async () => null),
-        findAllByReadAccessScope: vi.fn(async () => []),
-        listActiveContentTypes: vi.fn(async () => []),
-        listActiveGenres: vi.fn(async () => []),
-      },
-    });
-
-    await expect(adapter.writeVideoRecord({
-      contentTypeSlug: undefined,
-      description: undefined,
-      duration: 120,
-      genreSlugs: [],
-      id: 'existing-video',
-      ownerId: 'owner-1',
-      tags: [],
-      thumbnailUrl: '/api/thumbnail/existing-video',
-      title: 'Existing Video',
-      videoUrl: '/videos/existing-video/manifest.mpd',
-      visibility: 'private' as const,
-    })).rejects.toThrow(/UNIQUE constraint/);
-    expect(deleteVideo).not.toHaveBeenCalled();
+    expect(f.repository.listActiveContentTypes).toHaveBeenCalledOnce();
+    expect(f.repository.listActiveGenres).toHaveBeenCalledOnce();
   });
 });

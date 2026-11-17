@@ -10,28 +10,29 @@ describe('ResolvePlayerVideoUseCase', () => {
     const { ResolvePlayerVideoUseCase } = await import('./resolve-player-video.usecase');
     const useCase = new ResolvePlayerVideoUseCase({
       videoCatalog: {
-        getPlayerVideo: async (videoId: string) => (videoId === 'video-1'
-          ? {
-              relatedVideos: [
-                {
-                  createdAt: new Date('2026-03-01T00:00:00.000Z'),
-                  duration: 45,
-                  id: 'video-2',
+        getPlayerVideo: async (videoId: string) =>
+          videoId === 'video-1'
+            ? {
+                relatedVideos: [
+                  {
+                    createdAt: new Date('2026-03-01T00:00:00.000Z'),
+                    duration: 45,
+                    id: 'video-2',
+                    tags: ['drama'],
+                    title: 'Related video',
+                    videoUrl: '/videos/video-2/master.mpd',
+                  },
+                ],
+                video: {
+                  createdAt: new Date('2026-03-02T00:00:00.000Z'),
+                  duration: 120,
+                  id: 'video-1',
                   tags: ['drama'],
-                  title: 'Related video',
-                  videoUrl: '/videos/video-2/master.mpd',
+                  title: 'Current video',
+                  videoUrl: '/videos/video-1/master.mpd',
                 },
-              ],
-              video: {
-                createdAt: new Date('2026-03-02T00:00:00.000Z'),
-                duration: 120,
-                id: 'video-1',
-                tags: ['drama'],
-                title: 'Current video',
-                videoUrl: '/videos/video-1/master.mpd',
-              },
-            }
-          : null),
+              }
+            : null,
       },
     });
 

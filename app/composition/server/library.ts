@@ -1,5 +1,8 @@
 import type { LibraryVideoArtifactRemovalPort } from '~/modules/library/application/ports/library-video-artifact-removal.port';
-import type { LibraryVideoMutationPort, LibraryVideoVisibilityMutationPort } from '~/modules/library/application/ports/library-video-mutation.port';
+import type {
+  LibraryVideoMutationPort,
+  LibraryVideoVisibilityMutationPort,
+} from '~/modules/library/application/ports/library-video-mutation.port';
 import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import type { LibraryVideoSourcePort } from '~/modules/library/application/ports/library-video-source.port';
 import { ChangeLibraryVideoVisibilityUseCase } from '~/modules/library/application/use-cases/change-library-video-visibility.usecase';
@@ -38,13 +41,15 @@ function resolveDependencies(
   overrides: Partial<ServerLibraryServiceDependencies>,
 ): ServerLibraryServiceDependencies {
   let canonicalVideoMetadata: SqliteCanonicalVideoMetadataAdapter | null = null;
+
   const getCanonicalVideoMetadata = () => {
     canonicalVideoMetadata ??= new SqliteCanonicalVideoMetadataAdapter();
     return canonicalVideoMetadata;
   };
 
   return {
-    artifactRemovalPort: overrides.artifactRemovalPort ?? new FilesystemLibraryVideoArtifactRemovalAdapter(),
+    artifactRemovalPort:
+      overrides.artifactRemovalPort ?? new FilesystemLibraryVideoArtifactRemovalAdapter(),
     mutationPort: overrides.mutationPort ?? new SqliteLibraryVideoMutationAdapter(),
     videoRead: overrides.videoRead ?? getCanonicalVideoMetadata(),
     videoSource: overrides.videoSource ?? getCanonicalVideoMetadata(),

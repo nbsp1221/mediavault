@@ -1,123 +1,51 @@
-import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
-import { AlertTriangle, FileWarning, Lock } from 'lucide-react';
-import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
-import { requireProtectedPageSession } from '~/composition/server/auth';
+import type { HeadersFunction, LoaderFunctionArgs, MetaFunction } from 'react-router';
+import { data, isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
+import { resolvePublicVideoAccess } from '~/composition/server/auth';
 import { getServerPlaylistServices } from '~/composition/server/playlist';
 import { PlaylistDetailPage } from '~/pages/playlist-detail/ui/PlaylistDetailPage';
 import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const authSession = await requireProtectedPageSession(request);
-
-  const playlistId = params.id;
-  if (!playlistId) {
-    throw new Response('Playlist ID is required', { status: 400 });
+  const access = await resolvePublicVideoAccess(request);
+  if (!params.id) {
+    throw new Response('Playlist not found', { headers: access.headers, status: 404 });
   }
-
-  const ownerId = authSession.userId;
-  const services = getServerPlaylistServices();
-  const result = await services.getPlaylistDetails.execute({
-    includeRelated: false,
-    includeStats: true,
+  const result = await getServerPlaylistServices().getPlaylistDetails.execute({
+    includeRelated: true,
     includeVideos: true,
-    playlistId,
-    ownerId,
+    playlistId: params.id,
+    ownerId: access.viewer.type === 'authenticated' ? access.viewer.userId : undefined,
     videoLimit: 50,
     videoOffset: 0,
   });
-
   if (!result.success) {
-    throw new Response(result.error, {
+    throw new Response(result.status === 404 ? 'Playlist not found' : 'Unable to load playlist', {
+      headers: access.headers,
       status: result.status,
     });
   }
-
-  return {
-    permissions: result.data.permissions ?? {},
-    playlist: result.data.playlist,
-    relatedPlaylists: Array.isArray(result.data.relatedPlaylists) ? result.data.relatedPlaylists : [],
-    stats: result.data.stats ?? null,
-    videoPagination: result.data.videoPagination ?? null,
-  } as const;
+  return data(result.data, { headers: access.headers });
 }
 
-export const meta: MetaFunction = () => ([
-  { title: 'Playlist Detail - Mediavault' },
-  { name: 'description', content: 'View playlist information and videos' },
-]);
+export const headers: HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
+export const meta: MetaFunction = () => [{ title: 'Playlist - Mediavault' }];
 
 export default function PlaylistDetailRoute() {
-  const data = useLoaderData<typeof loader>();
-
-  return (
-    <PlaylistDetailPage
-      playlist={data.playlist}
-      stats={data.stats}
-      relatedPlaylists={data.relatedPlaylists}
-      videoPagination={data.videoPagination}
-      permissions={data.permissions}
-    />
-  );
+  const details = useLoaderData<typeof loader>();
+  return <PlaylistDetailPage {...details} />;
 }
 
 export function ErrorBoundary() {
   const error = useRouteError();
-
-  if (isRouteErrorResponse(error)) {
-    if (error.status === 403) {
-      return (
-        <ProductRouteErrorView
-          activeRoute="playlists"
-          contentWidth="wide"
-          tone="warning"
-          icon={<Lock className="h-6 w-6" aria-hidden />}
-          title="This playlist is private"
-          description={(
-            <p>
-              This playlist is not available to your account. Ask the owner for access if you expected to see it.
-            </p>
-          )}
-          actions={[
-            { label: 'Back to playlists', to: '/playlists' },
-            { label: 'Back to library', to: '/', variant: 'outline' },
-          ]}
-          footnote="If you believe you should have access, contact the playlist owner for an invitation."
-        />
-      );
-    }
-
-    if (error.status === 404) {
-      return (
-        <ProductRouteErrorView
-          activeRoute="playlists"
-          contentWidth="wide"
-          icon={<FileWarning className="h-6 w-6" aria-hidden />}
-          title="Playlist not found"
-          description={<p>The playlist might have been removed or the link could be incorrect. Try a different collection instead.</p>}
-          actions={[
-            { label: 'Browse playlists', to: '/playlists' },
-            { label: 'Go to library', to: '/', variant: 'outline' },
-          ]}
-        />
-      );
-    }
-  }
-
+  const missing = isRouteErrorResponse(error) && error.status === 404;
   return (
     <ProductRouteErrorView
       activeRoute="playlists"
-      contentWidth="wide"
-      tone="critical"
-      icon={<AlertTriangle className="h-6 w-6" aria-hidden />}
-      title="We couldn’t open this playlist"
-      description={
-        error instanceof Error
-          ? error.message
-          : 'Something unexpected happened while loading the playlist. Please try again shortly.'
-      }
+      title={missing ? 'Playlist not found' : 'Unable to load playlist'}
+      description={missing ? 'This playlist is not available.' : 'Please try again.'}
       actions={[
-        { label: 'Try again', to: '/playlists', variant: 'secondary' },
-        { label: 'Go to home', to: '/', variant: 'outline' },
+        { label: 'Playlists', to: '/playlists' },
+        { label: 'Videos', to: '/' },
       ]}
     />
   );

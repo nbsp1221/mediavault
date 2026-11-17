@@ -30,8 +30,7 @@ async function withTimeout<T>(
         timeout = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
       }),
     ]);
-  }
-  finally {
+  } finally {
     if (timeout) {
       clearTimeout(timeout);
     }
@@ -42,10 +41,7 @@ function getErrorReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-async function probeWritableDirectory(
-  directory: string,
-  sentinelName: string,
-): Promise<void> {
+async function probeWritableDirectory(directory: string, sentinelName: string): Promise<void> {
   await mkdir(directory, { recursive: true });
 
   const sentinelPath = path.join(directory, sentinelName);
@@ -53,8 +49,7 @@ async function probeWritableDirectory(
     const content = `mediavault-readiness:${randomUUID()}`;
     await writeFile(sentinelPath, content, { encoding: 'utf8' });
     await readFile(sentinelPath, { encoding: 'utf8' });
-  }
-  finally {
+  } finally {
     await rm(sentinelPath, { force: true });
   }
 }
@@ -70,8 +65,7 @@ async function probeWritableDatabasePath(databasePath: string): Promise<void> {
 
     const handle = await open(databasePath, 'r+');
     await handle.close();
-  }
-  catch (error) {
+  } catch (error) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
       return;
     }
@@ -92,8 +86,7 @@ export async function probeStorageRootWritable(
     );
 
     return { ok: true, target: 'storage-root' };
-  }
-  catch (error) {
+  } catch (error) {
     return {
       ok: false,
       reason: getErrorReason(error),
@@ -114,8 +107,7 @@ export async function probeDatabasePathWritable(
     );
 
     return { ok: true, target: 'database-path' };
-  }
-  catch (error) {
+  } catch (error) {
     return {
       ok: false,
       reason: getErrorReason(error),

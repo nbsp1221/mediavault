@@ -10,14 +10,10 @@ import {
   VideoTaxonomyMultiSelect,
   VideoTaxonomySingleSelect,
 } from '~/features/video-metadata/ui/VideoTaxonomyCombobox';
+import { videoTagsSchema } from '~/modules/library/domain/video-tag';
 import { Alert, AlertDescription } from '~/shared/ui/alert';
 import { Button } from '~/shared/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '~/shared/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '~/shared/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '~/shared/ui/form';
 import { Input } from '~/shared/ui/input';
 import { Textarea } from '~/shared/ui/textarea';
@@ -26,7 +22,7 @@ const formSchema = z.object({
   contentTypeSlug: z.string().nullable().optional(),
   description: z.string().max(1000, 'Description must be within 1000 characters').optional(),
   genreSlugs: z.array(z.string()),
-  tags: z.array(z.string()),
+  tags: videoTagsSchema,
   title: z.string().min(1, 'Title is required').max(200, 'Title must be within 200 characters'),
 });
 
@@ -68,13 +64,14 @@ export function VideoMetadataForm({
   video,
 }: VideoMetadataFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tagError, setTagError] = useState<string | null>(null);
   const form = useForm<VideoMetadataFormValues>({
     defaultValues: createDefaultValues(video),
     resolver: zodResolver(formSchema),
   });
 
   const isDirty = form.formState.isDirty;
-  const titleValue = useWatch({ control: form.control, name: 'title' }) ?? '';
+  const titleValue = useWatch({ control: form.control, name: 'title' });
   const descriptionValue = useWatch({ control: form.control, name: 'description' }) ?? '';
 
   useEffect(() => {
@@ -82,14 +79,17 @@ export function VideoMetadataForm({
   }, [form, video]);
 
   useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
+    onDirtyChange?.(isDirty || tagError !== null);
+  }, [isDirty, tagError, onDirtyChange]);
 
   useEffect(() => {
     onSubmittingChange?.(isSubmitting);
   }, [isSubmitting, onSubmittingChange]);
 
   const handleSubmit = async (values: VideoMetadataFormValues) => {
+    if (tagError) {
+      return;
+    }
     setIsSubmitting(true);
     try {
       await onSave({
@@ -99,15 +99,18 @@ export function VideoMetadataForm({
         tags: values.tags,
         title: values.title,
       });
-    }
-    finally {
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
     <Form {...form}>
-      <form id={formId} onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-4">
+      <form
+        id={formId}
+        onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
+        className="flex flex-col gap-4"
+      >
         <section aria-labelledby="video-basic-information-heading">
           <Card className="gap-0 rounded-xl border-border/70 bg-card/60 py-0 shadow-none">
             <CardHeader className="px-4 pt-4 pb-0 lg:px-5 lg:pt-5">
@@ -121,7 +124,9 @@ export function VideoMetadataForm({
                 name="title"
                 render={({ field }) => (
                   <FormItem className="gap-1.5">
-                    <FormLabel className="text-xs font-medium text-muted-foreground">Title</FormLabel>
+                    <FormLabel className="text-xs font-medium text-muted-foreground">
+                      Title
+                    </FormLabel>
                     <div className="relative">
                       <FormControl>
                         <Input
@@ -130,7 +135,10 @@ export function VideoMetadataForm({
                           {...field}
                         />
                       </FormControl>
-                      <span className="absolute top-1/2 right-3 -translate-y-1/2 text-xs tabular-nums text-muted-foreground" aria-live="polite">
+                      <span
+                        className="absolute top-1/2 right-3 -translate-y-1/2 text-xs tabular-nums text-muted-foreground"
+                        aria-live="polite"
+                      >
                         {`${titleValue.length} / 200`}
                       </span>
                     </div>
@@ -144,7 +152,9 @@ export function VideoMetadataForm({
                 name="description"
                 render={({ field }) => (
                   <FormItem className="gap-1.5">
-                    <FormLabel className="text-xs font-medium text-muted-foreground">Description</FormLabel>
+                    <FormLabel className="text-xs font-medium text-muted-foreground">
+                      Description
+                    </FormLabel>
                     <div className="relative">
                       <FormControl>
                         <Textarea
@@ -154,7 +164,10 @@ export function VideoMetadataForm({
                           {...field}
                         />
                       </FormControl>
-                      <span className="absolute right-3 bottom-3 text-xs tabular-nums text-muted-foreground" aria-live="polite">
+                      <span
+                        className="absolute right-3 bottom-3 text-xs tabular-nums text-muted-foreground"
+                        aria-live="polite"
+                      >
                         {`${descriptionValue.length} / 1000`}
                       </span>
                     </div>
@@ -168,11 +181,14 @@ export function VideoMetadataForm({
                 name="tags"
                 render={({ field }) => (
                   <FormItem className="gap-1.5">
-                    <FormLabel className="text-xs font-medium text-muted-foreground">Tags</FormLabel>
+                    <FormLabel className="text-xs font-medium text-muted-foreground">
+                      Tags
+                    </FormLabel>
                     <FormControl>
                       <VideoTagInput
                         ariaLabel="Tags"
                         onChange={field.onChange}
+                        onValidationChange={setTagError}
                         placeholder="Add tag"
                         value={field.value}
                       />
@@ -198,7 +214,9 @@ export function VideoMetadataForm({
                 name="contentTypeSlug"
                 render={({ field }) => (
                   <FormItem className="gap-1.5">
-                    <FormLabel className="text-xs font-medium text-muted-foreground">Content type</FormLabel>
+                    <FormLabel className="text-xs font-medium text-muted-foreground">
+                      Content type
+                    </FormLabel>
                     <FormControl>
                       <VideoTaxonomySingleSelect
                         ariaLabel="Content type"
@@ -218,7 +236,9 @@ export function VideoMetadataForm({
                 name="genreSlugs"
                 render={({ field }) => (
                   <FormItem className="gap-1.5">
-                    <FormLabel className="text-xs font-medium text-muted-foreground">Genre</FormLabel>
+                    <FormLabel className="text-xs font-medium text-muted-foreground">
+                      Genre
+                    </FormLabel>
                     <FormControl>
                       <VideoTaxonomyMultiSelect
                         ariaLabel="Genre"
@@ -238,9 +258,7 @@ export function VideoMetadataForm({
 
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>
-              {error}
-            </AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
@@ -250,14 +268,14 @@ export function VideoMetadataForm({
               Cancel
             </Button>
             <Button disabled={isSubmitting} type="submit">
-              {isSubmitting
-                ? (
-                    <>
-                      <Loader2 data-icon="inline-start" className="animate-spin" />
-                      Saving...
-                    </>
-                  )
-                : 'Save changes'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save changes'
+              )}
             </Button>
           </div>
         )}

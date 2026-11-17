@@ -31,7 +31,7 @@ function createPlaylistItem(overrides: Partial<PlaylistItem> = {}): PlaylistItem
 }
 
 describe('GetPlaylistDetailsUseCase', () => {
-  test('returns playlist details with permissions, paginated videos, stats, and only accessible related playlists', async () => {
+  test('returns playlist details with permissions, paginated videos and only accessible related playlists', async () => {
     const findById = vi.fn(async () => createPlaylist());
     const getPlaylistItems = vi.fn(async (playlistId: string) => {
       return playlistId === 'series-public'
@@ -68,12 +68,14 @@ describe('GetPlaylistDetailsUseCase', () => {
         videoIds: ['video-3'],
       }),
     ]);
-    const getPlaylistVideos = vi.fn(async (items: PlaylistItem[]) => items.map(item => ({
-      duration: item.videoId === 'video-2' ? 120 : 100,
-      id: item.videoId,
-      position: item.position,
-      title: item.videoId === 'video-2' ? 'Episode 2' : 'Episode 1',
-    })));
+    const getPlaylistVideos = vi.fn(async (items: PlaylistItem[]) =>
+      items.map((item) => ({
+        duration: item.videoId === 'video-2' ? 120 : 100,
+        id: item.videoId,
+        position: item.position,
+        title: item.videoId === 'video-2' ? 'Episode 2' : 'Episode 1',
+      })),
+    );
     const useCase = new GetPlaylistDetailsUseCase({
       playlistRepository: {
         findById,
@@ -88,7 +90,6 @@ describe('GetPlaylistDetailsUseCase', () => {
 
     const result = await useCase.execute({
       includeRelated: true,
-      includeStats: true,
       includeVideos: true,
       ownerId: 'owner-1',
       playlistId: 'playlist-1',
@@ -109,28 +110,23 @@ describe('GetPlaylistDetailsUseCase', () => {
       },
     );
     expect(findBySeries).toHaveBeenCalledWith('Vault Saga');
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
       data: {
         permissions: {
           canAddVideos: true,
           canDelete: true,
           canEdit: true,
-          canShare: true,
         },
-        playlist: expect.objectContaining({
+        playlist: {
           id: 'playlist-1',
-          stats: expect.objectContaining({
-            id: 'playlist-1',
-            totalVideos: 2,
-          }),
           videos: [
-            expect.objectContaining({
+            {
               id: 'video-1',
               title: 'Episode 1',
-            }),
+            },
           ],
-        }),
+        },
         relatedPlaylists: [
           {
             id: 'series-public',
@@ -140,10 +136,6 @@ describe('GetPlaylistDetailsUseCase', () => {
             videoCount: 1,
           },
         ],
-        stats: expect.objectContaining({
-          id: 'playlist-1',
-          totalVideos: 2,
-        }),
         videoPagination: {
           hasMore: true,
           limit: 1,
@@ -167,14 +159,15 @@ describe('GetPlaylistDetailsUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      includeRelated: false,
-      includeStats: false,
-      includeVideos: false,
-      playlistId: 'missing-playlist',
-      videoLimit: 50,
-      videoOffset: 0,
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        includeRelated: false,
+        includeVideos: false,
+        playlistId: 'missing-playlist',
+        videoLimit: 50,
+        videoOffset: 0,
+      }),
+    ).resolves.toEqual({
       message: 'Playlist with ID "missing-playlist" not found',
       ok: false,
       reason: 'PLAYLIST_NOT_FOUND',
@@ -198,40 +191,43 @@ describe('GetPlaylistDetailsUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      includeRelated: false,
-      includeStats: false,
-      includeVideos: true,
-      playlistId: 'playlist-1',
-      videoLimit: Number.NaN,
-      videoOffset: 0,
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        includeRelated: false,
+        includeVideos: true,
+        playlistId: 'playlist-1',
+        videoLimit: Number.NaN,
+        videoOffset: 0,
+      }),
+    ).resolves.toEqual({
       message: 'Video limit must be an integer between 1 and 100',
       ok: false,
       reason: 'VALIDATION_ERROR',
     });
 
-    await expect(useCase.execute({
-      includeRelated: false,
-      includeStats: false,
-      includeVideos: true,
-      playlistId: 'playlist-1',
-      videoLimit: 20,
-      videoOffset: 0.5,
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        includeRelated: false,
+        includeVideos: true,
+        playlistId: 'playlist-1',
+        videoLimit: 20,
+        videoOffset: 0.5,
+      }),
+    ).resolves.toEqual({
       message: 'Video offset must be a non-negative integer',
       ok: false,
       reason: 'VALIDATION_ERROR',
     });
 
-    await expect(useCase.execute({
-      includeRelated: false,
-      includeStats: false,
-      includeVideos: true,
-      playlistId: 'playlist-1',
-      videoLimit: Number.POSITIVE_INFINITY,
-      videoOffset: -1,
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        includeRelated: false,
+        includeVideos: true,
+        playlistId: 'playlist-1',
+        videoLimit: Number.POSITIVE_INFINITY,
+        videoOffset: -1,
+      }),
+    ).resolves.toEqual({
       message: 'Video limit must be an integer between 1 and 100',
       ok: false,
       reason: 'VALIDATION_ERROR',

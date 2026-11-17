@@ -1,11 +1,13 @@
 import { spawnSync } from 'node:child_process';
 import { applyHermeticTestEnv } from './hermetic-env';
-import { prependNoEnvFile } from './no-env-file-bun';
 
 applyHermeticTestEnv();
 
-const playwrightArgs = Bun.argv.slice(2);
-const result = spawnSync('bun', prependNoEnvFile(['x', 'playwright', 'test', ...playwrightArgs]), {
+const playwrightArgs = process.argv.slice(2);
+if (playwrightArgs[0] === '--') {
+  playwrightArgs.shift();
+}
+const result = spawnSync('pnpm', ['exec', 'playwright', 'test', ...playwrightArgs], {
   cwd: process.cwd(),
   env: process.env,
   stdio: 'inherit',
@@ -14,5 +16,4 @@ const result = spawnSync('bun', prependNoEnvFile(['x', 'playwright', 'test', ...
 if (result.error) {
   throw result.error;
 }
-
-process.exit(typeof result.status === 'number' ? result.status : 1);
+process.exit(result.status ?? 1);

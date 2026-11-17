@@ -2,9 +2,10 @@ export const PERSISTED_STAGED_UPLOAD_STATUSES = [
   'uploaded',
   'committing',
   'committed',
+  'removing',
 ] as const;
 
-export type IngestStagedUploadStatus = typeof PERSISTED_STAGED_UPLOAD_STATUSES[number];
+export type IngestStagedUploadStatus = (typeof PERSISTED_STAGED_UPLOAD_STATUSES)[number];
 
 export interface IngestStagedUpload {
   committedVideoId?: string;
@@ -12,6 +13,7 @@ export interface IngestStagedUpload {
   expiresAt: Date;
   filename: string;
   mimeType: string;
+  ownerId: string;
   size: number;
   stagingId: string;
   status: IngestStagedUploadStatus;

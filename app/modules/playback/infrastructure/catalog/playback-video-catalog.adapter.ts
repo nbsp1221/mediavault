@@ -1,6 +1,9 @@
 import type { VideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import type { SqliteDatabaseAdapter } from '~/modules/storage/infrastructure/sqlite/primary-sqlite.database';
-import { type CreateMigratedPrimarySqliteDatabase, createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import {
+  type CreateInitializedPrimarySqliteDatabase,
+  createInitializedPrimarySqliteDatabase,
+} from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
 import type { VideoCatalogPort } from '../../application/ports/video-catalog.port';
 
@@ -20,7 +23,7 @@ interface PlaybackVideoCatalogRepository {
 }
 
 interface PlaybackVideoCatalogAdapterDependencies {
-  createDatabase?: CreateMigratedPrimarySqliteDatabase;
+  createDatabase?: CreateInitializedPrimarySqliteDatabase;
   dbPath?: string;
   repository?: PlaybackVideoCatalogRepository;
 }
@@ -34,12 +37,14 @@ interface PlaybackVideoRow {
 }
 
 class PrimaryPlaybackVideoCatalogRepository implements PlaybackVideoCatalogRepository {
-  private readonly createDatabase: CreateMigratedPrimarySqliteDatabase;
+  private readonly createDatabase: CreateInitializedPrimarySqliteDatabase;
   private readonly dbPath: string;
   private databasePromise: Promise<SqliteDatabaseAdapter> | null = null;
 
-  constructor(deps: Pick<PlaybackVideoCatalogAdapterDependencies, 'createDatabase' | 'dbPath'> = {}) {
-    this.createDatabase = deps.createDatabase ?? createMigratedPrimarySqliteDatabase;
+  constructor(
+    deps: Pick<PlaybackVideoCatalogAdapterDependencies, 'createDatabase' | 'dbPath'> = {},
+  ) {
+    this.createDatabase = deps.createDatabase ?? createInitializedPrimarySqliteDatabase;
     this.dbPath = deps.dbPath ?? getPrimaryStorageConfig().databasePath;
   }
 
@@ -53,9 +58,10 @@ class PrimaryPlaybackVideoCatalogRepository implements PlaybackVideoCatalogRepos
 
   async findAll(scope: VideoReadAccessScope): Promise<PlaybackVideoCatalogRepositoryRecord[]> {
     const database = await this.getDatabase();
-    const accessWhereClause = scope.type === 'public_only'
-      ? 'videos.visibility = \'public\''
-      : '(videos.visibility = \'public\' OR videos.owner_id = ?)';
+    const accessWhereClause =
+      scope.type === 'public_only'
+        ? "videos.visibility = 'public'"
+        : "(videos.visibility = 'public' OR videos.owner_id = ?)";
     const statement = database.prepare<PlaybackVideoRow>(`
       SELECT
         videos.id,
@@ -70,20 +76,21 @@ class PrimaryPlaybackVideoCatalogRepository implements PlaybackVideoCatalogRepos
       WHERE ${accessWhereClause}
       ORDER BY videos.sort_index DESC
     `);
-    const rows = scope.type === 'public_only'
-      ? await statement.all()
-      : await statement.all(scope.ownerId);
+    const rows =
+      scope.type === 'public_only' ? await statement.all() : await statement.all(scope.ownerId);
 
-    return Promise.all(rows.map(async row => ({
-      createdAt: new Date(row.created_at),
-      description: row.description ?? undefined,
-      duration: row.duration_seconds,
-      id: row.id,
-      tags: await loadTags(database, row.id),
-      thumbnailUrl: `/api/thumbnail/${row.id}`,
-      title: row.title,
-      videoUrl: `/videos/${row.id}/manifest.mpd`,
-    })));
+    return Promise.all(
+      rows.map(async (row) => ({
+        createdAt: new Date(row.created_at),
+        description: row.description ?? undefined,
+        duration: row.duration_seconds,
+        id: row.id,
+        tags: await loadTags(database, row.id),
+        thumbnailUrl: `/api/thumbnail/${row.id}`,
+        title: row.title,
+        videoUrl: `/videos/${row.id}/manifest.mpd`,
+      })),
+    );
   }
 }
 
@@ -104,7 +111,7 @@ export class PlaybackVideoCatalogAdapter implements VideoCatalogPort {
 
   async getPlayerVideo(videoId: string, scope: VideoReadAccessScope) {
     const videos = await this.repository.findAll(scope);
-    const currentVideo = videos.find(video => video.id === videoId);
+    const currentVideo = videos.find((video) => video.id === videoId);
 
     if (!currentVideo) {
       return null;
@@ -118,14 +125,16 @@ export class PlaybackVideoCatalogAdapter implements VideoCatalogPort {
 }
 
 async function loadTags(database: SqliteDatabaseAdapter, videoId: string): Promise<string[]> {
-  const rows = await database.prepare<{ tag_slug: string }>(`
+  const rows = await database
+    .prepare<{ tag_slug: string }>(`
     SELECT tag_slug
     FROM video_tags
     WHERE video_id = ?
     ORDER BY tag_slug ASC
-  `).all(videoId);
+  `)
+    .all(videoId);
 
-  return rows.map(row => row.tag_slug);
+  return rows.map((row) => row.tag_slug);
 }
 
 function findRelatedVideos(
@@ -136,10 +145,10 @@ function findRelatedVideos(
     return [];
   }
 
-  const currentTags = new Set(current.tags.map(tag => tag.toLowerCase()));
+  const currentTags = new Set(current.tags.map((tag) => tag.toLowerCase()));
 
   return allVideos
-    .filter(candidate => candidate.id !== current.id)
-    .filter(candidate => candidate.tags.some(tag => currentTags.has(tag.toLowerCase())))
+    .filter((candidate) => candidate.id !== current.id)
+    .filter((candidate) => candidate.tags.some((tag) => currentTags.has(tag.toLowerCase())))
     .slice(0, 10);
 }

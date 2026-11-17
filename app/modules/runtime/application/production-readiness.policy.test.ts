@@ -32,23 +32,23 @@ describe('production readiness policy', () => {
     });
 
     expect(issues).toHaveLength(3);
-    expect(issues.map(issue => issue.code)).toEqual([
+    expect(issues.map((issue) => issue.code)).toEqual([
       'missing-critical-secret',
       'missing-critical-secret',
       'missing-critical-secret',
     ]);
-    expect(issues.map(issue => issue.severity)).toEqual([
+    expect(issues.map((issue) => issue.severity)).toEqual([
       'startup-blocking',
       'startup-blocking',
       'startup-blocking',
     ]);
-    expect(issues.map(issue => issue.subject)).toEqual([
+    expect(issues.map((issue) => issue.subject)).toEqual([
       'MEDIAVAULT_PLAYBACK_JWT_SECRET',
       'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET',
       'MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET',
     ]);
-    expect(issues.map(issue => issue.message).join('\n')).not.toContain('   ');
-    expect(issues.map(issue => issue.message).join('\n')).not.toContain('\n\t');
+    expect(issues.map((issue) => issue.message).join('\n')).not.toContain('   ');
+    expect(issues.map((issue) => issue.message).join('\n')).not.toContain('\n\t');
   });
 
   test('reports weak playback JWT secrets in production without leaking values', () => {
@@ -60,13 +60,16 @@ describe('production readiness policy', () => {
       MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET: 'cookie',
     });
 
-    expect(issues).toEqual([{
-      code: 'weak-critical-secret',
-      message: 'Production startup preflight failed: MEDIAVAULT_PLAYBACK_JWT_SECRET must be at least 32 characters',
-      severity: 'startup-blocking',
-      subject: 'MEDIAVAULT_PLAYBACK_JWT_SECRET',
-    }]);
-    expect(issues.map(issue => issue.message).join('\n')).not.toContain('short');
+    expect(issues).toEqual([
+      {
+        code: 'weak-critical-secret',
+        message:
+          'Production startup preflight failed: MEDIAVAULT_PLAYBACK_JWT_SECRET must be at least 32 characters',
+        severity: 'startup-blocking',
+        subject: 'MEDIAVAULT_PLAYBACK_JWT_SECRET',
+      },
+    ]);
+    expect(issues.map((issue) => issue.message).join('\n')).not.toContain('short');
   });
 
   test('does not apply production startup secret failures outside production', () => {
@@ -79,32 +82,39 @@ describe('production readiness policy', () => {
   });
 
   test('reports a startup-blocking issue when production has no auth users', () => {
-    expect(collectAuthAccountIssues({ authUserCount: 0 })).toEqual([{
-      code: 'missing-auth-user',
-      message: 'Production startup preflight failed: no auth users exist and MEDIAVAULT_ADMIN_API_MODE=bootstrap with MEDIAVAULT_ADMIN_API_TOKEN is not configured',
-      severity: 'startup-blocking',
-      subject: 'auth_users',
-    }]);
+    expect(collectAuthAccountIssues({ authUserCount: 0 })).toEqual([
+      {
+        code: 'missing-auth-user',
+        message:
+          'Production startup preflight failed: no auth users exist and MEDIAVAULT_ADMIN_API_MODE=bootstrap with MEDIAVAULT_ADMIN_API_TOKEN is not configured',
+        severity: 'startup-blocking',
+        subject: 'auth_users',
+      },
+    ]);
 
     expect(collectAuthAccountIssues({ authUserCount: 1 })).toEqual([]);
   });
 
   test('allows zero-user startup when bootstrap admin API has a token', () => {
-    expect(collectAuthAccountIssues({
-      adminApiConfig: {
-        mode: 'bootstrap',
-        token: 'admin-token',
-      },
-      authUserCount: 0,
-    })).toEqual([]);
+    expect(
+      collectAuthAccountIssues({
+        adminApiConfig: {
+          mode: 'bootstrap',
+          token: 'admin-token',
+        },
+        authUserCount: 0,
+      }),
+    ).toEqual([]);
 
-    expect(collectAuthAccountIssues({
-      adminApiConfig: {
-        mode: 'bootstrap',
-        token: null,
-      },
-      authUserCount: 0,
-    })).toHaveLength(1);
+    expect(
+      collectAuthAccountIssues({
+        adminApiConfig: {
+          mode: 'bootstrap',
+          token: null,
+        },
+        authUserCount: 0,
+      }),
+    ).toHaveLength(1);
   });
 
   test('classifies storage and database probe failures as startup-blocking production issues', () => {
@@ -157,14 +167,18 @@ describe('production readiness policy', () => {
       startupBlocked: false,
     });
 
-    expect(createProductionReadinessReport({
-      issues: [{
-        code: 'media-tool-unavailable',
-        message: 'Production readiness failed: media tool ffmpeg is unavailable',
-        severity: 'readiness-only',
-        subject: 'ffmpeg',
-      }],
-    })).toMatchObject({
+    expect(
+      createProductionReadinessReport({
+        issues: [
+          {
+            code: 'media-tool-unavailable',
+            message: 'Production readiness failed: media tool ffmpeg is unavailable',
+            severity: 'readiness-only',
+            subject: 'ffmpeg',
+          },
+        ],
+      }),
+    ).toMatchObject({
       ready: false,
       startupBlocked: false,
     });

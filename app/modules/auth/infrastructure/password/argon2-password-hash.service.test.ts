@@ -8,13 +8,17 @@ describe('Argon2PasswordHashService', () => {
     const hash = await service.hash('correct-password');
 
     expect(hash).toMatch(/^\$argon2id\$/);
-    await expect(service.verify({
-      hash,
-      password: 'correct-password',
-    })).resolves.toBe(true);
-    await expect(service.verify({
-      hash,
-      password: 'wrong-password',
-    })).resolves.toBe(false);
+    await expect(
+      service.verify({
+        hash,
+        password: 'correct-password',
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      service.verify({
+        hash,
+        password: 'wrong-password',
+      }),
+    ).resolves.toBe(false);
   });
 });

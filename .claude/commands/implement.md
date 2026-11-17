@@ -1,65 +1,15 @@
 ---
 name: implement
-description: Comprehensive implementation workflow with codebase analysis, planning, development, and validation
-argument-hint: [optional task description]
+description: Implement a scoped change using the repository's current architecture, decision, verification, and Git rules.
+argument-hint: [task description]
 ---
 
-## Triggers
+# Implement a change
 
-- Complex feature implementations requiring systematic approach
-- Multi-step development tasks needing quality assurance
-- When you need comprehensive codebase analysis before implementation
-- Projects requiring E2E testing validation
-- Full development lifecycle from analysis to deployment
+1. Read [AGENTS.md](../../AGENTS.md), the canonical repository guidance, and the relevant current product/source contracts. Inspect existing code before proposing changes. Load applicable available skills before acting; use official ecosystem documentation when behavior or compatibility is uncertain. Do not require an extra model, CLI, dependency, or delegation just to begin.
+2. Clarify the intended outcome and affected ownership boundaries. Ask a contextual question with a recommended option for consequential architecture, ambiguous security/product policy, or expensive-to-reverse choices. Make researched routine reversible choices without unnecessary approval loops. Do not silently implement placeholders or preserve a vulnerability as product policy.
+3. Plan concrete steps for nontrivial work, then make focused changes on a task branch. Keep temporary research, plans, logs, and QA evidence outside Git. Preserve unrelated edits, stashes, developer files, and generated primitive internals.
+4. Use the supported Node.js/pnpm contract and [verification matrix](../../docs/verification-contract.md). Run focused checks while iterating, then the required completion gates, including runtime, storage-integrity, and isolated personal browser QA when applicable. Never weaken assertions, coverage, or baselines to obtain a pass.
+5. Report the implemented outcome, important decisions, exact verification scope, and anything failed or unverified. A successful HTTP response or mounted player is not proof of a browser-only outcome or decoded playback.
 
-## Usage
-
-```
-/implement [optional task description]
-/implement "Add user authentication system"
-/implement "Refactor video processing pipeline"
-```
-
-## Behavioral Flow
-
-1. **Initial Analysis**: Execute `gemini --help` command to analyze entire codebase using Gemini 2.5 Pro model, leveraging 1M context window for comprehensive structural and dependency insights
-2. **Strategic Planning**: Combine Gemini analysis with additional in-depth code examination to formulate implementation strategy and create detailed execution plan
-3. **Plan & Execute**: Create comprehensive TodoWrite task list and begin immediate implementation without requiring user approval
-4. **QA Gate 1**: Execute quality assurance sequence in order:
-   - `bun run lint:fix` - Fix linting issues automatically
-   - `bun run typecheck` - Validate TypeScript types
-   - `bun run test` - Run test suite
-   - `bun run build` - Create production build
-   - Resolve all discovered errors before proceeding
-5. **E2E Validation**: Reference E2E_TESTING_GUIDE.md to run comprehensive end-to-end tests focusing on modified functionality, resolve all issues
-6. **Final Integrity Check**: Re-execute complete QA process from step 4 to ensure all checks pass without errors
-7. **Final Report**: Submit comprehensive summary of completed work, changes made, and validation results
-
-## Tool Coordination
-
-- **Bash**: Execute gemini analysis, run build/test/lint commands, run E2E tests
-- **Read/Grep/Glob**: Deep codebase examination and pattern analysis
-- **TodoWrite**: Create and manage implementation task lists
-- **Write/Edit/MultiEdit**: Implement code changes and modifications
-- **Task**: Delegate complex analysis or search tasks to specialized agents
-- **WebFetch**: Reference documentation when needed for implementation
-
-## Boundaries
-
-This command will:
-- Perform comprehensive codebase analysis using Gemini 2.5 Pro
-- Create detailed implementation plans with task tracking
-- Execute full development lifecycle including coding and testing
-- Run complete quality assurance validation
-- Provide comprehensive final reporting
-- Follow established code conventions and project standards
-- Resolve all build, test, and lint errors systematically
-
-This command will not:
-- Skip quality assurance steps or ignore failing tests
-- Proceed with incomplete implementations
-- Modify deployment configurations without explicit approval
-- Create or modify security-sensitive code without validation
-- Bypass existing authentication or authorization mechanisms
-- Make changes to production data or configurations
-- Proceed if Gemini analysis reveals security concerns
+Implementation does not authorize staging, committing, pushing, or opening a pull request. Follow the canonical Git guards; an explicitly authorized commit requires the `commit` skill, and publication requires separate permission. Never modify production data or use actual local secrets/storage as test fixtures.

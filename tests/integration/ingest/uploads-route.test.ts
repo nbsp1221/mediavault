@@ -1,86 +1,97 @@
 import { describe, expect, test, vi } from 'vitest';
-import { createUploadsAction } from '../../../app/routes/api.uploads';
+import { createUploadsAction } from '~/routes/.server/staged-upload-handlers';
 
-describe('uploads api route', () => {
-  test('streams the request through the upload adapter and returns the staged upload payload', async () => {
-    const requireProtectedApiSession = vi.fn(async () => null);
-    const receiveSingleFileUpload = vi.fn(async () => ({
-      filename: 'fixture-video.mp4',
-      mimeType: 'video/mp4',
-      size: 1_024,
-      tempFilePath: '/tmp/request-123/fixture-video.mp4',
-    }));
-    const execute = vi.fn(async () => ({
-      ok: true as const,
-      data: {
-        filename: 'fixture-video.mp4',
-        mimeType: 'video/mp4',
-        size: 1_024,
-        stagingId: 'staging-123',
-      },
-    }));
-    const action = createUploadsAction({
-      createErrorResponse: error => new Response(error instanceof Error ? error.message : 'Unknown error occurred', { status: 500 }),
-      getServerIngestServices: () => ({
-        startStagedUpload: {
-          execute,
-        },
-        uploadBrowserFile: {
-          receiveSingleFileUpload,
-        },
-      }),
-      requireProtectedApiSession,
+function fixture() {
+  const receiveSingleFileUpload = vi.fn(async () => ({
+    filename: 'video.mp4',
+    mimeType: 'video/mp4',
+    size: 10,
+    tempFilePath: '/isolated/temp/video.mp4',
+  }));
+  const execute = vi.fn(async () => ({
+    ok: true as const,
+    data: { filename: 'video.mp4', mimeType: 'video/mp4', size: 10, stagingId: 'stage' },
+  }));
+  const requireProtectedApiSessionValue = vi.fn(
+    async (): Promise<Response | { userId: string }> => ({ userId: 'owner' }),
+  );
+  const getServerIngestServices = vi.fn(() => ({
+    startStagedUpload: { execute },
+    uploadBrowserFile: { receiveSingleFileUpload },
+  }));
+  return {
+    action: createUploadsAction({ getServerIngestServices, requireProtectedApiSessionValue }),
+    execute,
+    getServerIngestServices,
+    receiveSingleFileUpload,
+    requireProtectedApiSessionValue,
+  };
+}
+
+describe('source upload HTTP boundary', () => {
+  test('streams an authenticated request and derives owner only from session', async () => {
+    const f = fixture();
+    const response = await f.action({
+      params: {},
+      request: new Request('http://localhost/api/uploads', { method: 'POST', body: 'bytes' }),
     });
-
-    const response = await action({
-      request: new Request('http://localhost/api/uploads', {
-        body: 'upload-body',
-        method: 'POST',
-      }),
-    } as never);
-
-    expect(requireProtectedApiSession).toHaveBeenCalledOnce();
-    expect(receiveSingleFileUpload).toHaveBeenCalledOnce();
-    expect(execute).toHaveBeenCalledWith({
-      filename: 'fixture-video.mp4',
+    expect(f.execute).toHaveBeenCalledWith({
+      filename: 'video.mp4',
       mimeType: 'video/mp4',
-      size: 1_024,
-      tempFilePath: '/tmp/request-123/fixture-video.mp4',
+      ownerId: 'owner',
+      size: 10,
+      tempFilePath: '/isolated/temp/video.mp4',
     });
-    await expect((response as Response).json()).resolves.toEqual({
-      filename: 'fixture-video.mp4',
+    await expect(response.json()).resolves.toEqual({
+      filename: 'video.mp4',
       mimeType: 'video/mp4',
-      size: 1_024,
-      stagingId: 'staging-123',
+      size: 10,
+      stagingId: 'stage',
       success: true,
     });
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
   });
 
-  test('returns the auth gate response without reading the request body when unauthorized', async () => {
-    const requireProtectedApiSession = vi.fn(async () => new Response('unauthorized', { status: 401 }));
-    const receiveSingleFileUpload = vi.fn();
-    const execute = vi.fn();
-    const action = createUploadsAction({
-      createErrorResponse: error => new Response(error instanceof Error ? error.message : 'Unknown error occurred', { status: 500 }),
-      getServerIngestServices: () => ({
-        startStagedUpload: {
-          execute,
-        },
-        uploadBrowserFile: {
-          receiveSingleFileUpload,
-        },
-      }),
-      requireProtectedApiSession,
+  test('denied requests never assemble services or read bytes', async () => {
+    const f = fixture();
+    f.requireProtectedApiSessionValue.mockResolvedValue(new Response(null, { status: 401 }));
+    expect(
+      (
+        await f.action({
+          params: {},
+          request: new Request('http://localhost/api/uploads', { method: 'POST' }),
+        })
+      ).status,
+    ).toBe(401);
+    expect(f.getServerIngestServices).not.toHaveBeenCalled();
+    expect(f.receiveSingleFileUpload).not.toHaveBeenCalled();
+  });
+
+  test('unsupported method is 405 and infrastructure errors never expose paths or secrets', async () => {
+    const f = fixture();
+    expect(
+      (await f.action({ params: {}, request: new Request('http://localhost/api/uploads') })).status,
+    ).toBe(405);
+    expect(f.requireProtectedApiSessionValue).not.toHaveBeenCalled();
+    f.receiveSingleFileUpload.mockRejectedValue(new Error('private filesystem path and key'));
+    const response = await f.action({
+      params: {},
+      request: new Request('http://localhost/api/uploads', { method: 'POST' }),
     });
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: 'Upload unavailable', success: false });
+  });
 
-    const response = await action({
-      request: new Request('http://localhost/api/uploads', {
-        method: 'POST',
-      }),
-    } as never);
-
-    expect((response as Response).status).toBe(401);
-    expect(receiveSingleFileUpload).not.toHaveBeenCalled();
-    expect(execute).not.toHaveBeenCalled();
+  test('bounded upload errors preserve their client status without converting them to success', async () => {
+    const f = fixture();
+    f.receiveSingleFileUpload.mockRejectedValue(
+      Object.assign(new Error('File too large'), { statusCode: 413 }),
+    );
+    const response = await f.action({
+      params: {},
+      request: new Request('http://localhost/api/uploads', { method: 'POST' }),
+    });
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({ error: 'File too large', success: false });
   });
 });

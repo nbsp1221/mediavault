@@ -7,37 +7,55 @@ interface RemoveStagedUploadUseCaseDependencies {
 }
 
 interface RemoveStagedUploadCommand {
+  ownerId: string;
   stagingId: string;
 }
 
 export type RemoveStagedUploadUseCaseResult =
   | {
-    ok: true;
-  }
+      ok: true;
+    }
   | {
-    ok: false;
-    message: string;
-    reason: 'REMOVE_STAGED_UPLOAD_CONFLICT';
-  };
+      ok: false;
+      message: string;
+      reason: 'REMOVE_STAGED_UPLOAD_CONFLICT' | 'REMOVE_STAGED_UPLOAD_NOT_FOUND';
+    };
 
 export class RemoveStagedUploadUseCase {
-  constructor(
-    private readonly deps: RemoveStagedUploadUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: RemoveStagedUploadUseCaseDependencies) {}
 
   async execute(command: RemoveStagedUploadCommand): Promise<RemoveStagedUploadUseCaseResult> {
     const stagedUpload = await this.deps.stagedUploadRepository.findByStagingId(command.stagingId);
 
-    if (!stagedUpload || stagedUpload.status === 'committed') {
+    if (!stagedUpload || stagedUpload.ownerId !== command.ownerId) {
+      return {
+        ok: false,
+        message: 'Staged upload not found',
+        reason: 'REMOVE_STAGED_UPLOAD_NOT_FOUND',
+      };
+    }
+
+    if (stagedUpload.status === 'committed') {
       return {
         ok: true,
       };
     }
 
-    if (stagedUpload.status === 'committing') {
+    const removal = await this.deps.stagedUploadRepository.beginRemoval(
+      command.stagingId,
+      command.ownerId,
+    );
+    if (removal === 'missing') {
       return {
         ok: false,
-        message: 'Commit already in progress',
+        message: 'Staged upload not found',
+        reason: 'REMOVE_STAGED_UPLOAD_NOT_FOUND',
+      };
+    }
+    if (removal === 'busy') {
+      return {
+        ok: false,
+        message: 'Processing is still in progress',
         reason: 'REMOVE_STAGED_UPLOAD_CONFLICT',
       };
     }

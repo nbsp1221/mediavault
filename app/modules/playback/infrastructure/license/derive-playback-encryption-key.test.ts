@@ -14,10 +14,14 @@ describe('derivePlaybackEncryptionKey', () => {
 
     expect(key).toBeInstanceOf(Buffer);
     expect(key).toHaveLength(16);
-    expect(key.equals(derivePlaybackEncryptionKey({
-      env,
-      videoId: 'video-123',
-    }))).toBe(true);
+    expect(
+      key.equals(
+        derivePlaybackEncryptionKey({
+          env,
+          videoId: 'video-123',
+        }),
+      ),
+    ).toBe(true);
   });
 
   test('uses MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT when provided', () => {
@@ -39,9 +43,13 @@ describe('derivePlaybackEncryptionKey', () => {
   });
 
   test('fails when the runtime seed is missing outside tests', () => {
-    expect(() => derivePlaybackEncryptionKey({
-      env: {},
-      videoId: 'video-123',
-    })).toThrow('MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET environment variable is required for video encryption');
+    expect(() =>
+      derivePlaybackEncryptionKey({
+        env: {},
+        videoId: 'video-123',
+      }),
+    ).toThrow(
+      'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET environment variable is required for video encryption',
+    );
   });
 });

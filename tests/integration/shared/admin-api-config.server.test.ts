@@ -10,48 +10,52 @@ describe('getAdminApiConfig', () => {
   });
 
   test('parses allowed modes and trims blank tokens', () => {
-    expect(getAdminApiConfig({
-      MEDIAVAULT_ADMIN_API_MODE: ' bootstrap ',
-      MEDIAVAULT_ADMIN_API_TOKEN: '  secret-token  ',
-    })).toEqual({
+    expect(
+      getAdminApiConfig({
+        MEDIAVAULT_ADMIN_API_MODE: ' bootstrap ',
+        MEDIAVAULT_ADMIN_API_TOKEN: '  secret-token  ',
+      }),
+    ).toEqual({
       mode: 'bootstrap',
       token: 'secret-token',
     });
 
-    expect(getAdminApiConfig({
-      MEDIAVAULT_ADMIN_API_MODE: 'always',
-      MEDIAVAULT_ADMIN_API_TOKEN: '   ',
-    })).toEqual({
+    expect(
+      getAdminApiConfig({
+        MEDIAVAULT_ADMIN_API_MODE: 'always',
+        MEDIAVAULT_ADMIN_API_TOKEN: '   ',
+      }),
+    ).toEqual({
       mode: 'always',
       token: null,
     });
   });
 
   test('ignores unrelated invalid runtime settings', () => {
-    expect(getAdminApiConfig({
-      DASH_SEGMENT_DURATION: 'bad',
-      MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
-      MEDIAVAULT_ADMIN_API_TOKEN: 'secret-token',
-    })).toEqual({
+    expect(
+      getAdminApiConfig({
+        DASH_SEGMENT_DURATION: 'bad',
+        MEDIAVAULT_ADMIN_API_MODE: 'bootstrap',
+        MEDIAVAULT_ADMIN_API_TOKEN: 'secret-token',
+      }),
+    ).toEqual({
       mode: 'bootstrap',
       token: 'secret-token',
     });
   });
 
   test('throws without leaking token values for invalid modes', () => {
-    expect(() => getAdminApiConfig({
-      MEDIAVAULT_ADMIN_API_MODE: 'forever',
-      MEDIAVAULT_ADMIN_API_TOKEN: 'do-not-leak',
-    })).toThrow('MEDIAVAULT_ADMIN_API_MODE');
-
+    let caught: unknown;
     try {
       getAdminApiConfig({
         MEDIAVAULT_ADMIN_API_MODE: 'forever',
         MEDIAVAULT_ADMIN_API_TOKEN: 'do-not-leak',
       });
+    } catch (error) {
+      caught = error;
     }
-    catch (error) {
-      expect(String(error)).not.toContain('do-not-leak');
-    }
+    expect(caught).toBeInstanceOf(Error);
+    expect(String(caught)).toContain('MEDIAVAULT_ADMIN_API_MODE');
+    expect(String(caught).includes('do-not-leak')).toBe(false);
   });
 });

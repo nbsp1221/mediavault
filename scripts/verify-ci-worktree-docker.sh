@@ -6,32 +6,23 @@ cd "$repo_root"
 
 tmp_dir="$(mktemp -d)"
 cleanup() {
-  rm -rf "$tmp_dir"
+  test -n "$tmp_dir" && test -d "$tmp_dir" && rm -rf -- "$tmp_dir"
 }
 trap cleanup EXIT
 
 mkdir -p "$tmp_dir/baseline" "$tmp_dir/current"
-
 git archive --format=tar HEAD | tar -xf - -C "$tmp_dir/baseline"
-
 git ls-files -z --cached --others --exclude-standard \
   | while IFS= read -r -d '' path; do
       if [ -e "$path" ]; then
         printf '%s\0' "$path"
       fi
     done \
-  | tar \
-    --null \
-    --exclude='.playwright-mcp' \
-    --exclude='playwright-report' \
-    --exclude='test-results' \
-    --files-from=- \
-    -cf - \
+  | tar --null --files-from=- -cf - \
   | tar -xf - -C "$tmp_dir/current"
 
-bun_version="$(
-  bun --print "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).packageManager.split('@')[1]"
-)"
+node_version="$(node --print "require('./package.json').engines.node")"
+pnpm_version="$(node --print "require('./package.json').packageManager.split('@')[1]")"
 
 tar -C "$tmp_dir" -cf - baseline current \
   | docker run --rm -i \
@@ -41,10 +32,12 @@ tar -C "$tmp_dir" -cf - baseline current \
     -e LANG=C.UTF-8 \
     -e LC_ALL=C.UTF-8 \
     -e TZ=Etc/UTC \
-    "oven/bun:${bun_version}" \
+    -e PNPM_VERSION="$pnpm_version" \
+    "node:${node_version}-bookworm" \
     bash -lc '
       apt-get update >/dev/null &&
-      apt-get install -y nodejs npm git curl procps xz-utils >/dev/null &&
+      apt-get install -y git curl procps xz-utils python3 make g++ >/dev/null &&
+      npm install --global "pnpm@${PNPM_VERSION}" >/dev/null &&
       mkdir -p /tmp/input /tmp/workspace &&
       tar -xf - -C /tmp/input &&
       cp -a /tmp/input/baseline/. /tmp/workspace/ &&
@@ -55,9 +48,9 @@ tar -C "$tmp_dir" -cf - baseline current \
       git init -q &&
       git add -A &&
       git commit -qm baseline &&
-      find /tmp/workspace -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} + &&
+      git rm -rf --ignore-unmatch . >/dev/null &&
       cp -a /tmp/input/current/. /tmp/workspace/ &&
       git add -A &&
-      bun install --frozen-lockfile &&
-      bun run check:runtime
+      pnpm install --frozen-lockfile &&
+      pnpm check:runtime
     '

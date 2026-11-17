@@ -2,9 +2,9 @@ import { describe, expect, test } from 'vitest';
 import type { LibraryVideo } from '../../domain/library-video';
 import type { VideoVisibility } from '../../domain/value-objects/video-visibility';
 import {
+  VideoAccessPolicy,
   type VideoViewer,
   canAccessVideoForRead,
-  VideoAccessPolicy,
 } from '../../domain/policies/video-access.policy';
 import { type VideoReadAccessScope, createVideoReadAccessScope } from './video-read-access-scope';
 
@@ -60,9 +60,12 @@ describe('VideoReadAccessScope', () => {
     },
   ];
 
-  test.each(viewers)('derives the canonical read scope for a viewer', ({ expectedScope, viewer }) => {
-    expect(createVideoReadAccessScope(viewer)).toEqual(expectedScope);
-  });
+  test.each(viewers)(
+    'derives the canonical read scope for a viewer',
+    ({ expectedScope, viewer }) => {
+      expect(createVideoReadAccessScope(viewer)).toEqual(expectedScope);
+    },
+  );
 
   test('keeps read scope equivalent to the object-level view policy', () => {
     for (const { viewer } of viewers) {

@@ -1,9 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import {
-  type RuntimeEnvInput,
-  getVideoToolOverridesConfig,
-} from './app-config.server';
+import { type RuntimeEnvInput, getVideoToolOverridesConfig } from './app-config.server';
 
 export function getFFmpegPath(env?: RuntimeEnvInput): string {
   const explicitPath = getVideoToolOverridesConfig(env).ffmpegPath;

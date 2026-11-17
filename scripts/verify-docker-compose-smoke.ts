@@ -1,6 +1,9 @@
+import { spawn } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { z } from 'zod';
 import { PUBLIC_ENV_KEYS } from '../app/shared/config/public-env.server';
 import {
   assertRuntimeTestEnvConfigurable,
@@ -28,12 +31,8 @@ function createProjectName(name: string): string {
   return `mediavault-compose-smoke-${name}-${suffix}`.replace(/[^a-z0-9_-]/g, '-');
 }
 
-async function sleep(ms: number): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, ms));
-}
-
 function shellQuote(value: string): string {
-  return `'${value.replaceAll('\'', '\'\\\'\'')}'`;
+  return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 interface CommandResult {
@@ -42,59 +41,65 @@ interface CommandResult {
   stdout: string;
 }
 
-interface ComposeConfig {
-  services?: Record<string, {
-    build?: {
-      target?: string;
-    };
-    healthcheck?: {
-      test?: unknown;
-    };
-    ports?: Array<{
-      published?: number | string;
-      target?: number | string;
-    }>;
-  }>;
-}
+const composeConfigSchema = z.object({
+  services: z
+    .record(
+      z.string(),
+      z.object({
+        build: z.object({ target: z.string().optional() }).optional(),
+        healthcheck: z
+          .object({ test: z.union([z.string(), z.array(z.string())]).optional() })
+          .optional(),
+        ports: z
+          .array(
+            z.object({
+              published: z.union([z.number(), z.string()]).optional(),
+              target: z.union([z.number(), z.string()]).optional(),
+            }),
+          )
+          .optional(),
+      }),
+    )
+    .optional(),
+});
+
+type ComposeConfig = z.infer<typeof composeConfigSchema>;
 
 async function runCommand(command: string[]): Promise<CommandResult> {
-  const process = Bun.spawn(command, {
-    stderr: 'pipe',
-    stdout: 'pipe',
+  return new Promise((resolve, reject) => {
+    const child = spawn(command[0], command.slice(1), { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
+    });
+    child.once('error', reject);
+    child.once('close', (code) => resolve({ exitCode: code ?? 1, stderr, stdout }));
   });
-
-  const [exitCode, stdout, stderr] = await Promise.all([
-    process.exited,
-    new Response(process.stdout).text(),
-    new Response(process.stderr).text(),
-  ]);
-
-  return { exitCode, stderr, stdout };
 }
 
 async function runDocker(args: string[]) {
   return runCommand(['docker', ...args]);
 }
 
-async function runCompose(
-  composeFile: string,
-  projectName: string,
-  args: string[],
-) {
+async function runCompose(composeFile: string, projectName: string, args: string[]) {
   return runCommand(['docker', 'compose', '-p', projectName, '-f', composeFile, ...args]);
 }
 
-async function runComposeExec(
-  composeFile: string,
-  projectName: string,
-  args: string[],
-) {
+async function runComposeExec(composeFile: string, projectName: string, args: string[]) {
   return runCompose(composeFile, projectName, ['exec', '-T', ...args]);
 }
 
 function envBlock(env: Record<string, string | undefined>): string {
   return Object.entries(env)
-    .flatMap(([key, value]) => (value === undefined ? [] : [`      ${key}: ${JSON.stringify(value)}`]))
+    .flatMap(([key, value]) =>
+      value === undefined ? [] : [`      ${key}: ${JSON.stringify(value)}`],
+    )
     .join('\n');
 }
 
@@ -123,10 +128,12 @@ async function writeComposeFile(
   const content = `services:
   mediavault:
     image: ${JSON.stringify(imageTag)}
+    init: true
+    stop_grace_period: 35s
     environment:
 ${envBlock(scenario.env)}${volumesBlock(scenario.storageDir)}${commandBlock(scenario.command)}
     healthcheck:
-      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 2s
       timeout: 10s
       retries: 3
@@ -187,14 +194,19 @@ async function waitForExpectedState(
       return lastState;
     }
 
-    if (scenario.expectedFinalState !== 'exited' && (lastState === 'exited' || lastState === 'dead')) {
+    if (
+      scenario.expectedFinalState !== 'exited' &&
+      (lastState === 'exited' || lastState === 'dead')
+    ) {
       break;
     }
 
     await sleep(POLL_INTERVAL_MS);
   }
 
-  throw new Error(`Scenario ${scenario.name} expected ${scenario.expectedFinalState}, got ${lastState}`);
+  throw new Error(
+    `Scenario ${scenario.name} expected ${scenario.expectedFinalState}, got ${lastState}`,
+  );
 }
 
 async function readLogs(composeFile: string, projectName: string): Promise<string> {
@@ -206,13 +218,17 @@ async function readLogs(composeFile: string, projectName: string): Promise<strin
 function assertScenarioLogs(scenario: ComposeScenario, logs: string): void {
   for (const expectedLog of scenario.expectLogIncludes ?? []) {
     if (!logs.includes(expectedLog)) {
-      throw new Error(`Scenario ${scenario.name} logs did not include ${shellQuote(expectedLog)}.\nLogs:\n${logs}`);
+      throw new Error(
+        `Scenario ${scenario.name} logs did not include ${shellQuote(expectedLog)}.\nLogs:\n${logs}`,
+      );
     }
   }
 
   for (const forbiddenLog of scenario.forbiddenLogIncludes ?? []) {
     if (logs.includes(forbiddenLog)) {
-      throw new Error(`Scenario ${scenario.name} logs leaked ${shellQuote(forbiddenLog)}.\nLogs:\n${logs}`);
+      throw new Error(
+        `Scenario ${scenario.name} logs leaked ${shellQuote(forbiddenLog)}.\nLogs:\n${logs}`,
+      );
     }
   }
 }
@@ -227,17 +243,16 @@ function assertComposeConfigContract(config: ComposeConfig): void {
     throw new Error('services.mediavault.build.target must be production');
   }
 
-  const publishesDefaultPort = service.ports?.some(port => (
-    String(port.published) === '3000' &&
-    String(port.target) === '3000'
-  ));
+  const publishesDefaultPort = service.ports?.some(
+    (port) => String(port.published) === '3000' && String(port.target) === '3000',
+  );
   if (!publishesDefaultPort) {
     throw new Error('services.mediavault.ports must publish 3000:3000');
   }
 
   const healthcheckTest = Array.isArray(service.healthcheck?.test)
     ? service.healthcheck.test.join(' ')
-    : String(service.healthcheck?.test ?? '');
+    : (service.healthcheck?.test ?? '');
   if (!healthcheckTest.includes('http://localhost:3000/health/ready')) {
     throw new Error('services.mediavault.healthcheck.test must use /health/ready');
   }
@@ -267,17 +282,23 @@ async function validateCheckedInComposeConfig(rootDir: string): Promise<void> {
   }
 
   try {
-    assertComposeConfigContract(JSON.parse(result.stdout) as ComposeConfig);
-  }
-  catch (error) {
+    assertComposeConfigContract(composeConfigSchema.parse(JSON.parse(result.stdout)));
+  } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`checked-in docker-compose.yaml config contract failed: ${reason}\nConfig:\n${result.stdout}`);
+    throw new Error(
+      `checked-in docker-compose.yaml config contract failed: ${reason}\nConfig:\n${result.stdout}`,
+      { cause: error },
+    );
   }
 
   console.log('✓ checked-in docker-compose.yaml config');
 }
 
-async function runScenario(rootDir: string, imageTag: string, scenario: ComposeScenario): Promise<void> {
+async function runScenario(
+  rootDir: string,
+  imageTag: string,
+  scenario: ComposeScenario,
+): Promise<void> {
   const projectName = createProjectName(scenario.name);
   const composeFile = await writeComposeFile(rootDir, imageTag, scenario);
 
@@ -296,8 +317,13 @@ async function runScenario(rootDir: string, imageTag: string, scenario: ComposeS
     assertScenarioLogs(scenario, logs);
 
     console.log(`✓ ${scenario.name}: ${state}`);
-  }
-  finally {
+  } catch (error) {
+    let logs = await readLogs(composeFile, projectName);
+    for (const value of runtimeSecretLogValues(scenario.env)) {
+      logs = logs.replaceAll(value, '[redacted]');
+    }
+    throw new Error(`Scenario ${scenario.name} failed. Container logs:\n${logs}`, { cause: error });
+  } finally {
     await runCompose(composeFile, projectName, ['down', '-v', '--remove-orphans']);
   }
 }
@@ -319,7 +345,7 @@ async function assertContainerFetchStatus(
 ): Promise<void> {
   const result = await runComposeExec(composeFile, projectName, [
     'mediavault',
-    'bun',
+    'node',
     '-e',
     `
       const response = await (${fetchExpression});
@@ -369,7 +395,7 @@ async function verifyBootstrapAdminApi(composeFile: string, projectName: string)
     200,
     `fetch('http://localhost:3000/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Origin': 'http://localhost:3000' },
       body: JSON.stringify({ username: 'owner', password: 'compose-test-password' })
     })`,
   );
@@ -383,14 +409,7 @@ async function main(): Promise<void> {
     await validateCheckedInComposeConfig(rootDir);
 
     console.log(`Building ${imageTag}`);
-    const build = await runDocker([
-      'build',
-      '--target',
-      'production',
-      '-t',
-      imageTag,
-      '.',
-    ]);
+    const build = await runDocker(['build', '--target', 'production', '-t', imageTag, '.']);
     if (build.exitCode !== 0) {
       throw new Error(`docker build failed:\n${build.stderr}`);
     }
@@ -398,10 +417,12 @@ async function main(): Promise<void> {
     const baseEnv = createDockerComposeRuntimeTestEnv();
     try {
       assertRuntimeTestEnvConfigurable(baseEnv);
-    }
-    catch (error) {
+    } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new Error(`Docker smoke configured fixture is invalid before Docker execution:\n${reason}`);
+      throw new Error(
+        `Docker smoke configured fixture is invalid before Docker execution:\n${reason}`,
+        { cause: error },
+      );
     }
     const forbiddenSecretLogValues = runtimeSecretLogValues(baseEnv);
 
@@ -446,9 +467,9 @@ async function main(): Promise<void> {
       },
       {
         command: [
-          'bun',
+          'node',
           '-e',
-          'import { writeFileSync } from \'node:fs\'; writeFileSync(\'/tmp/blocked-storage\', \'blocked\'); process.env.MEDIAVAULT_STORAGE_DIR = \'/tmp/blocked-storage\'; await import(\'./build/server/index.js\');',
+          "import { writeFileSync } from 'node:fs'; writeFileSync('/tmp/blocked-storage', 'blocked'); process.env.MEDIAVAULT_STORAGE_DIR = '/tmp/blocked-storage'; await import('./server.mjs');",
         ],
         env: baseEnv,
         expectLogIncludes: ['MEDIAVAULT_STORAGE_DIR'],
@@ -472,8 +493,7 @@ async function main(): Promise<void> {
     for (const scenario of scenarios) {
       await runScenario(rootDir, imageTag, scenario);
     }
-  }
-  finally {
+  } finally {
     await runDocker(['image', 'rm', '-f', imageTag]);
     await rm(rootDir, { force: true, recursive: true });
   }

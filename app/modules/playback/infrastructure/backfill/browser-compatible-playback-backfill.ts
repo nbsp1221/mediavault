@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import { basename } from 'node:path';
-import path from 'node:path';
-import type { MediaKeyDerivationConfig } from '~/shared/config/app-config.server';
+import path, { basename } from 'node:path';
 import { normalizeClearKeyManifest } from '~/modules/ingest/infrastructure/processing/normalize-clearkey-manifest';
 import {
   decryptThumbnailEnvelope,
@@ -10,8 +8,12 @@ import {
   looksLikeJpeg,
   validateEncryptedFormat,
 } from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
-import { getMediaKeyDerivationConfig, getMediaPackagingConfig } from '~/shared/config/app-config.server';
-import { getStoragePaths } from '~/shared/config/app-config.server';
+import {
+  type MediaKeyDerivationConfig,
+  getMediaKeyDerivationConfig,
+  getMediaPackagingConfig,
+  getStoragePaths,
+} from '~/shared/config/app-config.server';
 import { getShakaPackagerPath } from '~/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '~/shared/lib/server/ffmpeg-process-manager.server';
 import { derivePlaybackEncryptionKey } from '../license/derive-playback-encryption-key';
@@ -98,12 +100,15 @@ export async function backfillBrowserCompatiblePlayback(
   const segmentDuration = input.segmentDuration ?? getMediaPackagingConfig().segmentDuration;
   const requiresExplicitFixtures = Boolean(input.videoIds && input.videoIds.length > 0);
   const videosDir = input.videosDir ?? getStoragePaths().videosDir;
-  const createPackage = input.createPackage ?? ((packageInput: CreatePackageInput) => createBrowserCompatiblePlaybackPackage({
-    ...packageInput,
-    mediaKeyConfig,
-    segmentDuration,
-  }));
-  const videoIds = input.videoIds ?? await listVideoIds(videosDir);
+  const createPackage =
+    input.createPackage ??
+    ((packageInput: CreatePackageInput) =>
+      createBrowserCompatiblePlaybackPackage({
+        ...packageInput,
+        mediaKeyConfig,
+        segmentDuration,
+      }));
+  const videoIds = input.videoIds ?? (await listVideoIds(videosDir));
   const summary: BrowserCompatiblePlaybackBackfillSummary = {
     failed: [],
     rebuilt: [],
@@ -120,22 +125,25 @@ export async function backfillBrowserCompatiblePlayback(
       if (requiresExplicitFixtures) {
         summary.failed.push({ error: 'manifest.mpd not found', videoId });
         logger.error(`[browser-backfill] Required fixture ${videoId} is missing manifest.mpd.`);
-      }
-      else {
+      } else {
         summary.skipped.push({ reason: 'manifest-missing', videoId });
         logger.warn(`[browser-backfill] Skipping ${videoId}: manifest.mpd not found.`);
       }
       continue;
     }
 
-    if (!(await shouldBackfillVideo({
-      manifest,
-      mediaKeyConfig,
-      targetDir,
-      videoId,
-    }))) {
+    if (
+      !(await shouldBackfillVideo({
+        manifest,
+        mediaKeyConfig,
+        targetDir,
+        videoId,
+      }))
+    ) {
       summary.skipped.push({ reason: 'already-compatible', videoId });
-      logger.info(`[browser-backfill] Skipping ${videoId}: manifest already exposes a browser-compatible video representation with canonical ClearKey identity.`);
+      logger.info(
+        `[browser-backfill] Skipping ${videoId}: manifest already exposes a browser-compatible video representation with canonical ClearKey identity.`,
+      );
       continue;
     }
 
@@ -143,9 +151,10 @@ export async function backfillBrowserCompatiblePlayback(
     if (!sourcePath) {
       if (requiresExplicitFixtures) {
         summary.failed.push({ error: 'original source file is missing', videoId });
-        logger.error(`[browser-backfill] Required fixture ${videoId} is missing the original source file.`);
-      }
-      else {
+        logger.error(
+          `[browser-backfill] Required fixture ${videoId} is missing the original source file.`,
+        );
+      } else {
         summary.skipped.push({ reason: 'missing-source', videoId });
         logger.warn(`[browser-backfill] Skipping ${videoId}: original source file is missing.`);
       }
@@ -153,7 +162,10 @@ export async function backfillBrowserCompatiblePlayback(
     }
 
     const stagedDir = path.join(videosDir, `.browser-backfill-${videoId}-${randomUUID()}`);
-    const rollbackDir = path.join(videosDir, `.browser-backfill-rollback-${videoId}-${randomUUID()}`);
+    const rollbackDir = path.join(
+      videosDir,
+      `.browser-backfill-rollback-${videoId}-${randomUUID()}`,
+    );
     const existingThumbnail = await snapshotExistingThumbnail(targetDir);
     let rollbackPrepared = false;
     let rebuildCompleted = false;
@@ -173,8 +185,7 @@ export async function backfillBrowserCompatiblePlayback(
         summary.rebuilt.push(videoId);
         rebuildCompleted = true;
         logger.info(`[browser-backfill] Rebuilt ${videoId} from ${basename(sourcePath)}.`);
-      }
-      catch (error) {
+      } catch (error) {
         if (rollbackPrepared) {
           await restorePromotedAssets(rollbackDir, targetDir);
         }
@@ -192,15 +203,16 @@ export async function backfillBrowserCompatiblePlayback(
             targetDir,
             videoId,
           });
-        }
-        catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown thumbnail recovery failure';
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Unknown thumbnail recovery failure';
           summary.warnings.push({ videoId, warning: message });
-          logger.warn(`[browser-backfill] Rebuilt ${videoId}, but thumbnail recovery failed: ${message}`);
+          logger.warn(
+            `[browser-backfill] Rebuilt ${videoId}, but thumbnail recovery failed: ${message}`,
+          );
         }
       }
-    }
-    finally {
+    } finally {
       await fs.rm(stagedDir, { force: true, recursive: true });
       await fs.rm(rollbackDir, { force: true, recursive: true });
     }
@@ -235,7 +247,9 @@ export async function runBrowserCompatiblePlaybackBackfillCli(
   input: BrowserCompatiblePlaybackBackfillCliInput = {},
 ): Promise<BrowserCompatiblePlaybackBackfillSummary> {
   const runBackfill = input.runBackfill ?? backfillBrowserCompatiblePlayback;
-  return await runBackfill(parseBrowserCompatiblePlaybackBackfillArgs(input.argv ?? process.argv.slice(2)));
+  return await runBackfill(
+    parseBrowserCompatiblePlaybackBackfillArgs(input.argv ?? process.argv.slice(2)),
+  );
 }
 
 if (import.meta.main) {
@@ -260,7 +274,9 @@ export function shouldBackfillManifest(manifest: string, videoId: string): boole
     return true;
   }
 
-  return keyIdMatch[1].replaceAll('-', '').toLowerCase() !== generatePlaybackKeyId(videoId).toLowerCase();
+  return (
+    keyIdMatch[1].replaceAll('-', '').toLowerCase() !== generatePlaybackKeyId(videoId).toLowerCase()
+  );
 }
 
 async function shouldBackfillVideo(input: {
@@ -286,7 +302,9 @@ async function shouldBackfillVideo(input: {
   return !storedKey.equals(canonicalKey);
 }
 
-async function createBrowserCompatiblePlaybackPackage(input: BrowserCompatiblePackageInput): Promise<void> {
+async function createBrowserCompatiblePlaybackPackage(
+  input: BrowserCompatiblePackageInput,
+): Promise<void> {
   const workspace = resolveStagingWorkspace(input.stagingDir);
   const key = derivePlaybackEncryptionKey({
     config: input.mediaKeyConfig,
@@ -332,10 +350,7 @@ function resolveStagingWorkspace(rootDir: string): StagingWorkspace {
   };
 }
 
-function buildFfmpegArgs(input: {
-  inputPath: string;
-  outputPath: string;
-}): string[] {
+function buildFfmpegArgs(input: { inputPath: string; outputPath: string }): string[] {
   return [
     '-i',
     input.inputPath,
@@ -420,8 +435,7 @@ async function normalizeManifest(manifestPath: string) {
 async function readManifest(manifestPath: string): Promise<string | null> {
   try {
     return await fs.readFile(manifestPath, 'utf8');
-  }
-  catch {
+  } catch {
     return null;
   }
 }
@@ -429,9 +443,11 @@ async function readManifest(manifestPath: string): Promise<string | null> {
 async function listVideoIds(videosDir: string): Promise<string[]> {
   try {
     const entries = await fs.readdir(videosDir, { withFileTypes: true });
-    return entries.filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
-  }
-  catch {
+    return entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+  } catch {
     return [];
   }
 }
@@ -439,23 +455,23 @@ async function listVideoIds(videosDir: string): Promise<string[]> {
 async function findVideoSourcePath(targetDir: string): Promise<string | null> {
   try {
     const entries = await fs.readdir(targetDir, { withFileTypes: true });
-    const match = entries.find(entry => entry.isFile() && SOURCE_FILE_PATTERN.test(entry.name));
+    const match = entries.find((entry) => entry.isFile() && SOURCE_FILE_PATTERN.test(entry.name));
     return match ? path.join(targetDir, match.name) : null;
-  }
-  catch {
+  } catch {
     return null;
   }
 }
 
-async function snapshotExistingThumbnail(targetDir: string): Promise<ExistingThumbnailSnapshot | null> {
+async function snapshotExistingThumbnail(
+  targetDir: string,
+): Promise<ExistingThumbnailSnapshot | null> {
   const thumbnailPath = path.join(targetDir, THUMBNAIL_FILENAME);
 
   try {
     const data = await fs.readFile(thumbnailPath);
     const key = await readStoredKey(targetDir);
     return { data, key };
-  }
-  catch {
+  } catch {
     return null;
   }
 }
@@ -477,8 +493,7 @@ async function reconcileThumbnailEncryption(input: {
 
   try {
     currentThumbnail = await fs.readFile(thumbnailPath);
-  }
-  catch {
+  } catch {
     return;
   }
 
@@ -497,19 +512,22 @@ async function reconcileThumbnailEncryption(input: {
 
   const previousKey = input.previous?.key;
   if (!previousKey) {
-    throw new Error(`Encrypted thumbnail for ${input.videoId} is not decryptable with the promoted key.`);
+    throw new Error(
+      `Encrypted thumbnail for ${input.videoId} is not decryptable with the promoted key.`,
+    );
   }
 
-  const previousThumbnail = tryDecryptThumbnail({
-    encryptedThumbnail: currentThumbnail,
-    key: previousKey,
-    videoId: input.videoId,
-  }) ??
-  tryDecryptThumbnail({
-    encryptedThumbnail: input.previous?.data ?? currentThumbnail,
-    key: previousKey,
-    videoId: input.videoId,
-  });
+  const previousThumbnail =
+    tryDecryptThumbnail({
+      encryptedThumbnail: currentThumbnail,
+      key: previousKey,
+      videoId: input.videoId,
+    }) ??
+    tryDecryptThumbnail({
+      encryptedThumbnail: input.previous?.data ?? currentThumbnail,
+      key: previousKey,
+      videoId: input.videoId,
+    });
 
   if (!previousThumbnail || !looksLikeJpeg(previousThumbnail)) {
     throw new Error(`Encrypted thumbnail for ${input.videoId} cannot be re-keyed after backfill.`);
@@ -535,8 +553,7 @@ function tryDecryptThumbnail(input: {
       key: input.key,
       videoId: input.videoId,
     });
-  }
-  catch {
+  } catch {
     return null;
   }
 }
@@ -551,8 +568,7 @@ async function promotePackagedAssets(stagedDir: string, targetDir: string): Prom
 
     if (stats.isDirectory()) {
       await fs.cp(stagedPath, targetPath, { recursive: true });
-    }
-    else {
+    } else {
       await fs.copyFile(stagedPath, targetPath);
     }
   }
@@ -562,8 +578,7 @@ async function ensureRequiredStagedAssets(stagedDir: string): Promise<void> {
   for (const relativePath of ['manifest.mpd', 'key.bin'] as const) {
     try {
       await fs.stat(path.join(stagedDir, relativePath));
-    }
-    catch {
+    } catch {
       throw new Error(`missing staged asset: ${relativePath}`);
     }
   }
@@ -584,13 +599,11 @@ async function captureRollbackAssets(targetDir: string, rollbackDir: string): Pr
 
       if (stats.isDirectory()) {
         await fs.cp(targetPath, rollbackPath, { recursive: true });
-      }
-      else {
+      } else {
         await fs.mkdir(path.dirname(rollbackPath), { recursive: true });
         await fs.copyFile(targetPath, rollbackPath);
       }
-    }
-    catch (error) {
+    } catch (error) {
       if (!isMissingFsError(error)) {
         throw error;
       }
@@ -610,12 +623,10 @@ async function restorePromotedAssets(rollbackDir: string, targetDir: string): Pr
 
       if (stats.isDirectory()) {
         await fs.cp(rollbackPath, targetPath, { recursive: true });
-      }
-      else {
+      } else {
         await fs.copyFile(rollbackPath, targetPath);
       }
-    }
-    catch (error) {
+    } catch (error) {
       if (!isMissingFsError(error)) {
         throw error;
       }
@@ -623,7 +634,10 @@ async function restorePromotedAssets(rollbackDir: string, targetDir: string): Pr
   }
 }
 
-async function ensureSegmentedStreamAssets(stagedDir: string, streamDirName: 'audio' | 'video'): Promise<void> {
+async function ensureSegmentedStreamAssets(
+  stagedDir: string,
+  streamDirName: 'audio' | 'video',
+): Promise<void> {
   const streamDir = path.join(stagedDir, streamDirName);
   let entries: string[];
 
@@ -635,8 +649,7 @@ async function ensureSegmentedStreamAssets(stagedDir: string, streamDirName: 'au
     }
 
     entries = await fs.readdir(streamDir);
-  }
-  catch {
+  } catch {
     throw new Error(`missing staged asset: ${streamDirName}`);
   }
 
@@ -644,7 +657,7 @@ async function ensureSegmentedStreamAssets(stagedDir: string, streamDirName: 'au
     throw new Error(`missing staged init segment: ${streamDirName}/init.mp4`);
   }
 
-  if (!entries.some(entry => entry.endsWith('.m4s'))) {
+  if (!entries.some((entry) => entry.endsWith('.m4s'))) {
     throw new Error(`missing staged media segments: ${streamDirName}`);
   }
 }
@@ -652,18 +665,11 @@ async function ensureSegmentedStreamAssets(stagedDir: string, streamDirName: 'au
 async function readStoredKey(targetDir: string): Promise<Buffer | null> {
   try {
     return await fs.readFile(path.join(targetDir, 'key.bin'));
-  }
-  catch {
+  } catch {
     return null;
   }
 }
 
-function isMissingFsError(error: unknown): error is NodeJS.ErrnoException {
-  return Boolean(
-    error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    typeof (error as NodeJS.ErrnoException).code === 'string' &&
-    (error as NodeJS.ErrnoException).code === 'ENOENT',
-  );
+function isMissingFsError(error: unknown): error is { code: 'ENOENT' } {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }

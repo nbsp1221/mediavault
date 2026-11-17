@@ -19,7 +19,12 @@ export function getPlaybackSegmentContentType(
 }
 
 export function isValidPlaybackSegmentFilename(filename: string): boolean {
-  if (filename.includes('..') || filename.includes('/') || filename.includes('\\') || filename.includes('\0')) {
+  if (
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\') ||
+    filename.includes('\0')
+  ) {
     return false;
   }
 
@@ -31,10 +36,7 @@ interface ParsedRange {
   start: number;
 }
 
-export function parsePlaybackRangeHeader(
-  rangeHeader: string,
-  fileSize: number,
-): ParsedRange {
+export function parsePlaybackRangeHeader(rangeHeader: string, fileSize: number): ParsedRange {
   const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
 
   if (!match) {

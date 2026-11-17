@@ -3,8 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { z } from 'zod';
+import { createInitializedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { getCookieMap, toRequestCookieHeader } from '../../helpers/cookies';
+import { readJsonObject } from '../../helpers/json-response';
+import { routeArgs } from '../../helpers/route-args';
 import { seedRuntimeAuthUser } from '../../support/auth-account';
 import { seedLibraryVideoMetadata } from '../../support/seed-library-video-metadata';
 
@@ -71,37 +74,43 @@ const SEEDED_USERNAME = 'Owner';
 
 const SEEDED_VIEWER = {
   id: SEEDED_OWNER_ID,
-  role: 'admin',
   username: SEEDED_USERNAME,
 } as const;
 
-function expectAdminViewerShape(viewer: unknown) {
-  expect(viewer).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/\S/),
-    role: 'admin',
-    username: expect.stringMatching(/\S/),
-  }));
+function expectAccountViewerShape(viewer: unknown) {
+  const account = z
+    .object({ id: z.string().regex(/\S/), username: z.string().regex(/\S/) })
+    .parse(viewer);
+  expect(account.id).toMatch(/\S/);
+  expect(account.username).toMatch(/\S/);
+  expect(viewer).not.toHaveProperty('role');
 }
 
-async function seedStorage(storageDir: string, overrides?: {
-  playlists?: unknown[];
-}) {
+interface SeededPlaylist {
+  createdAt: string;
+  description?: string;
+  id: string;
+  isPublic: boolean;
+  name: string;
+  ownerId: string;
+  type: string;
+  updatedAt: string;
+}
+
+async function seedStorage(
+  storageDir: string,
+  overrides?: {
+    playlists?: SeededPlaylist[];
+  },
+) {
   await mkdir(join(storageDir, 'videos'), { recursive: true });
-  const database = await createMigratedPrimarySqliteDatabase({
+  const database = await createInitializedPrimarySqliteDatabase({
     dbPath: join(storageDir, 'db.sqlite'),
   });
 
-  for (const playlist of (overrides?.playlists ?? []) as Array<{
-    createdAt: string;
-    description?: string;
-    id: string;
-    isPublic: boolean;
-    name: string;
-    ownerId: string;
-    type: string;
-    updatedAt: string;
-  }>) {
-    await database.prepare(`
+  for (const playlist of overrides?.playlists ?? []) {
+    await database
+      .prepare(`
       INSERT INTO playlists (
         id,
         owner_id,
@@ -115,32 +124,36 @@ async function seedStorage(storageDir: string, overrides?: {
         updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO NOTHING
-    `).run(
-      playlist.id,
-      playlist.ownerId,
-      playlist.name,
-      playlist.name.trim().toLowerCase(),
-      playlist.description ?? null,
-      playlist.type,
-      playlist.isPublic ? 1 : 0,
-      null,
-      playlist.createdAt,
-      playlist.updatedAt,
-    );
+    `)
+      .run(
+        playlist.id,
+        playlist.ownerId,
+        playlist.name,
+        playlist.name.trim().toLowerCase(),
+        playlist.description ?? null,
+        playlist.type,
+        playlist.isPublic ? 1 : 0,
+        null,
+        playlist.createdAt,
+        playlist.updatedAt,
+      );
   }
 }
 
 async function loginAndGetCookieHeader(): Promise<string> {
   const { action } = await importLoginAction();
-  const loginResponse = await action({
-    request: new Request('http://localhost/api/auth/login', {
-      body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
+  const loginResponse = await action(
+    routeArgs({
+      request: new Request('http://localhost/api/auth/login', {
+        body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+        headers: {
+          'Origin': 'http://localhost',
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      }),
     }),
-  } as never);
+  );
 
   const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
   expect(cookie).toBeTruthy();
@@ -151,7 +164,7 @@ function getRequestCookieValue(cookieHeader: string, name: string): string | und
   return Object.fromEntries(
     cookieHeader
       .split(/;\s*/)
-      .map(cookiePair => cookiePair.split('='))
+      .map((cookiePair) => cookiePair.split('='))
       .filter(([cookieName, value]) => cookieName && value)
       .map(([cookieName, ...valueParts]) => [cookieName, decodeURIComponent(valueParts.join('='))]),
   )[name];
@@ -164,7 +177,7 @@ async function pointSessionAtMissingUser(databasePath: string, cookieHeader: str
     throw new Error('Expected seeded login to create a session cookie');
   }
 
-  const database = await createMigratedPrimarySqliteDatabase({
+  const database = await createInitializedPrimarySqliteDatabase({
     dbPath: databasePath,
   });
   await database.exec('PRAGMA foreign_keys = OFF');
@@ -185,7 +198,7 @@ async function expireSession(databasePath: string, cookieHeader: string) {
     throw new Error('Expected seeded login to create a session cookie');
   }
 
-  const database = await createMigratedPrimarySqliteDatabase({
+  const database = await createInitializedPrimarySqliteDatabase({
     dbPath: databasePath,
   });
   await database
@@ -208,7 +221,7 @@ describe('auth gate routes', () => {
     await seedStorage(storageDir);
     databasePath = join(storageDir, 'db.sqlite');
     await seedRuntimeAuthUser(databasePath, {
-      password: 'vault-password',
+      password: 'vault-password-for-tests',
       userId: SEEDED_OWNER_ID,
       username: SEEDED_USERNAME,
     });
@@ -223,70 +236,170 @@ describe('auth gate routes', () => {
     delete process.env.MEDIAVAULT_AUTH_CLIENT_COOKIE_SECRET;
     delete process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS;
     delete process.env.MEDIAVAULT_STORAGE_DIR;
+    delete process.env.MEDIAVAULT_PUBLIC_ORIGIN;
     delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
     delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
     vi.resetModules();
     await rm(tempDir, { force: true, recursive: true });
   });
 
+  test('supports Caddy HTTPS origin over internal HTTP without absolute HTTP auth redirects', async () => {
+    const { action: login } = await importLoginAction();
+
+    const loginRequest = () =>
+      new Request('http://mediavault:3000/api/auth/login', {
+        body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://vault.example',
+          'X-Forwarded-Proto': 'https',
+          'X-Forwarded-Host': 'vault.example',
+        },
+        method: 'POST',
+      });
+
+    expect((await login(routeArgs({ request: loginRequest() }))).status).toBe(403);
+    process.env.MEDIAVAULT_PUBLIC_ORIGIN = 'https://vault.example';
+    const loggedIn = await login(routeArgs({ request: loginRequest() }));
+    expect(loggedIn.status).toBe(200);
+    const cookie = toRequestCookieHeader(loggedIn.headers.get('Set-Cookie'));
+    const { action: logout } = await importLogoutRoute();
+    const loggedOut = await logout(
+      routeArgs({
+        request: new Request('http://mediavault:3000/api/auth/logout', {
+          headers: {
+            cookie,
+            'Origin': 'https://vault.example',
+            'X-Forwarded-Proto': 'https',
+            'X-Forwarded-Host': 'vault.example',
+          },
+          method: 'POST',
+        }),
+      }),
+    );
+    expect(loggedOut.status).toBe(302);
+    expect(loggedOut.headers.get('Location')).toBe('/login');
+    const { requireProtectedPageSession } = await importServerAuthComposition();
+    const denied: unknown = await requireProtectedPageSession(
+      new Request('http://mediavault:3000/videos/private/edit'),
+    ).catch((error: unknown) => error);
+    if (!(denied instanceof Response)) {
+      throw new Error('Expected a protected-page redirect');
+    }
+    expect(denied.headers.get('Location')).toMatch(/^\/login\?/);
+    const forged = loginRequest();
+    forged.headers.set('Origin', 'https://evil.example');
+    forged.headers.set('X-Forwarded-Host', 'evil.example');
+    expect((await login(routeArgs({ request: forged }))).status).toBe(403);
+  });
+
+  test.each([false, true])(
+    'isolates unknown clients and prevents account throttling evasion (proxy trust: %s)',
+    async (trustProxy) => {
+      process.env.MEDIAVAULT_AUTH_TRUST_PROXY_HEADERS = String(trustProxy);
+      const { action: login } = await importLoginAction();
+      for (let index = 0; index < 5; index++) {
+        const response = await login(
+          routeArgs({
+            request: new Request('http://localhost/api/auth/login', {
+              body: JSON.stringify({ username: ' Target   Account ', password: 'bad' }),
+              headers: {
+                'Content-Type': 'application/json',
+                'Origin': 'http://localhost',
+                'X-Forwarded-For': `198.51.100.${index + 1}`,
+              },
+              method: 'POST',
+            }),
+          }),
+        );
+        expect(response.status).toBe(401);
+      }
+      const owner = await login(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+            headers: { 'Content-Type': 'application/json', 'Origin': 'http://localhost' },
+            method: 'POST',
+          }),
+        }),
+      );
+      expect(owner.status).toBe(200);
+      const throttled = await login(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'target account', password: 'bad' }),
+            headers: { 'Content-Type': 'application/json', 'Origin': 'http://localhost' },
+            method: 'POST',
+          }),
+        }),
+      );
+      expect(throttled.status).toBe(429);
+    },
+  );
+
   test('login action creates a session cookie and returns the seeded account viewer', async () => {
     const { action } = await importLoginAction();
     const request = new Request('http://localhost/api/auth/login', {
-      body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
+      body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
       headers: {
+        'Origin': 'http://localhost',
         'Content-Type': 'application/json',
         'User-Agent': 'vitest',
       },
       method: 'POST',
     });
 
-    const response = await action({ request } as never);
-    const payload = await response.json();
+    const response = await action(routeArgs({ request }));
+    const payload = await readJsonObject(response);
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
-    expect(payload).toEqual(expect.objectContaining({
-      success: true,
-    }));
-    expectAdminViewerShape(payload.user);
+    expect(payload).toEqual(
+      expect.objectContaining({
+        success: true,
+      }),
+    );
+    expectAccountViewerShape(payload.user);
   });
 
   test('login action accepts form credentials and trims the username', async () => {
     const { action } = await importLoginAction();
     const body = new URLSearchParams([
       ['username', '  owner  '],
-      ['password', 'vault-password'],
+      ['password', 'vault-password-for-tests'],
     ]);
 
-    const response = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body,
-        method: 'POST',
+    const response = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body,
+          headers: { Origin: 'http://localhost' },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
-    await expect(response.json()).resolves.toEqual(expect.objectContaining({
+    await expect(readJsonObject(response)).resolves.toMatchObject({
       success: true,
-      user: expect.objectContaining({
-        id: SEEDED_OWNER_ID,
-        username: SEEDED_USERNAME,
-      }),
-    }));
+      user: { id: SEEDED_OWNER_ID, username: SEEDED_USERNAME },
+    });
   });
 
   test('login action rejects unsupported methods before reading credentials', async () => {
     const { action } = await importLoginAction();
 
-    const response = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        method: 'GET',
+    const response = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          method: 'GET',
+        }),
       }),
-    } as never);
+    );
 
     expect(response.status).toBe(405);
-    await expect(response.json()).resolves.toEqual({
+    await expect(readJsonObject(response)).resolves.toEqual({
       success: false,
       error: 'Method not allowed',
     });
@@ -295,18 +408,21 @@ describe('auth gate routes', () => {
   test('login action rejects missing username or password', async () => {
     const { action } = await importLoginAction();
 
-    const response = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const response = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
+    await expect(readJsonObject(response)).resolves.toEqual({
       success: false,
       error: 'Username and password are required',
     });
@@ -316,12 +432,12 @@ describe('auth gate routes', () => {
     const { loader } = await importHomeRoute();
     const request = new Request('http://localhost/');
 
-    const response = await loader({ request } as never);
+    const response = await loader(routeArgs({ request }));
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(response.headers.get('Vary')).toBe('Cookie');
-    await expect(response.json()).resolves.toEqual({
+    await expect(readJsonObject(response)).resolves.toEqual({
       contentTypes: [],
       genres: [],
       videos: [],
@@ -330,67 +446,79 @@ describe('auth gate routes', () => {
 
   test('root loader exposes the seeded active viewer when a site session exists', async () => {
     const { action } = await importLoginAction();
-    const loginResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
-    const loginPayload = await loginResponse.json();
+    );
+    const loginPayload = await readJsonObject(loginResponse);
 
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
 
     const { loader } = await importRootModule();
-    const response = await loader({
-      request: new Request('http://localhost/', {
-        headers: {
-          cookie: cookie ?? '',
-        },
+    const response = await loader(
+      routeArgs({
+        request: new Request('http://localhost/', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(response).toEqual({
       user: loginPayload.user,
     });
-    expectAdminViewerShape(response.user);
+    expectAccountViewerShape(response.user);
   });
 
   test('auth me returns the seeded active viewer for an active session', async () => {
     const { action } = await importLoginAction();
-    const loginResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
-    const loginPayload = await loginResponse.json();
+    );
+    const loginPayload = await readJsonObject(loginResponse);
 
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
 
     const { loader } = await importAuthMeRoute();
-    const response = await loader({
-      request: new Request('http://localhost/api/auth/me', {
-        headers: {
-          cookie: cookie ?? '',
-        },
+    const response = await loader(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/me', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(response.status).toBe(200);
-    const payload = await response.json();
+    const payload = await readJsonObject(response);
     expect(payload).toEqual({
       success: true,
       user: loginPayload.user,
     });
-    expectAdminViewerShape(payload.user);
+    expectAccountViewerShape(payload.user);
   });
 
   test('request viewer resolves no, unknown, expired, revoked, and dangling sessions as anonymous', async () => {
@@ -400,49 +528,72 @@ describe('auth gate routes', () => {
       type: 'anonymous',
     });
 
-    await expect(resolveRequestViewer(new Request('http://localhost/', {
-      headers: {
-        cookie: '__Host-mediavault-session=unknown-session',
-      },
-    }))).resolves.toEqual({
+    await expect(
+      resolveRequestViewer(
+        new Request('http://localhost/', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: '__Host-mediavault-session=unknown-session',
+          },
+        }),
+      ),
+    ).resolves.toEqual({
       type: 'anonymous',
     });
 
     const expiredCookie = await loginAndGetCookieHeader();
     await expireSession(databasePath, expiredCookie);
-    await expect(resolveRequestViewer(new Request('http://localhost/', {
-      headers: {
-        cookie: expiredCookie,
-      },
-    }))).resolves.toEqual({
+    await expect(
+      resolveRequestViewer(
+        new Request('http://localhost/', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: expiredCookie,
+          },
+        }),
+      ),
+    ).resolves.toEqual({
       type: 'anonymous',
     });
 
     const revokedCookie = await loginAndGetCookieHeader();
     const { action: logoutAction } = await importLogoutRoute();
-    await logoutAction({
-      request: new Request('http://localhost/api/auth/logout', {
-        headers: {
-          cookie: revokedCookie,
-        },
-        method: 'POST',
+    await logoutAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/logout', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: revokedCookie,
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
-    await expect(resolveRequestViewer(new Request('http://localhost/', {
-      headers: {
-        cookie: revokedCookie,
-      },
-    }))).resolves.toEqual({
+    );
+    await expect(
+      resolveRequestViewer(
+        new Request('http://localhost/', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: revokedCookie,
+          },
+        }),
+      ),
+    ).resolves.toEqual({
       type: 'anonymous',
     });
 
     const danglingCookie = await loginAndGetCookieHeader();
     await pointSessionAtMissingUser(databasePath, danglingCookie);
-    await expect(resolveRequestViewer(new Request('http://localhost/', {
-      headers: {
-        cookie: danglingCookie,
-      },
-    }))).resolves.toEqual({
+    await expect(
+      resolveRequestViewer(
+        new Request('http://localhost/', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: danglingCookie,
+          },
+        }),
+      ),
+    ).resolves.toEqual({
       type: 'anonymous',
     });
   });
@@ -451,11 +602,14 @@ describe('auth gate routes', () => {
     const cookie = await loginAndGetCookieHeader();
     const { resolveRequestViewer } = await importServerAuthComposition();
 
-    const viewer = await resolveRequestViewer(new Request('http://localhost/', {
-      headers: {
-        cookie,
-      },
-    }));
+    const viewer = await resolveRequestViewer(
+      new Request('http://localhost/', {
+        headers: {
+          Origin: 'http://localhost',
+          cookie,
+        },
+      }),
+    );
 
     expect(viewer).toEqual({
       type: 'authenticated',
@@ -470,29 +624,35 @@ describe('auth gate routes', () => {
     await pointSessionAtMissingUser(databasePath, cookie);
 
     const { loader: rootLoader } = await importRootModule();
-    const rootResponse = await rootLoader({
-      request: new Request('http://localhost/', {
-        headers: {
-          cookie,
-        },
+    const rootResponse = await rootLoader(
+      routeArgs({
+        request: new Request('http://localhost/', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie,
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(rootResponse).toEqual({
       user: null,
     });
 
     const { loader: authMeLoader } = await importAuthMeRoute();
-    const authMeResponse = await authMeLoader({
-      request: new Request('http://localhost/api/auth/me', {
-        headers: {
-          cookie,
-        },
+    const authMeResponse = await authMeLoader(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/me', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie,
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(authMeResponse.status).toBe(401);
-    await expect(authMeResponse.json()).resolves.toEqual({
+    await expect(readJsonObject(authMeResponse)).resolves.toEqual({
       error: 'Not authenticated',
       success: false,
     });
@@ -508,70 +668,93 @@ describe('auth gate routes', () => {
 
     const pageCookie = await loginAndGetCookieHeader();
     await pointSessionAtMissingUser(databasePath, pageCookie);
-    await expect(requireProtectedPageSession(new Request('http://localhost/', {
-      headers: {
-        cookie: pageCookie,
-      },
-    }))).rejects.toMatchObject({
+    await expect(
+      requireProtectedPageSession(
+        new Request('http://localhost/', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: pageCookie,
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({
       status: 302,
     });
 
     const apiCookie = await loginAndGetCookieHeader();
     await pointSessionAtMissingUser(databasePath, apiCookie);
-    const apiGuardResponse = await requireProtectedApiSession(new Request('http://localhost/api/uploads', {
-      headers: {
-        cookie: apiCookie,
-      },
-    }));
+    const apiGuardResponse = await requireProtectedApiSession(
+      new Request('http://localhost/api/uploads', {
+        headers: {
+          Origin: 'http://localhost',
+          cookie: apiCookie,
+        },
+      }),
+    );
     expect(apiGuardResponse?.status).toBe(401);
     expect(apiGuardResponse?.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
 
     const apiValueCookie = await loginAndGetCookieHeader();
     await pointSessionAtMissingUser(databasePath, apiValueCookie);
-    const apiValueGuardResponse = await requireProtectedApiSessionValue(new Request('http://localhost/api/playlists', {
-      headers: {
-        cookie: apiValueCookie,
-      },
-    }));
+    const apiValueGuardResponse = await requireProtectedApiSessionValue(
+      new Request('http://localhost/api/playlists', {
+        headers: {
+          Origin: 'http://localhost',
+          cookie: apiValueCookie,
+        },
+      }),
+    );
     expect(apiValueGuardResponse).toBeInstanceOf(Response);
-    expect((apiValueGuardResponse as Response).status).toBe(401);
-    expect((apiValueGuardResponse as Response).headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
+    if (!(apiValueGuardResponse instanceof Response)) {
+      throw new Error('Expected authentication denial');
+    }
+    expect(apiValueGuardResponse.status).toBe(401);
+    expect(apiValueGuardResponse.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
 
     const mediaCookie = await loginAndGetCookieHeader();
     await pointSessionAtMissingUser(databasePath, mediaCookie);
-    const mediaGuardResponse = await requireProtectedMediaSession(new Request('http://localhost/videos/video-1/token', {
-      headers: {
-        cookie: mediaCookie,
-      },
-    }));
+    const mediaGuardResponse = await requireProtectedMediaSession(
+      new Request('http://localhost/videos/video-1/token', {
+        headers: {
+          Origin: 'http://localhost',
+          cookie: mediaCookie,
+        },
+      }),
+    );
     expect(mediaGuardResponse?.status).toBe(401);
     expect(mediaGuardResponse?.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
   });
 
   test('logout revokes the active session cookie', async () => {
     const { action: loginAction } = await importLoginAction();
-    const loginResponse = await loginAction({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await loginAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
 
     const { action: logoutAction } = await importLogoutRoute();
-    const logoutResponse = await logoutAction({
-      request: new Request('http://localhost/api/auth/logout', {
-        headers: {
-          cookie: cookie ?? '',
-        },
-        method: 'POST',
+    const logoutResponse = await logoutAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/logout', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(logoutResponse.status).toBe(302);
     expect(logoutResponse.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
@@ -579,42 +762,51 @@ describe('auth gate routes', () => {
 
   test('logout revokes the server-side session so the old cookie can no longer authenticate', async () => {
     const { action: loginAction } = await importLoginAction();
-    const loginResponse = await loginAction({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await loginAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
 
     const { action: logoutAction } = await importLogoutRoute();
-    const logoutResponse = await logoutAction({
-      request: new Request('http://localhost/api/auth/logout', {
-        headers: {
-          cookie: cookie ?? '',
-        },
-        method: 'POST',
+    const logoutResponse = await logoutAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/logout', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(logoutResponse.status).toBe(302);
 
     const { loader: authMeLoader } = await importAuthMeRoute();
-    const authMeResponse = await authMeLoader({
-      request: new Request('http://localhost/api/auth/me', {
-        headers: {
-          cookie: cookie ?? '',
-        },
+    const authMeResponse = await authMeLoader(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/me', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(authMeResponse.status).toBe(401);
-    await expect(authMeResponse.json()).resolves.toEqual({
+    await expect(readJsonObject(authMeResponse)).resolves.toEqual({
       error: 'Not authenticated',
       success: false,
     });
@@ -622,19 +814,22 @@ describe('auth gate routes', () => {
 
   test('login rejects invalid credentials without issuing a site session cookie', async () => {
     const { action } = await importLoginAction();
-    const response = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const response = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(response.status).toBe(401);
     expect(response.headers.get('Set-Cookie')).not.toContain('__Host-mediavault-session=');
-    await expect(response.json()).resolves.toEqual({
+    await expect(readJsonObject(response)).resolves.toEqual({
       error: 'Invalid username or password',
       success: false,
     });
@@ -644,33 +839,39 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const response = await action({
+      const response = await action(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+            headers: {
+              'Origin': 'http://localhost',
+              'Content-Type': 'application/json',
+              'X-Real-IP': '203.0.113.10',
+            },
+            method: 'POST',
+          }),
+        }),
+      );
+
+      expect(response.status).toBe(401);
+    }
+
+    const blockedResponse = await action(
+      routeArgs({
         request: new Request('http://localhost/api/auth/login', {
           body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
+            'Origin': 'http://localhost',
             'Content-Type': 'application/json',
             'X-Real-IP': '203.0.113.10',
           },
           method: 'POST',
         }),
-      } as never);
-
-      expect(response.status).toBe(401);
-    }
-
-    const blockedResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Real-IP': '203.0.113.10',
-        },
-        method: 'POST',
       }),
-    } as never);
+    );
 
     expect(blockedResponse.status).toBe(429);
-    await expect(blockedResponse.json()).resolves.toEqual({
+    await expect(readJsonObject(blockedResponse)).resolves.toEqual({
       error: 'Too many login attempts. Try again later.',
       success: false,
     });
@@ -680,51 +881,62 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
 
     const responses = await Promise.all(
-      Array.from({ length: 10 }, () => action({
-        request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Real-IP': '203.0.113.11',
-          },
-          method: 'POST',
-        }),
-      } as never)),
+      Array.from({ length: 10 }, () =>
+        action(
+          routeArgs({
+            request: new Request('http://localhost/api/auth/login', {
+              body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+              headers: {
+                'Origin': 'http://localhost',
+                'Content-Type': 'application/json',
+                'X-Real-IP': '203.0.113.11',
+              },
+              method: 'POST',
+            }),
+          }),
+        ),
+      ),
     );
 
-    const statuses = responses.map(response => response.status);
+    const statuses = responses.map((response) => response.status);
 
-    expect(statuses.filter(status => status === 429).length).toBeGreaterThan(0);
+    expect(statuses.filter((status) => status === 429).length).toBeGreaterThan(0);
   });
 
   test('login rate limits repeated invalid attempts even when forwarded IP headers change', async () => {
     const { action } = await importLoginAction();
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const response = await action({
-        request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Forwarded-For': `198.51.100.${attempt}`,
-          },
-          method: 'POST',
+      const response = await action(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+            headers: {
+              'Origin': 'http://localhost',
+              'Content-Type': 'application/json',
+              'X-Forwarded-For': `198.51.100.${attempt}`,
+            },
+            method: 'POST',
+          }),
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(401);
     }
 
-    const blockedResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Forwarded-For': '198.51.100.250',
-        },
-        method: 'POST',
+    const blockedResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+            'X-Forwarded-For': '198.51.100.250',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(blockedResponse.status).toBe(429);
   });
@@ -733,30 +945,36 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const response = await action({
-        request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-          headers: {
-            'Content-Type': 'application/json',
-            'cookie': `__Host-mediavault-client=forged-${attempt}`,
-          },
-          method: 'POST',
+      const response = await action(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+            headers: {
+              'Origin': 'http://localhost',
+              'Content-Type': 'application/json',
+              'cookie': `__Host-mediavault-client=forged-${attempt}`,
+            },
+            method: 'POST',
+          }),
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(401);
     }
 
-    const blockedResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'cookie': '__Host-mediavault-client=forged-250',
-        },
-        method: 'POST',
+    const blockedResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+            'cookie': '__Host-mediavault-client=forged-250',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(blockedResponse.status).toBe(429);
   });
@@ -765,9 +983,11 @@ describe('auth gate routes', () => {
     vi.resetModules();
 
     const { loader } = await importRootModule();
-    const response = await loader({
-      request: new Request('http://localhost/login'),
-    } as never);
+    const response = await loader(
+      routeArgs({
+        request: new Request('http://localhost/login'),
+      }),
+    );
 
     expect(response).toEqual({
       user: null,
@@ -778,27 +998,31 @@ describe('auth gate routes', () => {
     vi.resetModules();
 
     const { loader } = await importLoginRoute();
-    const response = await loader({
-      request: new Request('http://localhost/login'),
-    } as never);
+    const response = loader(
+      routeArgs({
+        request: new Request('http://localhost/login'),
+      }),
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
-    await expect(response.json()).resolves.toEqual({});
+    await expect(readJsonObject(response)).resolves.toEqual({});
   });
 
   test('login route issues an auth-client cookie that is not derived from the account password by default', async () => {
     const { loader } = await importLoginRoute();
-    const response = await loader({
-      request: new Request('http://localhost/login'),
-    } as never);
+    const response = loader(
+      routeArgs({
+        request: new Request('http://localhost/login'),
+      }),
+    );
     const cookies = getCookieMap(response.headers.get('Set-Cookie'));
     const authClientCookie = cookies['__Host-mediavault-client'];
 
     expect(authClientCookie).toBeTruthy();
 
-    const [clientId, signature] = authClientCookie!.split('.');
-    const accountPasswordDerivedSignature = createHmac('sha256', 'vault-password')
+    const [clientId, signature] = authClientCookie.split('.');
+    const accountPasswordDerivedSignature = createHmac('sha256', 'vault-password-for-tests')
       .update(clientId)
       .digest('hex');
 
@@ -807,9 +1031,11 @@ describe('auth gate routes', () => {
 
   test('login route loader provisions an anonymous auth client cookie for direct-runtime rate limiting', async () => {
     const { loader } = await importLoginRoute();
-    const loaderResponse = await loader({
-      request: new Request('http://localhost/login'),
-    } as never);
+    const loaderResponse = loader(
+      routeArgs({
+        request: new Request('http://localhost/login'),
+      }),
+    );
     const clientCookie = loaderResponse.headers.get('Set-Cookie');
 
     expect(loaderResponse.status).toBe(200);
@@ -818,78 +1044,97 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const response = await action({
+      const response = await action(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+            headers: {
+              'Origin': 'http://localhost',
+              'Content-Type': 'application/json',
+              'cookie': clientCookie ?? '',
+            },
+            method: 'POST',
+          }),
+        }),
+      );
+
+      expect(response.status).toBe(401);
+    }
+
+    const blockedResponse = await action(
+      routeArgs({
         request: new Request('http://localhost/api/auth/login', {
           body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
           headers: {
+            'Origin': 'http://localhost',
             'Content-Type': 'application/json',
             'cookie': clientCookie ?? '',
           },
           method: 'POST',
         }),
-      } as never);
-
-      expect(response.status).toBe(401);
-    }
-
-    const blockedResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'cookie': clientCookie ?? '',
-        },
-        method: 'POST',
       }),
-    } as never);
+    );
 
     expect(blockedResponse.status).toBe(429);
   });
 
-  test('issuing a fresh auth-client cookie does not bypass the anonymous fallback bucket', async () => {
+  test('issuing a fresh auth-client cookie does not bypass the account bucket', async () => {
     const { loader } = await importLoginRoute();
-    const firstLoaderResponse = await loader({
-      request: new Request('http://localhost/login'),
-    } as never);
+    const firstLoaderResponse = loader(
+      routeArgs({
+        request: new Request('http://localhost/login'),
+      }),
+    );
     const firstClientCookie = firstLoaderResponse.headers.get('Set-Cookie');
+    if (!firstClientCookie) {
+      throw new Error('Expected login client cookie');
+    }
 
     expect(firstClientCookie).toContain('__Host-mediavault-client=');
 
     const { action } = await importLoginAction();
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const response = await action({
-        request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-          headers: {
-            'Content-Type': 'application/json',
-            'cookie': firstClientCookie ?? '',
-          },
-          method: 'POST',
+      const response = await action(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+            headers: {
+              'Origin': 'http://localhost',
+              'Content-Type': 'application/json',
+              'cookie': firstClientCookie,
+            },
+            method: 'POST',
+          }),
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(401);
     }
 
-    const rotatedLoaderResponse = await loader({
-      request: new Request('http://localhost/login'),
-    } as never);
+    const rotatedLoaderResponse = loader(
+      routeArgs({
+        request: new Request('http://localhost/login'),
+      }),
+    );
     const rotatedClientCookie = rotatedLoaderResponse.headers.get('Set-Cookie');
 
     expect(rotatedClientCookie).toContain('__Host-mediavault-client=');
     expect(rotatedClientCookie).not.toBe(firstClientCookie);
 
-    const blockedResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'cookie': rotatedClientCookie ?? '',
-        },
-        method: 'POST',
+    const blockedResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+            'cookie': rotatedClientCookie ?? '',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(blockedResponse.status).toBe(429);
   });
@@ -899,9 +1144,11 @@ describe('auth gate routes', () => {
     vi.resetModules();
 
     const { loader } = await importLoginRoute();
-    const loaderResponse = await loader({
-      request: new Request('http://localhost/login'),
-    } as never);
+    const loaderResponse = loader(
+      routeArgs({
+        request: new Request('http://localhost/login'),
+      }),
+    );
     const clientCookie = loaderResponse.headers.get('Set-Cookie');
 
     expect(clientCookie).toContain('__Host-mediavault-client=');
@@ -909,47 +1156,56 @@ describe('auth gate routes', () => {
     const { action } = await importLoginAction();
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const response = await action({
-        request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Forwarded-For': `198.51.100.${attempt}, 203.0.113.10`,
-            'cookie': clientCookie ?? '',
-          },
-          method: 'POST',
+      const response = await action(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+            headers: {
+              'Origin': 'http://localhost',
+              'Content-Type': 'application/json',
+              'X-Forwarded-For': `198.51.100.${attempt}, 203.0.113.10`,
+              'cookie': clientCookie ?? '',
+            },
+            method: 'POST',
+          }),
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(401);
     }
 
-    const blockedResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Forwarded-For': '198.51.100.250, 203.0.113.10',
-          'cookie': clientCookie ?? '',
-        },
-        method: 'POST',
+    const blockedResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+            'X-Forwarded-For': '198.51.100.250, 203.0.113.10',
+            'cookie': clientCookie ?? '',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(blockedResponse.status).toBe(429);
   });
 
   test('login action issues an auth-client cookie to API-first callers on invalid password responses', async () => {
     const { action } = await importLoginAction();
-    const firstAttempt = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const firstAttempt = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(firstAttempt.status).toBe(401);
     expect(firstAttempt.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
@@ -957,42 +1213,51 @@ describe('auth gate routes', () => {
     const firstClientCookie = toRequestCookieHeader(firstAttempt.headers.get('Set-Cookie'));
 
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      const response = await action({
-        request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-          headers: {
-            'Content-Type': 'application/json',
-            'cookie': firstClientCookie ?? '',
-          },
-          method: 'POST',
+      const response = await action(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+            headers: {
+              'Origin': 'http://localhost',
+              'Content-Type': 'application/json',
+              'cookie': firstClientCookie,
+            },
+            method: 'POST',
+          }),
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(401);
     }
 
-    const blockedResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'cookie': firstClientCookie ?? '',
-        },
-        method: 'POST',
+    const blockedResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+            'cookie': firstClientCookie,
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(blockedResponse.status).toBe(429);
 
-    const secondAttempt = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const secondAttempt = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(secondAttempt.status).toBe(429);
     expect(secondAttempt.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
@@ -1000,18 +1265,21 @@ describe('auth gate routes', () => {
 
   test('login action rejects an unknown username with the generic credential error', async () => {
     const { action } = await importLoginAction();
-    const response = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'missing', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const response = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'missing', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({
+    await expect(readJsonObject(response)).resolves.toEqual({
       error: 'Invalid username or password',
       success: false,
     });
@@ -1021,28 +1289,34 @@ describe('auth gate routes', () => {
     const malformedCookie = '__Host-mediavault-client=%E0%A4%A';
 
     const { loader } = await importLoginRoute();
-    const loaderResponse = await loader({
-      request: new Request('http://localhost/login', {
-        headers: {
-          cookie: malformedCookie,
-        },
+    const loaderResponse = loader(
+      routeArgs({
+        request: new Request('http://localhost/login', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: malformedCookie,
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(loaderResponse.status).toBe(200);
     expect(loaderResponse.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
 
     const { action } = await importLoginAction();
-    const actionResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-          'cookie': malformedCookie,
-        },
-        method: 'POST',
+    const actionResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'wrong-password' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+            'cookie': malformedCookie,
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(actionResponse.status).toBe(401);
     expect(actionResponse.headers.get('Set-Cookie')).toContain('__Host-mediavault-client=');
@@ -1050,15 +1324,18 @@ describe('auth gate routes', () => {
 
   test('logout still revokes the server-side session after module reload', async () => {
     const { action: loginAction } = await importLoginAction();
-    const loginResponse = await loginAction({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await loginAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
@@ -1066,27 +1343,33 @@ describe('auth gate routes', () => {
     vi.resetModules();
 
     const { action: logoutAction } = await importLogoutRoute();
-    const logoutResponse = await logoutAction({
-      request: new Request('http://localhost/api/auth/logout', {
-        headers: {
-          cookie: cookie ?? '',
-        },
-        method: 'POST',
+    const logoutResponse = await logoutAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/logout', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(logoutResponse.status).toBe(302);
 
     vi.resetModules();
 
     const { loader: authMeLoader } = await importAuthMeRoute();
-    const authMeResponse = await authMeLoader({
-      request: new Request('http://localhost/api/auth/me', {
-        headers: {
-          cookie: cookie ?? '',
-        },
+    const authMeResponse = await authMeLoader(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/me', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(authMeResponse.status).toBe(401);
   });
@@ -1095,12 +1378,14 @@ describe('auth gate routes', () => {
     vi.resetModules();
 
     const { loader } = await importAuthMeRoute();
-    const response = await loader({
-      request: new Request('http://localhost/api/auth/me'),
-    } as never);
+    const response = await loader(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/me'),
+      }),
+    );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({
+    await expect(readJsonObject(response)).resolves.toEqual({
       error: 'Not authenticated',
       success: false,
     });
@@ -1108,106 +1393,299 @@ describe('auth gate routes', () => {
 
   test('logout respects redirectTo when provided', async () => {
     const { action: loginAction } = await importLoginAction();
-    const loginResponse = await loginAction({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await loginAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
 
     const { action: logoutAction } = await importLogoutRoute();
-    const logoutResponse = await logoutAction({
-      request: new Request('http://localhost/api/auth/logout?redirectTo=%2Fgoodbye', {
-        headers: {
-          cookie: cookie ?? '',
-        },
-        method: 'POST',
+    const logoutResponse = await logoutAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/logout?redirectTo=%2Fgoodbye', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     expect(logoutResponse.status).toBe(302);
     expect(logoutResponse.headers.get('Location')).toBe('/goodbye');
   });
 
-  test('get logout also respects redirectTo when provided', async () => {
-    const { loader } = await importLogoutRoute();
-    const response = await loader({
-      request: new Request('http://localhost/api/auth/logout?redirectTo=%2Fgoodbye'),
-    } as never);
-
-    expect(response.status).toBe(302);
-    expect(response.headers.get('Location')).toBe('/goodbye');
-    expect(response.headers.get('Set-Cookie')).toContain('__Host-mediavault-session=');
-  });
-
-  test.each([
-    'https://evil.example',
-    '//evil.example',
-  ])('logout action ignores unsafe redirectTo %s', async (unsafeRedirectTo) => {
-    const { action: loginAction } = await importLoginAction();
-    const loginResponse = await loginAction({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
-      }),
-    } as never);
-
-    const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
-    expect(cookie).toBeTruthy();
-
-    const { action: logoutAction } = await importLogoutRoute();
-    const response = await logoutAction({
-      request: new Request(
-        `http://localhost/api/auth/logout?redirectTo=${encodeURIComponent(unsafeRedirectTo)}`,
-        {
-          headers: {
-            cookie: cookie ?? '',
-          },
+  test('rejects cross-origin login and authenticated mutations without issuing or revoking sessions', async () => {
+    const { action: login } = await importLoginAction();
+    for (const origin of [undefined, 'null', 'https://evil.example']) {
+      const headers = new Headers({ 'Content-Type': 'application/json' });
+      if (origin) {
+        headers.set('Origin', origin);
+      }
+      const denied = await login(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+            headers,
+            method: 'POST',
+          }),
+        }),
+      );
+      expect(denied.status).toBe(403);
+      expect(denied.headers.get('Set-Cookie')).toBeNull();
+    }
+    const cookie = await loginAndGetCookieHeader();
+    const { action: logout } = await importLogoutRoute();
+    const logoutDenied = await logout(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/logout', {
+          headers: { cookie, Origin: 'https://evil.example' },
           method: 'POST',
-        },
-      ),
-    } as never);
-
-    expect(response.status).toBe(302);
-    expect(response.headers.get('Location')).toBe('/login');
+        }),
+      }),
+    );
+    expect(logoutDenied.status).toBe(403);
+    expect(logoutDenied.headers.get('Set-Cookie')).toBeNull();
+    const { action: createPlaylist } = await importPlaylistsRoute();
+    const mutationDenied = await createPlaylist(
+      routeArgs({
+        request: new Request('http://localhost/api/playlists', {
+          body: JSON.stringify({ name: 'Cross-site mutation' }),
+          headers: { 'Content-Type': 'application/json', cookie, 'Origin': 'https://evil.example' },
+          method: 'POST',
+        }),
+      }),
+    );
+    expect(mutationDenied.status).toBe(403);
+    const { resolveRequestViewer } = await importServerAuthComposition();
+    await expect(
+      resolveRequestViewer(new Request('http://localhost/', { headers: { cookie } })),
+    ).resolves.toMatchObject({ type: 'authenticated', userId: SEEDED_OWNER_ID });
   });
 
-  test.each([
-    'https://evil.example',
-    '//evil.example',
-  ])('logout loader ignores unsafe redirectTo %s', async (unsafeRedirectTo) => {
+  test('GET logout neither revokes the account session nor clears its cookie', async () => {
+    const cookie = await loginAndGetCookieHeader();
     const { loader } = await importLogoutRoute();
-    const response = await loader({
-      request: new Request(
-        `http://localhost/api/auth/logout?redirectTo=${encodeURIComponent(unsafeRedirectTo)}`,
-      ),
-    } as never);
-
-    expect(response.status).toBe(302);
-    expect(response.headers.get('Location')).toBe('/login');
+    const response = loader(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/logout?redirectTo=%2Fgoodbye', {
+          headers: { cookie },
+        }),
+      }),
+    );
+    expect(response.status).toBe(405);
+    expect(response.headers.get('Allow')).toBe('POST');
+    expect(response.headers.get('Location')).toBeNull();
+    expect(response.headers.get('Set-Cookie')).toBeNull();
+    const { resolveRequestViewer } = await importServerAuthComposition();
+    await expect(
+      resolveRequestViewer(new Request('http://localhost/', { headers: { cookie } })),
+    ).resolves.toMatchObject({ type: 'authenticated', userId: SEEDED_OWNER_ID });
   });
+
+  test.each(['https://evil.example', '//evil.example'])(
+    'logout action ignores unsafe redirectTo %s',
+    async (unsafeRedirectTo) => {
+      const { action: loginAction } = await importLoginAction();
+      const loginResponse = await loginAction(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+            headers: {
+              'Origin': 'http://localhost',
+              'Content-Type': 'application/json',
+            },
+            method: 'POST',
+          }),
+        }),
+      );
+
+      const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
+      expect(cookie).toBeTruthy();
+
+      const { action: logoutAction } = await importLogoutRoute();
+      const response = await logoutAction(
+        routeArgs({
+          request: new Request(
+            `http://localhost/api/auth/logout?redirectTo=${encodeURIComponent(unsafeRedirectTo)}`,
+            {
+              headers: {
+                Origin: 'http://localhost',
+                cookie: cookie,
+              },
+              method: 'POST',
+            },
+          ),
+        }),
+      );
+
+      expect(response.status).toBe(302);
+      expect(response.headers.get('Location')).toBe('/login');
+    },
+  );
+
+  test.each(['https://evil.example', '//evil.example'])(
+    'logout loader never redirects or mutates regardless of redirectTo %s',
+    async (unsafeRedirectTo) => {
+      const { loader } = await importLogoutRoute();
+      const response = loader(
+        routeArgs({
+          request: new Request(
+            `http://localhost/api/auth/logout?redirectTo=${encodeURIComponent(unsafeRedirectTo)}`,
+          ),
+        }),
+      );
+
+      expect(response.status).toBe(405);
+      expect(response.headers.get('Location')).toBeNull();
+      expect(response.headers.get('Set-Cookie')).toBeNull();
+    },
+  );
+
+  test.each(['logout', 'account deletion'] as const)(
+    'revokes existing authenticated playback across all media after %s without downgrading its grant',
+    async (event) => {
+      process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET =
+        'isolated-real-playback-session-revocation-secret';
+      const videoId = '10000000-0000-4000-8000-000000000001';
+      const videoDir = join(storageDir, 'videos', videoId);
+      await mkdir(join(videoDir, 'video'), { recursive: true });
+      await mkdir(join(videoDir, 'audio'), { recursive: true });
+      await writeFile(join(videoDir, 'manifest.mpd'), '<MPD />');
+      await writeFile(join(videoDir, 'key.bin'), Buffer.alloc(16, 1));
+      await writeFile(join(videoDir, 'video', 'init.mp4'), 'video-fixture');
+      await writeFile(join(videoDir, 'audio', 'init.mp4'), 'audio-fixture');
+      await seedLibraryVideoMetadata(databasePath, [
+        {
+          duration: 1,
+          id: videoId,
+          ownerId: 'another-owner',
+          tags: [],
+          title: 'Public revocation fixture',
+          videoUrl: `/videos/${videoId}/manifest.mpd`,
+          visibility: 'public',
+        },
+      ]);
+      const cookie = await loginAndGetCookieHeader();
+      const { loader: issueToken } = await importVideoTokenRoute();
+      const response = await issueToken(
+        routeArgs({
+          params: { videoId },
+          request: new Request(`http://localhost/videos/${videoId}/token`, { headers: { cookie } }),
+        }),
+      );
+      expect(response.status).toBe(200);
+      const { token } = await readJsonObject(response);
+      if (typeof token !== 'string') {
+        throw new Error('Expected a signed playback token');
+      }
+      const routes = [
+        { load: importManifestRoute, params: { videoId }, path: 'manifest.mpd' },
+        {
+          load: importVideoSegmentRoute,
+          params: { videoId, filename: 'init.mp4' },
+          path: 'video/init.mp4',
+        },
+        {
+          load: importAudioSegmentRoute,
+          params: { videoId, filename: 'init.mp4' },
+          path: 'audio/init.mp4',
+        },
+        { load: importClearKeyRoute, params: { videoId }, path: 'clearkey' },
+      ];
+      for (const route of routes) {
+        const module = await route.load();
+        const media = await module.loader(
+          routeArgs({
+            params: route.params,
+            request: new Request(`http://localhost/videos/${videoId}/${route.path}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+          }),
+        );
+        expect(media.status).toBe(200);
+        await media.arrayBuffer();
+      }
+      let mutationResponse: Response;
+      if (event === 'logout') {
+        const { action } = await importLogoutRoute();
+        mutationResponse = await action(
+          routeArgs({
+            request: new Request('http://localhost/api/auth/logout', {
+              headers: { cookie, Origin: 'http://localhost' },
+              method: 'POST',
+            }),
+          }),
+        );
+      } else {
+        process.env.MEDIAVAULT_ADMIN_API_MODE = 'always';
+        process.env.MEDIAVAULT_ADMIN_API_TOKEN = 'isolated-delete-operator-token';
+        try {
+          const { action } = await import('../../../app/routes/api.admin.users.$username');
+          mutationResponse = await action(
+            routeArgs({
+              params: { username: 'owner' },
+              request: new Request('http://localhost/api/admin/users/owner', {
+                headers: { Authorization: 'Bearer isolated-delete-operator-token' },
+                method: 'DELETE',
+              }),
+            }),
+          );
+        } finally {
+          delete process.env.MEDIAVAULT_ADMIN_API_MODE;
+          delete process.env.MEDIAVAULT_ADMIN_API_TOKEN;
+        }
+      }
+      expect(mutationResponse.status).toBe(event === 'logout' ? 302 : 204);
+      for (const route of routes) {
+        const module = await route.load();
+        const denied = await module.loader(
+          routeArgs({
+            params: route.params,
+            request: new Request(`http://localhost/videos/${videoId}/${route.path}`, {
+              headers: { Authorization: `Bearer ${token}`, cookie },
+            }),
+          }),
+        );
+        expect(denied.status).toBe(401);
+        expect(denied.headers.get('Cache-Control')).toBe('no-store');
+      }
+      // Public access remains available through a NEW anonymous grant, not the revoked account grant.
+      const anonymous = await issueToken(
+        routeArgs({
+          params: { videoId },
+          request: new Request(`http://localhost/videos/${videoId}/token`),
+        }),
+      );
+      expect(anonymous.status).toBe(200);
+    },
+  );
 
   test('video token route hides inaccessible videos from anonymous requests without requiring playback secrets', async () => {
     const { loader } = await importVideoTokenRoute();
     const request = new Request('http://localhost/videos/video-1/token');
 
-    const response = await loader({
-      params: { videoId: 'video-1' },
-      request,
-    } as never);
+    const response = await loader(
+      routeArgs({
+        params: { videoId: 'video-1' },
+        request,
+      }),
+    );
 
     expect(response.status).toBe(404);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
-    await expect(response.json()).resolves.toEqual({
+    await expect(readJsonObject(response)).resolves.toEqual({
       error: 'Video not found',
       success: false,
     });
@@ -1217,17 +1695,14 @@ describe('auth gate routes', () => {
     delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
     delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
 
-    await expect(importManifestRoute()).resolves.toEqual(
-      expect.objectContaining({
-        loader: expect.any(Function),
+    const { loader } = await importManifestRoute();
+    expect(loader).toBeTypeOf('function');
+    const response = await loader(
+      routeArgs({
+        params: { videoId: 'video-1' },
+        request: new Request('http://localhost/videos/video-1/manifest.mpd'),
       }),
     );
-
-    const { loader } = await importManifestRoute();
-    const response = await loader({
-      params: { videoId: 'video-1' },
-      request: new Request('http://localhost/videos/video-1/manifest.mpd'),
-    } as never);
 
     expect(response.status).toBe(401);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -1265,29 +1740,35 @@ describe('auth gate routes', () => {
       params: { id: 'video-1' },
       url: 'http://localhost/api/thumbnail/video-1',
     },
-  ])('public $label route returns the public-safe denial without an account session', async ({ importRoute, label, params, url }) => {
-    const routeModule = await importRoute();
-    const response = await routeModule.loader({
-      params,
-      request: new Request(url),
-    } as never);
+  ])(
+    'public $label route returns the public-safe denial without an account session',
+    async ({ importRoute, label, params, url }) => {
+      const routeModule = await importRoute();
+      const response = await routeModule.loader(
+        routeArgs({
+          params: {
+            id: params.id ?? 'video-1',
+            videoId: params.videoId ?? 'video-1',
+            filename: params.filename ?? 'init.mp4',
+          },
+          request: new Request(url),
+        }),
+      );
 
-    if (label === 'thumbnail') {
-      expect(response.status).toBe(404);
-      expect(response.headers.get('Cache-Control')).toBe('private, no-store');
-      await expect(response.text()).resolves.toBe('Thumbnail not found');
-      return;
-    }
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get('Cache-Control')).toBe('no-store');
-    await expect(response.text()).resolves.toBe('Playback token required');
-  });
+      const expected =
+        label === 'thumbnail'
+          ? { status: 404, cache: 'private, no-store', body: 'Thumbnail not found' }
+          : { status: 401, cache: 'no-store', body: 'Playback token required' };
+      expect(response.status).toBe(expected.status);
+      expect(response.headers.get('Cache-Control')).toBe(expected.cache);
+      await expect(response.text()).resolves.toBe(expected.body);
+    },
+  );
 
   test('thumbnail delivery works with the site session without an old session cookie', async () => {
     process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET = 'auth-routes-thumbnail-test-seed';
     const videoId = '00000000-0000-4000-8000-000000000123';
-    const videoDir = join(storageDir, 'data', 'videos', videoId);
+    const videoDir = join(storageDir, 'videos', videoId);
     const plaintextThumbnailPath = join(videoDir, 'thumbnail.jpg');
     await mkdir(videoDir, { recursive: true });
     await writeFile(plaintextThumbnailPath, await readFile(VALID_JPEG_FIXTURE_PATH));
@@ -1306,26 +1787,31 @@ describe('auth gate routes', () => {
       thumbnailPath: plaintextThumbnailPath,
       videoId,
     });
-    await seedLibraryVideoMetadata(join(storageDir, 'db.sqlite'), [{
-      duration: 1,
-      id: videoId,
-      mediaStatus: 'none',
-      ownerId: SEEDED_OWNER_ID,
-      title: 'Thumbnail fixture',
-      videoUrl: `/videos/${videoId}/manifest.mpd`,
-      visibility: 'private',
-    }]);
+    await seedLibraryVideoMetadata(join(storageDir, 'db.sqlite'), [
+      {
+        duration: 1,
+        id: videoId,
+        mediaStatus: 'none',
+        ownerId: SEEDED_OWNER_ID,
+        title: 'Thumbnail fixture',
+        videoUrl: `/videos/${videoId}/manifest.mpd`,
+        visibility: 'private',
+      },
+    ]);
 
     const { action } = await importLoginAction();
-    const loginResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     const rawSetCookie = loginResponse.headers.get('Set-Cookie');
     const cookie = toRequestCookieHeader(rawSetCookie);
@@ -1337,10 +1823,11 @@ describe('auth gate routes', () => {
       params: { id: videoId },
       request: new Request(`http://localhost/api/thumbnail/${videoId}`, {
         headers: {
-          cookie: cookie ?? '',
+          Origin: 'http://localhost',
+          cookie: cookie,
         },
       }),
-    } as never);
+    });
 
     expect(response.status).toBe(200);
     expect(response.headers.has('X-Content-Source')).toBe(false);
@@ -1351,81 +1838,97 @@ describe('auth gate routes', () => {
     vi.resetModules();
 
     const { action } = await importLoginAction();
-    const loginResponse = await action({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
 
     const { loader } = await importRootModule();
-    const response = await loader({
-      request: new Request('http://localhost/', {
-        headers: {
-          cookie: cookie ?? '',
-        },
+    const response = await loader(
+      routeArgs({
+        request: new Request('http://localhost/', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(response).toEqual({
       user: SEEDED_VIEWER,
     });
   });
 
-  test('playlist creation uses the configured owner on a clean install without users data', async () => {
+  test('playlist creation derives ownership from the authenticated account', async () => {
     await seedStorage(storageDir, {
       playlists: [],
     });
     vi.resetModules();
 
     const { action: loginAction } = await importLoginAction();
-    const loginResponse = await loginAction({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await loginAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
+    );
 
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
 
     const { action } = await importPlaylistsRoute();
-    const response = await action({
-      request: new Request('http://localhost/api/playlists', {
-        body: JSON.stringify({
-          description: 'Created after auth migration',
-          name: 'Compat Playlist',
-          type: 'user_created',
+    const response = await action(
+      routeArgs({
+        request: new Request('http://localhost/api/playlists', {
+          body: JSON.stringify({
+            description: 'Created after auth migration',
+            name: 'Compat Playlist',
+            type: 'user_created',
+          }),
+          headers: new Headers([
+            ['Origin', 'http://localhost'],
+            ['Content-Type', 'application/json'],
+            ['Cookie', cookie],
+          ]),
+          method: 'POST',
         }),
-        headers: new Headers([
-          ['Content-Type', 'application/json'],
-          ['Cookie', cookie ?? ''],
-        ]),
-        method: 'POST',
       }),
-    } as never);
+    );
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual(expect.objectContaining({
-      success: true,
-    }));
-    const database = await createMigratedPrimarySqliteDatabase({
+    expect(response.status).toBe(201);
+    await expect(readJsonObject(response)).resolves.toEqual(
+      expect.objectContaining({
+        success: true,
+      }),
+    );
+    const database = await createInitializedPrimarySqliteDatabase({
       dbPath: databasePath,
     });
-    const row = await database.prepare<{ owner_id: string }>(`
+    const row = await database
+      .prepare<{ owner_id: string }>(`
       SELECT owner_id
       FROM playlists
       WHERE name = ?
-    `).get('Compat Playlist');
+    `)
+      .get('Compat Playlist');
 
     expect(row).toEqual({ owner_id: SEEDED_VIEWER.id });
   });
@@ -1442,47 +1945,53 @@ describe('auth gate routes', () => {
           ownerId: 'seeded-owner-1',
           type: 'user_created',
           updatedAt: '2025-10-05T17:17:46.248Z',
-          videoIds: [],
         },
       ],
     });
     vi.resetModules();
 
     const { action: loginAction } = await importLoginAction();
-    const loginResponse = await loginAction({
-      request: new Request('http://localhost/api/auth/login', {
-        body: JSON.stringify({ username: 'owner', password: 'vault-password' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
+    const loginResponse = await loginAction(
+      routeArgs({
+        request: new Request('http://localhost/api/auth/login', {
+          body: JSON.stringify({ username: 'owner', password: 'vault-password-for-tests' }),
+          headers: {
+            'Origin': 'http://localhost',
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        }),
       }),
-    } as never);
-    await loginResponse.json();
+    );
+    await readJsonObject(loginResponse);
 
     const cookie = toRequestCookieHeader(loginResponse.headers.get('Set-Cookie'));
     expect(cookie).toBeTruthy();
 
     const { loader } = await importPlaylistsRoute();
-    const response = await loader({
-      request: new Request('http://localhost/api/playlists?includeEmpty=true&limit=100', {
-        headers: {
-          cookie: cookie ?? '',
-        },
+    const response = await loader(
+      routeArgs({
+        request: new Request('http://localhost/api/playlists?includeEmpty=true&limit=100', {
+          headers: {
+            Origin: 'http://localhost',
+            cookie: cookie,
+          },
+        }),
       }),
-    } as never);
+    );
 
     expect(response.status).toBe(200);
-    const payload = await response.json();
-    expect(payload).toEqual(expect.objectContaining({
-      playlists: expect.arrayContaining([
-        expect.objectContaining({
-          id: 'playlist-1',
-          name: 'Owned Playlist',
-          ownerId: SEEDED_VIEWER.id,
-        }),
-      ]),
-      success: true,
-    }));
+    const payload = await readJsonObject(response);
+    const list = z
+      .object({
+        success: z.literal(true),
+        playlists: z.array(z.object({ id: z.string(), name: z.string(), ownerId: z.string() })),
+      })
+      .parse(payload);
+    expect(list.playlists).toContainEqual({
+      id: 'playlist-1',
+      name: 'Owned Playlist',
+      ownerId: SEEDED_VIEWER.id,
+    });
   });
 });

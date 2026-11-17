@@ -30,13 +30,17 @@ describe('getPlaybackConfig', () => {
     process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = '  1234567890123456789012345678901  ';
     const { getPlaybackConfig } = await import('../../../app/shared/config/app-config.server');
 
-    expect(() => getPlaybackConfig()).toThrow('MEDIAVAULT_PLAYBACK_JWT_SECRET must be at least 32 characters');
+    expect(() => getPlaybackConfig()).toThrow(
+      'MEDIAVAULT_PLAYBACK_JWT_SECRET must be at least 32 characters',
+    );
   });
 
   test('throws a clear error when the playback JWT secret is missing', async () => {
     delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
     const { getPlaybackConfig } = await import('../../../app/shared/config/app-config.server');
 
-    expect(() => getPlaybackConfig()).toThrow('MEDIAVAULT_PLAYBACK_JWT_SECRET environment variable is required for playback authentication');
+    expect(() => getPlaybackConfig()).toThrow(
+      'MEDIAVAULT_PLAYBACK_JWT_SECRET environment variable is required for playback authentication',
+    );
   });
 });

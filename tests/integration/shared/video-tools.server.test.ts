@@ -84,7 +84,9 @@ describe('video tools config', () => {
 
     const { getShakaPackagerPath } = await import('../../../app/shared/config/video-tools.server');
 
-    expect(getShakaPackagerPath({ SHAKA_PACKAGER_PATH: explicitPackagerPath })).toBe(explicitPackagerPath);
+    expect(getShakaPackagerPath({ SHAKA_PACKAGER_PATH: explicitPackagerPath })).toBe(
+      explicitPackagerPath,
+    );
   });
 
   test('prefers an existing project-local binaries/packager over system packager', async () => {

@@ -63,7 +63,9 @@ describe('VideoMetadataForm', () => {
 
     render(
       <div>
-        <button form="details-form" type="submit">Header save</button>
+        <button form="details-form" type="submit">
+          Header save
+        </button>
         <VideoMetadataForm
           contentTypes={contentTypes}
           formId="details-form"
@@ -83,13 +85,15 @@ describe('VideoMetadataForm', () => {
     await user.type(screen.getByLabelText('Title'), 'Header Saved Fixture');
     await user.click(screen.getByRole('button', { name: 'Header save' }));
 
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith({
-      contentTypeSlug: 'movie',
-      description: 'A stored vault clip.',
-      genreSlugs: ['action'],
-      tags: ['neo'],
-      title: 'Header Saved Fixture',
-    }));
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith({
+        contentTypeSlug: 'movie',
+        description: 'A stored vault clip.',
+        genreSlugs: ['action'],
+        tags: ['neo'],
+        title: 'Header Saved Fixture',
+      }),
+    );
     expect(onCancel).not.toHaveBeenCalled();
   });
 

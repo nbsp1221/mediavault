@@ -7,7 +7,9 @@ import { collectHermeticTestInputViolations } from '../../../scripts/verify-herm
 const cleanupPaths: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(cleanupPaths.splice(0).map(path => rm(path, { force: true, recursive: true })));
+  await Promise.all(
+    cleanupPaths.splice(0).map((path) => rm(path, { force: true, recursive: true })),
+  );
 });
 
 describe('verify-hermetic-test-inputs', () => {
@@ -17,38 +19,89 @@ describe('verify-hermetic-test-inputs', () => {
 
     await mkdir(join(rootDir, 'tests', 'support'), { recursive: true });
     await mkdir(join(rootDir, 'tests', 'e2e'), { recursive: true });
-    await mkdir(join(rootDir, 'tests', 'fixtures', 'playback', '68e5f819-15e8-41ef-90ee-8a96769311b7', 'audio'), { recursive: true });
-    await mkdir(join(rootDir, 'tests', 'fixtures', 'playback', '68e5f819-15e8-41ef-90ee-8a96769311b7', 'video'), { recursive: true });
-    await mkdir(join(rootDir, 'tests', 'fixtures', 'playback', '754c6828-621c-4df6-9cf8-a3d77297b85a', 'audio'), { recursive: true });
-    await mkdir(join(rootDir, 'tests', 'fixtures', 'playback', '754c6828-621c-4df6-9cf8-a3d77297b85a', 'video'), { recursive: true });
+    await mkdir(
+      join(
+        rootDir,
+        'tests',
+        'fixtures',
+        'playback',
+        '68e5f819-15e8-41ef-90ee-8a96769311b7',
+        'audio',
+      ),
+      { recursive: true },
+    );
+    await mkdir(
+      join(
+        rootDir,
+        'tests',
+        'fixtures',
+        'playback',
+        '68e5f819-15e8-41ef-90ee-8a96769311b7',
+        'video',
+      ),
+      { recursive: true },
+    );
+    await mkdir(
+      join(
+        rootDir,
+        'tests',
+        'fixtures',
+        'playback',
+        '754c6828-621c-4df6-9cf8-a3d77297b85a',
+        'audio',
+      ),
+      { recursive: true },
+    );
+    await mkdir(
+      join(
+        rootDir,
+        'tests',
+        'fixtures',
+        'playback',
+        '754c6828-621c-4df6-9cf8-a3d77297b85a',
+        'video',
+      ),
+      { recursive: true },
+    );
 
     for (const fixtureId of [
       '68e5f819-15e8-41ef-90ee-8a96769311b7',
       '754c6828-621c-4df6-9cf8-a3d77297b85a',
     ]) {
       await Promise.all([
-        writeFile(join(rootDir, 'tests', 'fixtures', 'playback', fixtureId, 'manifest.mpd'), '<MPD />'),
+        writeFile(
+          join(rootDir, 'tests', 'fixtures', 'playback', fixtureId, 'manifest.mpd'),
+          '<MPD />',
+        ),
         writeFile(join(rootDir, 'tests', 'fixtures', 'playback', fixtureId, 'key.bin'), 'key'),
-        writeFile(join(rootDir, 'tests', 'fixtures', 'playback', fixtureId, 'audio', 'init.mp4'), 'audio'),
-        writeFile(join(rootDir, 'tests', 'fixtures', 'playback', fixtureId, 'video', 'init.mp4'), 'video'),
+        writeFile(
+          join(rootDir, 'tests', 'fixtures', 'playback', fixtureId, 'audio', 'init.mp4'),
+          'audio',
+        ),
+        writeFile(
+          join(rootDir, 'tests', 'fixtures', 'playback', fixtureId, 'video', 'init.mp4'),
+          'video',
+        ),
       ]);
     }
 
     await writeFile(
       join(rootDir, 'tests', 'e2e', 'bad-smoke.spec.ts'),
-      'const fixtureDir = join(process.cwd(), \'storage\', \'data\', \'videos\', \'video-1\');',
+      "const fixtureDir = join(process.cwd(), 'storage', 'data', 'videos', 'video-1');",
     );
 
     const violations = await collectHermeticTestInputViolations(rootDir);
 
-    expect(violations).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        filePath: 'tests/e2e/bad-smoke.spec.ts',
-      }),
-      expect.objectContaining({
-        filePath: 'tests/fixtures/playback/68e5f819-15e8-41ef-90ee-8a96769311b7/thumbnail.jpg',
-      }),
-    ]));
+    expect(violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          filePath: 'tests/e2e/bad-smoke.spec.ts',
+        }),
+        expect.objectContaining({
+          filePath: 'tests/fixtures/playback/68e5f819-15e8-41ef-90ee-8a96769311b7/thumbnail.jpg',
+        }),
+      ]),
+    );
   });
 
   test('rejects direct process.env reads outside the runtime config boundary', async () => {
@@ -72,23 +125,23 @@ describe('verify-hermetic-test-inputs', () => {
 
     const violations = await collectHermeticTestInputViolations(rootDir);
 
-    expect(violations).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        filePath: 'app/modules/playback/bad-env.server.ts',
-        message: expect.stringContaining('shared server config boundary'),
-      }),
-    ]));
-    expect(violations).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        filePath: 'app/shared/config/app-config.server.ts',
-      }),
-    ]));
-    expect(violations).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        filePath: 'app/shared/config/accidental.server.ts',
-        message: expect.stringContaining('shared server config boundary'),
-      }),
-    ]));
+    expect(
+      violations.find(
+        (violation) => violation.filePath === 'app/modules/playback/bad-env.server.ts',
+      )?.message,
+    ).toContain('shared server config boundary');
+    expect(violations).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          filePath: 'app/shared/config/app-config.server.ts',
+        }),
+      ]),
+    );
+    expect(
+      violations.find(
+        (violation) => violation.filePath === 'app/shared/config/accidental.server.ts',
+      )?.message,
+    ).toContain('shared server config boundary');
   });
 
   test('rejects independent production-like runtime fixture env blocks outside the fixture authority', async () => {
@@ -115,16 +168,16 @@ describe('verify-hermetic-test-inputs', () => {
 
     const violations = await collectHermeticTestInputViolations(rootDir);
 
-    expect(violations).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        filePath: 'scripts/bad-runtime-smoke.ts',
-        message: expect.stringContaining('tests/support/runtime-test-env.ts'),
-      }),
-    ]));
-    expect(violations).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        filePath: 'tests/support/runtime-test-env.ts',
-      }),
-    ]));
+    expect(
+      violations.find((violation) => violation.filePath === 'scripts/bad-runtime-smoke.ts')
+        ?.message,
+    ).toContain('tests/support/runtime-test-env.ts');
+    expect(violations).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          filePath: 'tests/support/runtime-test-env.ts',
+        }),
+      ]),
+    );
   });
 });

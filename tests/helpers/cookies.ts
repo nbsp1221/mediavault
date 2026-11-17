@@ -6,7 +6,7 @@ export function getCookieMap(setCookieHeader: string | null): Record<string, str
   return Object.fromEntries(
     setCookieHeader
       .split(/,(?=[^;]+=[^;]+)/)
-      .map(segment => segment.trim().split(';')[0] || '')
+      .map((segment) => segment.trim().split(';')[0] || '')
       .filter(Boolean)
       .map((cookiePair) => {
         const [rawName, ...rawValue] = cookiePair.split('=');

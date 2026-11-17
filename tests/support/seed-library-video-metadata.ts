@@ -1,7 +1,10 @@
 import { normalizeVideoTags } from '~/modules/library/domain/video-tag';
-import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from '~/modules/library/domain/video-taxonomy';
+import {
+  normalizeTaxonomySlug,
+  normalizeTaxonomySlugs,
+} from '~/modules/library/domain/video-taxonomy';
 import { SqliteLibraryVideoMetadataRepository } from '~/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
-import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { installTestDatabaseEncryptionKey } from './database-encryption-key';
 
 export interface SeedLibraryVideoInput {
@@ -23,12 +26,15 @@ export interface SeedLibraryVideoInput {
 
 const DEFAULT_SEEDED_VIDEO_OWNER_ID = 'seeded-owner-1';
 
-type MigratedPrimarySqliteDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
+type InitializedPrimarySqliteDatabase = Awaited<
+  ReturnType<typeof createInitializedPrimarySqliteDatabase>
+>;
 
 function resolveCreatedAt(input: Pick<SeedLibraryVideoInput, 'addedAt' | 'createdAt'>) {
-  const rawTimestamp = input.createdAt instanceof Date
-    ? input.createdAt.toISOString()
-    : input.createdAt || input.addedAt;
+  const rawTimestamp =
+    input.createdAt instanceof Date
+      ? input.createdAt.toISOString()
+      : input.createdAt || input.addedAt;
 
   return new Date(rawTimestamp || 0);
 }
@@ -39,9 +45,9 @@ export async function seedLibraryVideoMetadata(
 ): Promise<void> {
   installTestDatabaseEncryptionKey();
   const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
-  const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+  const database = await createInitializedPrimarySqliteDatabase({ dbPath });
   const existingVideos = await repository.findAll();
-  const existingIds = new Set(existingVideos.map(video => video.id));
+  const existingIds = new Set(existingVideos.map((video) => video.id));
   let sortIndex = existingVideos.length + videos.length;
 
   for (const video of videos) {
@@ -55,7 +61,9 @@ export async function seedLibraryVideoMetadata(
       createdAt: resolveCreatedAt(video),
       description: video.description,
       duration: video.duration,
-      contentTypeSlug: video.contentTypeSlug ? normalizeTaxonomySlug(video.contentTypeSlug) ?? undefined : undefined,
+      contentTypeSlug: video.contentTypeSlug
+        ? (normalizeTaxonomySlug(video.contentTypeSlug) ?? undefined)
+        : undefined,
       genreSlugs: normalizeTaxonomySlugs(video.genreSlugs ?? []),
       id: video.id,
       ownerId: video.ownerId ?? DEFAULT_SEEDED_VIDEO_OWNER_ID,
@@ -67,7 +75,8 @@ export async function seedLibraryVideoMetadata(
       visibility: video.visibility ?? 'private',
     });
     if (video.mediaStatus !== 'none') {
-      await database.prepare(`
+      await database
+        .prepare(`
         INSERT INTO video_media_assets (
           video_id,
           status,
@@ -83,42 +92,37 @@ export async function seedLibraryVideoMetadata(
           prepared_at
         ) VALUES (?, 'ready', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(video_id) DO NOTHING
-      `).run(
-        video.id,
-        1,
-        'fixture',
-        `${video.id}/manifest.mpd`,
-        `${video.id}/key.bin`,
-        `${video.id}/thumbnail.jpg`,
-        `${video.id}/video/init.mp4`,
-        `${video.id}/video/segment-*.m4s`,
-        `${video.id}/audio/init.mp4`,
-        `${video.id}/audio/segment-*.m4s`,
-        resolveCreatedAt(video).toISOString(),
-      );
+      `)
+        .run(
+          video.id,
+          1,
+          'fixture',
+          `${video.id}/manifest.mpd`,
+          `${video.id}/key.bin`,
+          `${video.id}/thumbnail.jpg`,
+          `${video.id}/video/init.mp4`,
+          `${video.id}/video/segment-*.m4s`,
+          `${video.id}/audio/init.mp4`,
+          `${video.id}/audio/segment-*.m4s`,
+          resolveCreatedAt(video).toISOString(),
+        );
     }
     sortIndex -= 1;
     existingIds.add(video.id);
   }
 }
 
-async function ensureVideoOwner(database: MigratedPrimarySqliteDatabase, ownerId: string) {
-  await database.prepare(`
+async function ensureVideoOwner(database: InitializedPrimarySqliteDatabase, ownerId: string) {
+  await database
+    .prepare(`
     INSERT INTO auth_users (
       id,
       username,
       username_key,
       password_hash,
-      role,
       created_at
-    ) VALUES (?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(id) DO NOTHING
-  `).run(
-    ownerId,
-    ownerId,
-    ownerId.toLowerCase(),
-    'test-password-hash',
-    'user',
-    '2026-05-23T00:00:00.000Z',
-  );
+  `)
+    .run(ownerId, ownerId, ownerId.toLowerCase(), 'test-password-hash', '2026-05-23T00:00:00.000Z');
 }

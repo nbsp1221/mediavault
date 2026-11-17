@@ -23,9 +23,7 @@ interface LoadVideoMetadataVocabularyUseCaseDependencies {
 }
 
 export class LoadVideoMetadataVocabularyUseCase {
-  constructor(
-    private readonly deps: LoadVideoMetadataVocabularyUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: LoadVideoMetadataVocabularyUseCaseDependencies) {}
 
   async execute(): Promise<LoadVideoMetadataVocabularyResult> {
     try {
@@ -41,8 +39,7 @@ export class LoadVideoMetadataVocabularyUseCase {
           genres,
         },
       };
-    }
-    catch {
+    } catch {
       return {
         ok: false,
         reason: 'VOCABULARY_SOURCE_UNAVAILABLE',

@@ -1,11 +1,13 @@
 import { describe, expect, test, vi } from 'vitest';
+import { createLibraryVideoFixture } from '../../../../../tests/support/library-video-fixture';
 
 const accessibleVideoRead = {
-  findLibraryVideoById: vi.fn(async () => ({} as never)),
+  findLibraryVideoById: vi.fn(async () => createLibraryVideoFixture()),
 };
 const authenticatedTokenPayload = {
   jti: 'token-1',
   readScope: 'public_or_owned' as const,
+  sessionId: 'session-1',
   subjectUserId: 'owner-1',
   videoId: 'video-1',
   viewerType: 'authenticated' as const,
@@ -13,7 +15,8 @@ const authenticatedTokenPayload = {
 
 describe('ServePlaybackMediaSegmentUseCase', () => {
   test('validates the playback token and preserves range-response metadata from the media adapter', async () => {
-    const { ServePlaybackMediaSegmentUseCase } = await import('./serve-playback-media-segment.usecase');
+    const { ServePlaybackMediaSegmentUseCase } =
+      await import('./serve-playback-media-segment.usecase');
     const stream = new ReadableStream<Uint8Array>();
     const serveSegment = vi.fn(async () => ({
       headers: {
@@ -28,6 +31,7 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       mediaSegmentService: {
         serveSegment,
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate: async () => authenticatedTokenPayload,
@@ -62,7 +66,8 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
   });
 
   test('maps audio-segment scope mismatches to an explicit application result', async () => {
-    const { ServePlaybackMediaSegmentUseCase } = await import('./serve-playback-media-segment.usecase');
+    const { ServePlaybackMediaSegmentUseCase } =
+      await import('./serve-playback-media-segment.usecase');
     const useCase = new ServePlaybackMediaSegmentUseCase({
       mediaSegmentService: {
         serveSegment: async () => ({
@@ -71,6 +76,7 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
           stream: new ReadableStream<Uint8Array>(),
         }),
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate: async () => ({ ...authenticatedTokenPayload, videoId: 'video-2' }),
@@ -98,12 +104,14 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
   });
 
   test('returns not found when current video access is revoked after token issuance', async () => {
-    const { ServePlaybackMediaSegmentUseCase } = await import('./serve-playback-media-segment.usecase');
+    const { ServePlaybackMediaSegmentUseCase } =
+      await import('./serve-playback-media-segment.usecase');
     const serveSegment = vi.fn();
     const useCase = new ServePlaybackMediaSegmentUseCase({
       mediaSegmentService: {
         serveSegment,
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue: async () => '',
         validate: async () => authenticatedTokenPayload,
@@ -113,13 +121,15 @@ describe('ServePlaybackMediaSegmentUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      filename: 'init.mp4',
-      mediaType: 'video',
-      rangeHeader: null,
-      token: 'signed-token',
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        filename: 'init.mp4',
+        mediaType: 'video',
+        rangeHeader: null,
+        token: 'signed-token',
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       metadata: {
         requestedVideoId: 'video-1',
         resource: 'segment',

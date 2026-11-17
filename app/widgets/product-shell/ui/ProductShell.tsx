@@ -16,8 +16,8 @@ import {
 } from '../model/product-shell-route';
 import {
   type ProductAccountActionVisibility,
-  type ProductHeaderMode,
   ProductHeader,
+  type ProductHeaderMode,
 } from './ProductHeader';
 import { ProductNavigation } from './ProductNavigation';
 import { ProductSidebar } from './ProductSidebar';
@@ -71,10 +71,7 @@ export function ProductShell({
   return (
     <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-svh w-full bg-background text-foreground">
-        <ProductSidebar
-          activeRoute={resolvedActiveRoute}
-          items={navigationItems}
-        />
+        <ProductSidebar activeRoute={resolvedActiveRoute} items={navigationItems} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <ProductHeader

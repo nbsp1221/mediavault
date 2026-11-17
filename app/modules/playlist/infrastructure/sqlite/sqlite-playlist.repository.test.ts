@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { SqliteLibraryVideoMetadataRepository } from '~/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
-import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { SqlitePlaylistRepository } from './sqlite-playlist.repository';
 
 describe('SqlitePlaylistRepository', () => {
@@ -21,7 +21,7 @@ describe('SqlitePlaylistRepository', () => {
 
   async function seedVideo(id: string, title = id) {
     const repository = new SqliteLibraryVideoMetadataRepository({ dbPath });
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath });
     const sortIndex = Number(id.match(/\d+$/)?.[0] ?? 1);
     await seedOwner(database, 'owner-1');
 
@@ -45,7 +45,7 @@ describe('SqlitePlaylistRepository', () => {
   test('creates playlists, stores item rows in zero-based order, and exposes one-based item positions', async () => {
     await seedVideo('video-1');
     await seedVideo('video-2');
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath });
     const repository = new SqlitePlaylistRepository({ dbPath });
 
     const playlist = await repository.create({
@@ -57,11 +57,13 @@ describe('SqlitePlaylistRepository', () => {
       videoIds: ['video-1', 'video-2'],
     });
 
-    await expect(repository.findById(playlist.id)).resolves.toEqual(expect.objectContaining({
-      metadata: { genre: ['action'], seriesName: 'Vault' },
-      name: 'Owned Playlist',
-      videoIds: ['video-1', 'video-2'],
-    }));
+    await expect(repository.findById(playlist.id)).resolves.toEqual(
+      expect.objectContaining({
+        metadata: { genre: ['action'], seriesName: 'Vault' },
+        name: 'Owned Playlist',
+        videoIds: ['video-1', 'video-2'],
+      }),
+    );
     await expect(repository.getPlaylistItems(playlist.id)).resolves.toEqual([
       expect.objectContaining({ position: 1, videoId: 'video-1' }),
       expect.objectContaining({ position: 2, videoId: 'video-2' }),
@@ -93,7 +95,9 @@ describe('SqlitePlaylistRepository', () => {
     });
 
     await expect(repository.nameExistsForOwner('vault', 'owner-1')).resolves.toBe(true);
-    await expect(repository.nameExistsForOwner('vault', 'owner-1', playlist.id)).resolves.toBe(false);
+    await expect(repository.nameExistsForOwner('vault', 'owner-1', playlist.id)).resolves.toBe(
+      false,
+    );
     await expect(repository.nameExistsForOwner('vault', 'owner-2')).resolves.toBe(false);
   });
 
@@ -109,16 +113,16 @@ describe('SqlitePlaylistRepository', () => {
       videoIds: ['video-1'],
     });
 
-    await repository.addVideoToPlaylist(
-      playlist.id,
-      'video-2',
-      0,
-      { episodeNumber: 2, episodeTitle: 'Companion' },
-    );
+    await repository.addVideoToPlaylist(playlist.id, 'video-2', 0, {
+      episodeNumber: 2,
+      episodeTitle: 'Companion',
+    });
 
-    await expect(repository.findById(playlist.id)).resolves.toEqual(expect.objectContaining({
-      videoIds: ['video-2', 'video-1'],
-    }));
+    await expect(repository.findById(playlist.id)).resolves.toEqual(
+      expect.objectContaining({
+        videoIds: ['video-2', 'video-1'],
+      }),
+    );
     await expect(repository.getPlaylistItems(playlist.id)).resolves.toEqual([
       expect.objectContaining({
         episodeMetadata: { episodeNumber: 2, episodeTitle: 'Companion' },
@@ -158,17 +162,17 @@ describe('SqlitePlaylistRepository', () => {
       videoIds: ['video-1'],
     });
 
-    await expect(repository.findWithFilters({
-      genre: ['action'],
-      isPublic: true,
-      ownerId: 'owner-1',
-      searchQuery: 'series',
-      seriesName: 'Vault',
-      status: 'ongoing',
-      type: 'series',
-    })).resolves.toEqual([
-      expect.objectContaining({ id: playlist.id }),
-    ]);
+    await expect(
+      repository.findWithFilters({
+        genre: ['action'],
+        isPublic: true,
+        ownerId: 'owner-1',
+        searchQuery: 'series',
+        seriesName: 'Vault',
+        status: 'ongoing',
+        type: 'series',
+      }),
+    ).resolves.toEqual([expect.objectContaining({ id: playlist.id })]);
     await expect(repository.findBySeries('vault')).resolves.toEqual([
       expect.objectContaining({ id: playlist.id }),
     ]);
@@ -178,25 +182,19 @@ describe('SqlitePlaylistRepository', () => {
   });
 });
 
-type TestDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
+type TestDatabase = Awaited<ReturnType<typeof createInitializedPrimarySqliteDatabase>>;
 
 async function seedOwner(database: TestDatabase, ownerId: string) {
-  await database.prepare(`
+  await database
+    .prepare(`
     INSERT INTO auth_users (
       id,
       username,
       username_key,
       password_hash,
-      role,
       created_at
-    ) VALUES (?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(id) DO NOTHING
-  `).run(
-    ownerId,
-    ownerId,
-    ownerId,
-    'test-password-hash',
-    'user',
-    '2026-05-23T00:00:00.000Z',
-  );
+  `)
+    .run(ownerId, ownerId, ownerId, 'test-password-hash', '2026-05-23T00:00:00.000Z');
 }

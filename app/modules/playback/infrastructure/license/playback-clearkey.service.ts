@@ -15,8 +15,7 @@ export class PlaybackClearKeyService implements PlaybackClearKeyServicePort {
 
     try {
       keyBuffer = await readFile(keyPath);
-    }
-    catch (error) {
+    } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
         throw Object.assign(new Error('Encryption key not found'), {
           name: 'NotFoundError',

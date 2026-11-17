@@ -1,11 +1,11 @@
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import type { LibraryVideo } from '~/modules/library/domain/library-video';
-import { type VideoViewer, VideoAccessPolicy } from '~/modules/library/domain/policies/video-access.policy';
+import {
+  VideoAccessPolicy,
+  type VideoViewer,
+} from '~/modules/library/domain/policies/video-access.policy';
 
-export function toHomeLibraryVideoDto(
-  video: LibraryVideo,
-  viewer: VideoViewer,
-): HomeLibraryVideo {
+export function toHomeLibraryVideoDto(video: LibraryVideo, viewer: VideoViewer): HomeLibraryVideo {
   return {
     contentTypeSlug: video.contentTypeSlug,
     createdAt: video.createdAt,

@@ -1,0 +1,9 @@
+engineStrict: true
+strictDepBuilds: true
+allowBuilds:
+  argon2: true
+  esbuild: true
+patchedDependencies:
+  '@react-router/dev@8.5.1': patches/@react-router__dev@8.5.1.patch
+  better-sqlite3-multiple-ciphers@13.0.3: patches/better-sqlite3-multiple-ciphers@13.0.3.patch
+  nodemon@3.1.14: patches/nodemon@3.1.14.patch

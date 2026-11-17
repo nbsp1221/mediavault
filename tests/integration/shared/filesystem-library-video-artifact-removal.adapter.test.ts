@@ -18,8 +18,7 @@ describe('filesystem library video artifact removal adapter', () => {
   afterEach(async () => {
     if (previousStorageDir === undefined) {
       delete process.env.MEDIAVAULT_STORAGE_DIR;
-    }
-    else {
+    } else {
       process.env.MEDIAVAULT_STORAGE_DIR = previousStorageDir;
     }
 
@@ -35,7 +34,8 @@ describe('filesystem library video artifact removal adapter', () => {
     const videoDir = join(tempDir, 'videos', 'video-1');
     await mkdir(videoDir, { recursive: true });
 
-    const { FilesystemLibraryVideoArtifactRemovalAdapter } = await import('../../../app/modules/library/infrastructure/storage/filesystem-library-video-artifact-removal.adapter');
+    const { FilesystemLibraryVideoArtifactRemovalAdapter } =
+      await import('../../../app/modules/library/infrastructure/storage/filesystem-library-video-artifact-removal.adapter');
     const removeDir = vi.fn(async (_targetPath: string) => undefined);
     const adapter = new FilesystemLibraryVideoArtifactRemovalAdapter({
       removeDir,
@@ -50,7 +50,8 @@ describe('filesystem library video artifact removal adapter', () => {
       error: vi.fn(),
     };
 
-    const { FilesystemLibraryVideoArtifactRemovalAdapter } = await import('../../../app/modules/library/infrastructure/storage/filesystem-library-video-artifact-removal.adapter');
+    const { FilesystemLibraryVideoArtifactRemovalAdapter } =
+      await import('../../../app/modules/library/infrastructure/storage/filesystem-library-video-artifact-removal.adapter');
     const adapter = new FilesystemLibraryVideoArtifactRemovalAdapter({
       logger,
       removeDir: vi.fn(async () => {

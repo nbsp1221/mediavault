@@ -1,24 +1,25 @@
-import { promises as fsPromises } from 'fs';
-import { readFileSync } from 'fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import crypto from 'node:crypto';
+import { promises as fsPromises, readFileSync } from 'node:fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { backfillBrowserCompatiblePlayback } from '~/modules/playback/infrastructure/backfill/browser-compatible-playback-backfill';
 import * as ThumbnailCryptoUtils from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
 
-const VALID_JPEG_BUFFER = readFileSync(join(process.cwd(), 'public', 'images', 'video-placeholder.jpg'));
+const VALID_JPEG_BUFFER = readFileSync(
+  join(process.cwd(), 'public', 'images', 'video-placeholder.jpg'),
+);
 
 function createApp2JpegVariant(): Buffer {
   const mutated = Buffer.from(VALID_JPEG_BUFFER);
-  const app0MarkerIndex = mutated.indexOf(Buffer.from([0xFF, 0xE0]));
+  const app0MarkerIndex = mutated.indexOf(Buffer.from([0xff, 0xe0]));
 
   if (app0MarkerIndex === -1) {
     throw new Error('failed to locate APP0 marker in JPEG fixture');
   }
 
-  mutated[app0MarkerIndex + 1] = 0xE2;
+  mutated[app0MarkerIndex + 1] = 0xe2;
   Buffer.from('APP2META\0', 'latin1').copy(mutated, app0MarkerIndex + 6);
   return mutated;
 }
@@ -55,7 +56,7 @@ describe('backfillBrowserCompatiblePlayback', () => {
 
   afterEach(async () => {
     vi.restoreAllMocks();
-    await Promise.all(tempDirs.map(dir => rm(dir, { force: true, recursive: true })));
+    await Promise.all(tempDirs.map((dir) => rm(dir, { force: true, recursive: true })));
     tempDirs.length = 0;
   });
 
@@ -70,7 +71,10 @@ describe('backfillBrowserCompatiblePlayback', () => {
     await mkdir(join(targetDir, 'video'), { recursive: true });
     await mkdir(join(targetDir, 'audio'), { recursive: true });
     await writeFile(join(targetDir, 'video.mp4'), 'source-binary');
-    await writeFile(join(targetDir, 'manifest.mpd'), '<Representation id="0" codecs="hev1.1.6.H120.90" />');
+    await writeFile(
+      join(targetDir, 'manifest.mpd'),
+      '<Representation id="0" codecs="hev1.1.6.H120.90" />',
+    );
     await writeFile(join(targetDir, 'video', 'segment-0001.m4s'), 'old-video-segment');
     await writeFile(join(targetDir, 'audio', 'segment-0001.m4s'), 'old-audio-segment');
 
@@ -81,7 +85,12 @@ describe('backfillBrowserCompatiblePlayback', () => {
         warn: () => {},
       },
       createPackage: async (request) => {
-        const stagedKeyId = crypto.createHash('sha256').update(request.videoId).digest().subarray(0, 16).toString('hex');
+        const stagedKeyId = crypto
+          .createHash('sha256')
+          .update(request.videoId)
+          .digest()
+          .subarray(0, 16)
+          .toString('hex');
         await seedStagedPlaybackPackage({
           key: 'new-clearkey',
           stagingDir: request.stagingDir,
@@ -97,12 +106,21 @@ describe('backfillBrowserCompatiblePlayback', () => {
     expect(result.skipped).toEqual([]);
     expect(result.warnings).toEqual([]);
     const promotedManifest = await readFile(join(targetDir, 'manifest.mpd'), 'utf8');
-    const canonicalKeyId = crypto.createHash('sha256').update(targetVideoId).digest().subarray(0, 16).toString('hex');
+    const canonicalKeyId = crypto
+      .createHash('sha256')
+      .update(targetVideoId)
+      .digest()
+      .subarray(0, 16)
+      .toString('hex');
 
     expect(promotedManifest).toContain('avc1.640028');
     expect(promotedManifest).toContain(`default_KID="${canonicalKeyId}"`);
-    await expect(readFile(join(targetDir, 'video', 'segment-0001.m4s'), 'utf8')).resolves.toBe('new-video-segment');
-    await expect(readFile(join(targetDir, 'audio', 'segment-0001.m4s'), 'utf8')).resolves.toBe('new-audio-segment');
+    await expect(readFile(join(targetDir, 'video', 'segment-0001.m4s'), 'utf8')).resolves.toBe(
+      'new-video-segment',
+    );
+    await expect(readFile(join(targetDir, 'audio', 'segment-0001.m4s'), 'utf8')).resolves.toBe(
+      'new-audio-segment',
+    );
     await expect(readFile(join(targetDir, 'key.bin'), 'utf8')).resolves.toBe('new-clearkey');
     await expect(readFile(join(targetDir, 'video.mp4'), 'utf8')).resolves.toBe('source-binary');
   });
@@ -116,7 +134,10 @@ describe('backfillBrowserCompatiblePlayback', () => {
     const targetDir = join(videosDir, targetVideoId);
 
     await mkdir(targetDir, { recursive: true });
-    await writeFile(join(targetDir, 'manifest.mpd'), '<Representation id="0" codecs="hev1.1.6.H120.90" />');
+    await writeFile(
+      join(targetDir, 'manifest.mpd'),
+      '<Representation id="0" codecs="hev1.1.6.H120.90" />',
+    );
 
     const result = await backfillBrowserCompatiblePlayback({
       logger: {
@@ -195,7 +216,12 @@ describe('backfillBrowserCompatiblePlayback', () => {
 
     const result = await backfillBrowserCompatiblePlayback({
       createPackage: async (request) => {
-        const canonicalKeyId = crypto.createHash('sha256').update(request.videoId).digest().subarray(0, 16).toString('hex');
+        const canonicalKeyId = crypto
+          .createHash('sha256')
+          .update(request.videoId)
+          .digest()
+          .subarray(0, 16)
+          .toString('hex');
         await seedStagedPlaybackPackage({
           key: 'canonical-key',
           manifest: `<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" cenc:default_KID="${canonicalKeyId}" /><Representation id="0" codecs="avc1.640028" />`,
@@ -229,13 +255,19 @@ describe('backfillBrowserCompatiblePlayback', () => {
     await mkdir(join(targetDir, 'audio'), { recursive: true });
     await writeFile(join(targetDir, 'video.mp4'), 'source-binary');
     await writeFile(join(targetDir, 'key.bin'), 'old-key');
-    await writeFile(join(targetDir, 'manifest.mpd'), '<Representation id="0" codecs="hev1.1.6.H120.90" />');
+    await writeFile(
+      join(targetDir, 'manifest.mpd'),
+      '<Representation id="0" codecs="hev1.1.6.H120.90" />',
+    );
 
     const result = await backfillBrowserCompatiblePlayback({
       createPackage: async (request) => {
         await mkdir(join(request.stagingDir, 'video'), { recursive: true });
         await mkdir(join(request.stagingDir, 'audio'), { recursive: true });
-        await writeFile(join(request.stagingDir, 'manifest.mpd'), '<Representation id="0" codecs="avc1.640028" />');
+        await writeFile(
+          join(request.stagingDir, 'manifest.mpd'),
+          '<Representation id="0" codecs="avc1.640028" />',
+        );
       },
       logger: {
         error: () => {},
@@ -255,7 +287,9 @@ describe('backfillBrowserCompatiblePlayback', () => {
     ]);
     expect(result.skipped).toEqual([]);
     expect(result.warnings).toEqual([]);
-    await expect(readFile(join(targetDir, 'manifest.mpd'), 'utf8')).resolves.toContain('hev1.1.6.H120.90');
+    await expect(readFile(join(targetDir, 'manifest.mpd'), 'utf8')).resolves.toContain(
+      'hev1.1.6.H120.90',
+    );
     await expect(readFile(join(targetDir, 'key.bin'), 'utf8')).resolves.toBe('old-key');
   });
 
@@ -271,7 +305,10 @@ describe('backfillBrowserCompatiblePlayback', () => {
     await mkdir(join(targetDir, 'audio'), { recursive: true });
     await writeFile(join(targetDir, 'video.mp4'), 'source-binary');
     await writeFile(join(targetDir, 'key.bin'), 'old-key');
-    await writeFile(join(targetDir, 'manifest.mpd'), '<Representation id="0" codecs="hev1.1.6.H120.90" />');
+    await writeFile(
+      join(targetDir, 'manifest.mpd'),
+      '<Representation id="0" codecs="hev1.1.6.H120.90" />',
+    );
 
     const result = await backfillBrowserCompatiblePlayback({
       createPackage: async (request) => {
@@ -315,7 +352,10 @@ describe('backfillBrowserCompatiblePlayback', () => {
     await mkdir(join(targetDir, 'audio'), { recursive: true });
     await writeFile(join(targetDir, 'video.mp4'), 'source-binary');
     await writeFile(join(targetDir, 'key.bin'), 'old-key');
-    await writeFile(join(targetDir, 'manifest.mpd'), '<Representation id="0" codecs="hev1.1.6.H120.90" />');
+    await writeFile(
+      join(targetDir, 'manifest.mpd'),
+      '<Representation id="0" codecs="hev1.1.6.H120.90" />',
+    );
     await writeFile(join(targetDir, 'video', 'segment-0001.m4s'), 'old-video-segment');
     await writeFile(join(targetDir, 'audio', 'segment-0001.m4s'), 'old-audio-segment');
 
@@ -326,7 +366,9 @@ describe('backfillBrowserCompatiblePlayback', () => {
         String(sourcePath).endsWith(`/videos/${targetVideoId}/key.bin`) &&
         String(destinationPath).includes(`.browser-backfill-rollback-${targetVideoId}-`)
       ) {
-        const error = new Error('EACCES: simulated rollback capture failure') as NodeJS.ErrnoException;
+        const error = new Error(
+          'EACCES: simulated rollback capture failure',
+        ) as NodeJS.ErrnoException;
         error.code = 'EACCES';
         throw error;
       }
@@ -352,18 +394,25 @@ describe('backfillBrowserCompatiblePlayback', () => {
     });
 
     expect(result.rebuilt).toEqual([]);
+    const permissionError: unknown = expect.stringContaining('EACCES');
     expect(result.failed).toEqual([
       {
-        error: expect.stringContaining('EACCES'),
+        error: permissionError,
         videoId: targetVideoId,
       },
     ]);
     expect(result.skipped).toEqual([]);
     expect(result.warnings).toEqual([]);
-    await expect(readFile(join(targetDir, 'manifest.mpd'), 'utf8')).resolves.toContain('hev1.1.6.H120.90');
+    await expect(readFile(join(targetDir, 'manifest.mpd'), 'utf8')).resolves.toContain(
+      'hev1.1.6.H120.90',
+    );
     await expect(readFile(join(targetDir, 'key.bin'), 'utf8')).resolves.toBe('old-key');
-    await expect(readFile(join(targetDir, 'video', 'segment-0001.m4s'), 'utf8')).resolves.toBe('old-video-segment');
-    await expect(readFile(join(targetDir, 'audio', 'segment-0001.m4s'), 'utf8')).resolves.toBe('old-audio-segment');
+    await expect(readFile(join(targetDir, 'video', 'segment-0001.m4s'), 'utf8')).resolves.toBe(
+      'old-video-segment',
+    );
+    await expect(readFile(join(targetDir, 'audio', 'segment-0001.m4s'), 'utf8')).resolves.toBe(
+      'old-audio-segment',
+    );
   });
 
   it('rebuilds AVC manifests when the stored encryption key is not the canonical video key', async () => {
@@ -373,12 +422,20 @@ describe('backfillBrowserCompatiblePlayback', () => {
     const videosDir = join(rootDir, 'videos');
     const targetVideoId = 'video-with-wrong-key';
     const targetDir = join(videosDir, targetVideoId);
-    const canonicalKeyId = crypto.createHash('sha256').update(targetVideoId).digest().subarray(0, 16).toString('hex');
+    const canonicalKeyId = crypto
+      .createHash('sha256')
+      .update(targetVideoId)
+      .digest()
+      .subarray(0, 16)
+      .toString('hex');
 
     await mkdir(join(targetDir, 'video'), { recursive: true });
     await mkdir(join(targetDir, 'audio'), { recursive: true });
     await writeFile(join(targetDir, 'video.mp4'), 'source-binary');
-    await writeFile(join(targetDir, 'key.bin'), Buffer.from('ffeeddccbbaa99887766554433221100', 'hex'));
+    await writeFile(
+      join(targetDir, 'key.bin'),
+      Buffer.from('ffeeddccbbaa99887766554433221100', 'hex'),
+    );
     await writeFile(
       join(targetDir, 'manifest.mpd'),
       `<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" cenc:default_KID="${canonicalKeyId}" /><Representation id="0" codecs="avc1.640028" />`,
@@ -428,11 +485,19 @@ describe('backfillBrowserCompatiblePlayback', () => {
     await writeFile(join(targetDir, 'video.mp4'), 'source-binary');
     await writeFile(join(targetDir, 'key.bin'), originalKey);
     await writeFile(join(targetDir, 'thumbnail.jpg'), encryptedThumbnail);
-    await writeFile(join(targetDir, 'manifest.mpd'), '<Representation id="0" codecs="hev1.1.6.H120.90" />');
+    await writeFile(
+      join(targetDir, 'manifest.mpd'),
+      '<Representation id="0" codecs="hev1.1.6.H120.90" />',
+    );
 
     const result = await backfillBrowserCompatiblePlayback({
       createPackage: async (request) => {
-        const canonicalKeyId = crypto.createHash('sha256').update(request.videoId).digest().subarray(0, 16).toString('hex');
+        const canonicalKeyId = crypto
+          .createHash('sha256')
+          .update(request.videoId)
+          .digest()
+          .subarray(0, 16)
+          .toString('hex');
         await seedStagedPlaybackPackage({
           key: replacementKey,
           manifest: `<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" cenc:default_KID="${canonicalKeyId}" /><Representation id="0" codecs="avc1.640028" />`,
@@ -485,7 +550,10 @@ describe('backfillBrowserCompatiblePlayback', () => {
     await writeFile(join(targetDir, 'video.mp4'), 'source-binary');
     await writeFile(join(targetDir, 'key.bin'), oldKey);
     await writeFile(join(targetDir, 'thumbnail.jpg'), encryptedThumbnail);
-    await writeFile(join(targetDir, 'manifest.mpd'), '<Representation id="0" codecs="hev1.1.6.H120.90" />');
+    await writeFile(
+      join(targetDir, 'manifest.mpd'),
+      '<Representation id="0" codecs="hev1.1.6.H120.90" />',
+    );
     await writeFile(join(targetDir, 'video', 'segment-0001.m4s'), 'old-video-segment');
     await writeFile(join(targetDir, 'audio', 'segment-0001.m4s'), 'old-audio-segment');
 
@@ -515,10 +583,16 @@ describe('backfillBrowserCompatiblePlayback', () => {
       },
     ]);
     expect(result.skipped).toEqual([]);
-    await expect(readFile(join(targetDir, 'manifest.mpd'), 'utf8')).resolves.toContain('avc1.640028');
+    await expect(readFile(join(targetDir, 'manifest.mpd'), 'utf8')).resolves.toContain(
+      'avc1.640028',
+    );
     await expect(readFile(join(targetDir, 'key.bin'))).resolves.toEqual(newKey);
-    await expect(readFile(join(targetDir, 'video', 'segment-0001.m4s'), 'utf8')).resolves.toBe('new-video-segment');
-    await expect(readFile(join(targetDir, 'audio', 'segment-0001.m4s'), 'utf8')).resolves.toBe('new-audio-segment');
+    await expect(readFile(join(targetDir, 'video', 'segment-0001.m4s'), 'utf8')).resolves.toBe(
+      'new-video-segment',
+    );
+    await expect(readFile(join(targetDir, 'audio', 'segment-0001.m4s'), 'utf8')).resolves.toBe(
+      'new-audio-segment',
+    );
   });
 
   it('re-keys valid non-JFIF JPEG thumbnails during backfill', async () => {
@@ -542,11 +616,19 @@ describe('backfillBrowserCompatiblePlayback', () => {
     await writeFile(join(targetDir, 'video.mp4'), 'source-binary');
     await writeFile(join(targetDir, 'key.bin'), originalKey);
     await writeFile(join(targetDir, 'thumbnail.jpg'), encryptedThumbnail);
-    await writeFile(join(targetDir, 'manifest.mpd'), '<Representation id="0" codecs="hev1.1.6.H120.90" />');
+    await writeFile(
+      join(targetDir, 'manifest.mpd'),
+      '<Representation id="0" codecs="hev1.1.6.H120.90" />',
+    );
 
     const result = await backfillBrowserCompatiblePlayback({
       createPackage: async (request) => {
-        const canonicalKeyId = crypto.createHash('sha256').update(request.videoId).digest().subarray(0, 16).toString('hex');
+        const canonicalKeyId = crypto
+          .createHash('sha256')
+          .update(request.videoId)
+          .digest()
+          .subarray(0, 16)
+          .toString('hex');
         await seedStagedPlaybackPackage({
           key: replacementKey,
           manifest: `<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" cenc:default_KID="${canonicalKeyId}" /><Representation id="0" codecs="avc1.640028" />`,
@@ -598,11 +680,19 @@ describe('backfillBrowserCompatiblePlayback', () => {
     await writeFile(join(targetDir, 'video.mp4'), 'source-binary');
     await writeFile(join(targetDir, 'key.bin'), replacementKey);
     await writeFile(join(targetDir, 'thumbnail.jpg'), encryptedThumbnail);
-    await writeFile(join(targetDir, 'manifest.mpd'), '<Representation id="0" codecs="hev1.1.6.H120.90" />');
+    await writeFile(
+      join(targetDir, 'manifest.mpd'),
+      '<Representation id="0" codecs="hev1.1.6.H120.90" />',
+    );
 
     const result = await backfillBrowserCompatiblePlayback({
       createPackage: async (request) => {
-        const canonicalKeyId = crypto.createHash('sha256').update(request.videoId).digest().subarray(0, 16).toString('hex');
+        const canonicalKeyId = crypto
+          .createHash('sha256')
+          .update(request.videoId)
+          .digest()
+          .subarray(0, 16)
+          .toString('hex');
         await seedStagedPlaybackPackage({
           key: replacementKey,
           manifest: `<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" cenc:default_KID="${canonicalKeyId}" /><Representation id="0" codecs="avc1.640028" />`,

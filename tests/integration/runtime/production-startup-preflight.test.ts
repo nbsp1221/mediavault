@@ -19,7 +19,7 @@ function createProductionEnv(overrides: Record<string, string | undefined> = {})
 
 afterEach(async () => {
   vi.restoreAllMocks();
-  await Promise.all(tempRoots.splice(0).map(root => rm(root, { force: true, recursive: true })));
+  await Promise.all(tempRoots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
 });
 
 describe('production startup preflight', () => {
@@ -60,7 +60,9 @@ describe('production startup preflight', () => {
       logger: { error: vi.fn(), warn: vi.fn() },
     });
 
-    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('MEDIAVAULT_STORAGE_DIR');
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow(
+      'MEDIAVAULT_STORAGE_DIR',
+    );
   });
 
   test('rejects production startup when primary SQLite database parent is blocked by a regular file', async () => {
@@ -77,7 +79,9 @@ describe('production startup preflight', () => {
       logger: { error: vi.fn(), warn: vi.fn() },
     });
 
-    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('primary SQLite database path');
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow(
+      'primary SQLite database path',
+    );
   });
 
   test('does not leak raw encrypted database open failures through startup errors', async () => {
@@ -101,11 +105,17 @@ describe('production startup preflight', () => {
       },
     });
 
-    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('primary SQLite database path');
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow(
+      'primary SQLite database path',
+    );
     await expect(services.assertProductionStartupPreflight()).rejects.not.toThrow('SQLITE_NOTADB');
     await expect(services.assertProductionStartupPreflight()).rejects.not.toThrow(secretValue);
-    expect(logger.error.mock.calls.map(call => call.join(' ')).join('\n')).not.toContain('SQLITE_NOTADB');
-    expect(logger.error.mock.calls.map(call => call.join(' ')).join('\n')).not.toContain(secretValue);
+    expect(logger.error.mock.calls.map((call) => call.join(' ')).join('\n')).not.toContain(
+      'SQLITE_NOTADB',
+    );
+    expect(logger.error.mock.calls.map((call) => call.join(' ')).join('\n')).not.toContain(
+      secretValue,
+    );
   });
 
   test('readiness changes from ready to not ready when storage probes begin failing after startup', async () => {
@@ -125,15 +135,16 @@ describe('production startup preflight', () => {
         { ok: true, tool: 'ffprobe' },
         { ok: true, tool: 'packager' },
       ],
-      probeStorage: async () => (storageAvailable
-        ? [
-            { ok: true, target: 'storage-root' },
-            { ok: true, target: 'database-path' },
-          ]
-        : [
-            { ok: false, reason: 'permission denied', target: 'storage-root' },
-            { ok: true, target: 'database-path' },
-          ]),
+      probeStorage: async () =>
+        storageAvailable
+          ? [
+              { ok: true, target: 'storage-root' },
+              { ok: true, target: 'database-path' },
+            ]
+          : [
+              { ok: false, reason: 'permission denied', target: 'storage-root' },
+              { ok: true, target: 'database-path' },
+            ],
       runDatabaseStartupProbe: async () => {},
     });
 
@@ -197,11 +208,13 @@ describe('production startup preflight', () => {
       ready: false,
       startupBlocked: true,
     });
-    expect(report.issues).toContainEqual(expect.objectContaining({
-      code: 'database-unavailable',
-      subject: 'primary_database_path',
-    }));
-    const warningOutput = logger.warn.mock.calls.map(call => call.join(' ')).join('\n');
+    expect(report.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'database-unavailable',
+        subject: 'primary_database_path',
+      }),
+    );
+    const warningOutput = logger.warn.mock.calls.map((call) => call.join(' ')).join('\n');
     expect(warningOutput).not.toContain('SQLITE_NOTADB');
     expect(warningOutput).not.toContain(secretValue);
   });
@@ -300,7 +313,9 @@ describe('production startup preflight', () => {
       runDatabaseStartupProbe: async () => {},
     });
 
-    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('MEDIAVAULT_ADMIN_API_MODE');
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow(
+      'MEDIAVAULT_ADMIN_API_MODE',
+    );
   });
 
   test('allows production startup with zero users when bootstrap admin API has a token', async () => {
@@ -338,7 +353,9 @@ describe('production startup preflight', () => {
       runDatabaseStartupProbe: async () => {},
     });
 
-    await expect(services.assertProductionStartupPreflight()).rejects.toThrow('MEDIAVAULT_ADMIN_API_MODE');
+    await expect(services.assertProductionStartupPreflight()).rejects.toThrow(
+      'MEDIAVAULT_ADMIN_API_MODE',
+    );
     await expect(services.assertProductionStartupPreflight()).rejects.not.toThrow('do-not-leak');
   });
 
@@ -372,9 +389,11 @@ describe('production startup preflight', () => {
     const report = await services.checkProductionReadiness();
 
     expect(report.ready).toBe(true);
-    expect(storageConfigs).toEqual([expect.objectContaining({
-      databasePath: path.join(storageDir, 'db.sqlite'),
-      storageDir,
-    })]);
+    expect(storageConfigs).toEqual([
+      expect.objectContaining({
+        databasePath: path.join(storageDir, 'db.sqlite'),
+        storageDir,
+      }),
+    ]);
   });
 });

@@ -7,6 +7,7 @@ const ownerReadScope = {
 const authenticatedTokenPayload = {
   jti: 'token-1',
   readScope: 'public_or_owned' as const,
+  sessionId: 'session-1',
   subjectUserId: 'owner-1',
   videoId: 'video-1',
   viewerType: 'authenticated' as const,
@@ -21,9 +22,10 @@ describe('server playback composition root', () => {
   test('creates prewired playback use cases from injected playback adapters', async () => {
     const { createServerPlaybackServices } = await import('./playback');
     const issue = vi.fn(async () => 'signed-token');
-    const validate = vi.fn(async (token: string) => (token === 'signed-token'
-      ? authenticatedTokenPayload
-      : null));
+    const stream = new ReadableStream<Uint8Array>();
+    const validate = vi.fn(async (token: string) =>
+      token === 'signed-token' ? authenticatedTokenPayload : null,
+    );
     const services = createServerPlaybackServices({
       clearKeyService: {
         serveLicense: async () => ({
@@ -41,9 +43,10 @@ describe('server playback composition root', () => {
         serveSegment: async () => ({
           headers: { 'Content-Length': '64' },
           isRangeResponse: false,
-          stream: new ReadableStream<Uint8Array>(),
+          stream,
         }),
       },
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue,
         validate,
@@ -75,10 +78,12 @@ describe('server playback composition root', () => {
       },
     });
 
-    await expect(services.issuePlaybackToken.execute({
-      videoId: 'video-1',
-      viewer: { type: 'authenticated', userId: 'owner-1' },
-    })).resolves.toEqual({
+    await expect(
+      services.issuePlaybackToken.execute({
+        videoId: 'video-1',
+        viewer: { sessionId: 'session-1', type: 'authenticated', userId: 'owner-1' },
+      }),
+    ).resolves.toEqual({
       success: true,
       token: 'signed-token',
       urls: {
@@ -86,42 +91,47 @@ describe('server playback composition root', () => {
         manifest: '/videos/video-1/manifest.mpd',
       },
     });
-    await expect(services.resolvePlayerVideo.execute({
-      readScope: ownerReadScope,
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      services.resolvePlayerVideo.execute({
+        readScope: ownerReadScope,
+        videoId: 'video-1',
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       relatedVideos: [],
-      video: expect.objectContaining({
-        id: 'video-1',
-        title: 'Player video',
-      }),
+      video: { id: 'video-1', title: 'Player video' },
     });
-    await expect(services.servePlaybackManifest.execute({
-      token: 'signed-token',
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      services.servePlaybackManifest.execute({
+        token: 'signed-token',
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       body: '<MPD />',
       headers: { 'Content-Type': 'application/dash+xml' },
       ok: true,
     });
-    await expect(services.servePlaybackMediaSegment.execute({
-      filename: 'init.mp4',
-      mediaType: 'video',
-      rangeHeader: null,
-      token: 'signed-token',
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      services.servePlaybackMediaSegment.execute({
+        filename: 'init.mp4',
+        mediaType: 'video',
+        rangeHeader: null,
+        token: 'signed-token',
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       headers: { 'Content-Length': '64' },
       isRangeResponse: false,
       ok: true,
       statusCode: undefined,
-      stream: expect.any(ReadableStream),
+      stream,
     });
-    await expect(services.servePlaybackClearKeyLicense.execute({
-      token: 'signed-token',
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      services.servePlaybackClearKeyLicense.execute({
+        token: 'signed-token',
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       body: '{"keys":[]}',
       headers: { 'Content-Type': 'application/json' },
       ok: true,
@@ -150,6 +160,7 @@ describe('server playback composition root', () => {
     const { createServerPlaybackServices } = await import('./playback');
     const issue = vi.fn(async () => 'signed-token');
     const services = createServerPlaybackServices({
+      sessionValidator: { isSessionActive: vi.fn(async () => true) },
       tokenService: {
         issue,
         validate: async () => null,
@@ -168,10 +179,12 @@ describe('server playback composition root', () => {
       },
     });
 
-    await expect(services.issuePlaybackToken.execute({
-      videoId: 'video-1',
-      viewer: { type: 'authenticated', userId: 'owner-1' },
-    })).resolves.toEqual({
+    await expect(
+      services.issuePlaybackToken.execute({
+        videoId: 'video-1',
+        viewer: { sessionId: 'session-1', type: 'authenticated', userId: 'owner-1' },
+      }),
+    ).resolves.toEqual({
       success: true,
       token: 'signed-token',
       urls: {
@@ -190,10 +203,12 @@ describe('server playback composition root', () => {
       },
     });
 
-    await expect(services.resolvePlayerVideo.execute({
-      readScope: ownerReadScope,
-      videoId: 'missing-video',
-    })).resolves.toEqual({
+    await expect(
+      services.resolvePlayerVideo.execute({
+        readScope: ownerReadScope,
+        videoId: 'missing-video',
+      }),
+    ).resolves.toEqual({
       ok: false,
       reason: 'VIDEO_NOT_FOUND',
     });

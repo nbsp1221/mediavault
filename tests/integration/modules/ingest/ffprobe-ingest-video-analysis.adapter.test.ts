@@ -18,7 +18,7 @@ function createSuccessfulProcess(stdout: string) {
   const process = new MockChildProcess();
   process.stdout = Readable.from([stdout]);
   process.stderr = Readable.from([]);
-  queueMicrotask(() => process.emit('close', 0));
+  setImmediate(() => process.emit('close', 0));
   return process;
 }
 
@@ -26,7 +26,7 @@ function createFailedProcess(stderr: string, code = 1) {
   const process = new MockChildProcess();
   process.stdout = Readable.from([]);
   process.stderr = Readable.from([stderr]);
-  queueMicrotask(() => process.emit('close', code));
+  setImmediate(() => process.emit('close', code));
   return process;
 }
 
@@ -43,28 +43,33 @@ function createHangingProcess() {
 
 describe('FfprobeIngestVideoAnalysisAdapter', () => {
   test('uses ffprobe to return duration, container, and primary stream facts', async () => {
-    const spawn = vi.fn(() => createSuccessfulProcess(JSON.stringify({
-      format: {
-        duration: '120.25',
-        format_name: 'matroska,webm',
-      },
-      streams: [
-        {
-          codec_name: 'hevc',
-          codec_type: 'video',
-          height: 720,
-          index: 0,
-          width: 1280,
-        },
-        {
-          codec_name: 'aac',
-          codec_type: 'audio',
-          index: 1,
-        },
-      ],
-    })));
+    const spawn = vi.fn(() =>
+      createSuccessfulProcess(
+        JSON.stringify({
+          format: {
+            duration: '120.25',
+            format_name: 'matroska,webm',
+          },
+          streams: [
+            {
+              codec_name: 'hevc',
+              codec_type: 'video',
+              height: 720,
+              index: 0,
+              width: 1280,
+            },
+            {
+              codec_name: 'aac',
+              codec_type: 'audio',
+              index: 1,
+            },
+          ],
+        }),
+      ),
+    );
 
-    const { FfprobeIngestVideoAnalysisAdapter } = await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
+    const { FfprobeIngestVideoAnalysisAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
     const adapter = new FfprobeIngestVideoAnalysisAdapter({
       ffprobePath: '/custom/ffprobe',
       spawn,
@@ -96,23 +101,28 @@ describe('FfprobeIngestVideoAnalysisAdapter', () => {
   });
 
   test('represents missing audio deliberately while keeping primary video facts', async () => {
-    const spawn = vi.fn(() => createSuccessfulProcess(JSON.stringify({
-      format: {
-        duration: '5',
-        format_name: 'mov,mp4,m4a,3gp,3g2,mj2',
-      },
-      streams: [
-        {
-          codec_name: 'h264',
-          codec_type: 'video',
-          height: 360,
-          index: 0,
-          width: 640,
-        },
-      ],
-    })));
+    const spawn = vi.fn(() =>
+      createSuccessfulProcess(
+        JSON.stringify({
+          format: {
+            duration: '5',
+            format_name: 'mov,mp4,m4a,3gp,3g2,mj2',
+          },
+          streams: [
+            {
+              codec_name: 'h264',
+              codec_type: 'video',
+              height: 360,
+              index: 0,
+              width: 640,
+            },
+          ],
+        }),
+      ),
+    );
 
-    const { FfprobeIngestVideoAnalysisAdapter } = await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
+    const { FfprobeIngestVideoAnalysisAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
     const adapter = new FfprobeIngestVideoAnalysisAdapter({
       ffprobePath: '/custom/ffprobe',
       spawn,
@@ -131,20 +141,25 @@ describe('FfprobeIngestVideoAnalysisAdapter', () => {
   });
 
   test('represents missing video without inventing preserve eligibility', async () => {
-    const spawn = vi.fn(() => createSuccessfulProcess(JSON.stringify({
-      format: {
-        duration: '5',
-      },
-      streams: [
-        {
-          codec_name: 'aac',
-          codec_type: 'audio',
-          index: 0,
-        },
-      ],
-    })));
+    const spawn = vi.fn(() =>
+      createSuccessfulProcess(
+        JSON.stringify({
+          format: {
+            duration: '5',
+          },
+          streams: [
+            {
+              codec_name: 'aac',
+              codec_type: 'audio',
+              index: 0,
+            },
+          ],
+        }),
+      ),
+    );
 
-    const { FfprobeIngestVideoAnalysisAdapter } = await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
+    const { FfprobeIngestVideoAnalysisAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
     const adapter = new FfprobeIngestVideoAnalysisAdapter({
       ffprobePath: '/custom/ffprobe',
       spawn,
@@ -160,14 +175,19 @@ describe('FfprobeIngestVideoAnalysisAdapter', () => {
   });
 
   test('throws a readable error when ffprobe omits a finite duration', async () => {
-    const spawn = vi.fn(() => createSuccessfulProcess(JSON.stringify({
-      format: {
-        duration: 'N/A',
-      },
-      streams: [],
-    })));
+    const spawn = vi.fn(() =>
+      createSuccessfulProcess(
+        JSON.stringify({
+          format: {
+            duration: 'N/A',
+          },
+          streams: [],
+        }),
+      ),
+    );
 
-    const { FfprobeIngestVideoAnalysisAdapter } = await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
+    const { FfprobeIngestVideoAnalysisAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
     const adapter = new FfprobeIngestVideoAnalysisAdapter({
       ffprobePath: '/custom/ffprobe',
       spawn,
@@ -181,21 +201,23 @@ describe('FfprobeIngestVideoAnalysisAdapter', () => {
   test('throws a readable error when ffprobe exits non-zero', async () => {
     const spawn = vi.fn(() => createFailedProcess('input file missing'));
 
-    const { FfprobeIngestVideoAnalysisAdapter } = await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
+    const { FfprobeIngestVideoAnalysisAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
     const adapter = new FfprobeIngestVideoAnalysisAdapter({
       ffprobePath: '/custom/ffprobe',
       spawn,
     });
 
     await expect(adapter.analyze('/workspace/video.mp4')).rejects.toThrow(
-      'ffprobe failed with code 1: input file missing',
+      'The media tool exited unsuccessfully (1).',
     );
   });
 
   test('throws a readable error when ffprobe returns invalid JSON', async () => {
     const spawn = vi.fn(() => createSuccessfulProcess('not-json'));
 
-    const { FfprobeIngestVideoAnalysisAdapter } = await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
+    const { FfprobeIngestVideoAnalysisAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
     const adapter = new FfprobeIngestVideoAnalysisAdapter({
       ffprobePath: '/custom/ffprobe',
       spawn,
@@ -208,9 +230,14 @@ describe('FfprobeIngestVideoAnalysisAdapter', () => {
 
   test('times out and terminates ffprobe when the process hangs', async () => {
     const childProcess = createHangingProcess();
+    childProcess.kill.mockImplementation(() => {
+      setImmediate(() => childProcess.emit('close', null));
+      return true;
+    });
     const spawn = vi.fn(() => childProcess);
 
-    const { FfprobeIngestVideoAnalysisAdapter } = await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
+    const { FfprobeIngestVideoAnalysisAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter');
     const adapter = new FfprobeIngestVideoAnalysisAdapter({
       ffprobePath: '/custom/ffprobe',
       spawn,
@@ -218,7 +245,7 @@ describe('FfprobeIngestVideoAnalysisAdapter', () => {
     });
 
     await expect(adapter.analyze('/workspace/video.mp4')).rejects.toThrow(
-      'ffprobe timed out after 1ms',
+      'Media processing timed out after 1ms.',
     );
     expect(childProcess.kill).toHaveBeenCalledWith('SIGTERM');
   });

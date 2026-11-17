@@ -13,14 +13,7 @@ export interface GeneratedIngestMediaFixture {
 export async function generateH264AacMp4Fixture(): Promise<GeneratedIngestMediaFixture> {
   return generateFixture({
     filename: 'h264-aac.mp4',
-    videoArgs: [
-      '-c:v',
-      'libx264',
-      '-preset',
-      'ultrafast',
-      '-pix_fmt',
-      'yuv420p',
-    ],
+    videoArgs: ['-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p'],
   });
 }
 

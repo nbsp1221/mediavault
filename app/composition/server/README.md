@@ -1,5 +1,5 @@
-# Server Composition Root
+# Server composition
 
-This directory owns server-side dependency assembly.
+This directory owns explicit server-side dependency assembly and cross-module adapters, not duplicated business logic or a generic DI framework. Routes consume the assembled services instead of creating database, filesystem, or media-tool dependencies.
 
-Routes should consume prewired handlers or factories from here instead of instantiating repositories, DB adapters, FFmpeg services, or DRM services directly.
+Server-only HTTP helpers live in `app/routes/.server/`; the framework's public route registry remains explicit. See [architecture](../../../docs/architecture.md) for lifecycle and browser/server boundaries.

@@ -2,26 +2,26 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, test, vi } from 'vitest';
-
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
-import { HomeLibraryWidget } from '../../../app/widgets/home-library/ui/HomeLibraryWidget';
+import { HomePage } from '../../../app/pages/home/ui/HomePage';
 
-const deleteVideoMock = vi.fn();
-const updateVideoMock = vi.fn();
+const { deleteVideoMock, updateVideoMock } = vi.hoisted(() => ({
+  deleteVideoMock: vi.fn(),
+  updateVideoMock: vi.fn(),
+}));
 
-vi.mock('~/features/home-library-video-actions/model/useHomeLibraryVideoActions', () => ({
-  useHomeLibraryVideoActions: () => ({
+vi.mock('~/features/video-management/api/video-actions', () => ({
+  libraryVideoActions: {
     changeVisibility: vi.fn(),
     deleteVideo: deleteVideoMock,
     updateVideo: updateVideoMock,
-  }),
+  },
 }));
 
 vi.mock('~/shared/hooks/use-root-user', () => ({
   useRootUser: () => ({
-    email: 'owner@example.com',
     id: 'user-1',
-    role: 'admin',
+    username: 'owner',
   }),
 }));
 
@@ -44,17 +44,15 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
   };
 }
 
-function renderHomeLibraryWidget(videoOverrides: Partial<HomeLibraryVideo> = {}) {
+function renderHomePage(videoOverrides: Partial<HomeLibraryVideo> = {}) {
   render(
     <MemoryRouter>
-      <HomeLibraryWidget
+      <HomePage
         initialFilters={{
           includeTags: [],
           query: '',
         }}
-        videos={[
-          createVideo(videoOverrides),
-        ]}
+        videos={[createVideo(videoOverrides)]}
       />
     </MemoryRouter>,
   );
@@ -65,12 +63,12 @@ async function openDeleteDialogFromActionsMenu(user: ReturnType<typeof userEvent
   await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
 }
 
-describe('HomeLibraryWidget', () => {
+describe('HomePage', () => {
   test('filters by search text and tag toggles, keeps semantically equal filter sync stable, and resyncs when incoming videos change', async () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <MemoryRouter>
-        <HomeLibraryWidget
+        <HomePage
           initialFilters={{
             includeTags: ['Action'],
             query: 'Action',
@@ -97,7 +95,7 @@ describe('HomeLibraryWidget', () => {
 
     rerender(
       <MemoryRouter>
-        <HomeLibraryWidget
+        <HomePage
           initialFilters={{
             includeTags: ['Action'],
             query: 'Action',
@@ -128,7 +126,7 @@ describe('HomeLibraryWidget', () => {
 
     rerender(
       <MemoryRouter>
-        <HomeLibraryWidget
+        <HomePage
           initialFilters={{
             includeTags: ['drama'],
             query: 'second',
@@ -149,7 +147,7 @@ describe('HomeLibraryWidget', () => {
 
     rerender(
       <MemoryRouter>
-        <HomeLibraryWidget
+        <HomePage
           initialFilters={{
             includeTags: [],
             query: '',
@@ -173,7 +171,7 @@ describe('HomeLibraryWidget', () => {
 
     render(
       <MemoryRouter>
-        <HomeLibraryWidget
+        <HomePage
           initialFilters={{
             includeTags: ['drama'],
             query: '',
@@ -192,18 +190,23 @@ describe('HomeLibraryWidget', () => {
     expect(screen.getByRole('button', { name: 'Remove required drama tag' })).toBeInTheDocument();
     await user.click(screen.getByText('#Drama'));
     expect(screen.queryByText('Active filters:')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Remove required Drama tag' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Remove required Drama tag' }),
+    ).not.toBeInTheDocument();
   });
 
   test('opens the edit page from the card action menu while preserving return context', async () => {
     const user = userEvent.setup();
-    renderHomeLibraryWidget({
+    renderHomePage({
       description: 'Original description',
     });
 
     await user.click(screen.getByRole('button', { name: /^Open actions menu for / }));
 
-    expect(screen.getByRole('menuitem', { name: 'Edit' })).toHaveAttribute('href', '/videos/video-1/edit?redirectTo=%2F');
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toHaveAttribute(
+      'href',
+      '/videos/video-1/edit?redirectTo=%2F',
+    );
     expect(screen.queryByRole('menuitem', { name: 'Quick view' })).not.toBeInTheDocument();
   });
 
@@ -215,7 +218,7 @@ describe('HomeLibraryWidget', () => {
     deleteVideoMock.mockRejectedValueOnce(new Error('delete failed'));
 
     try {
-      renderHomeLibraryWidget({
+      renderHomePage({
         description: 'Canonical description',
         tags: ['Action', 'Neo'],
         title: 'Canonical Fixture',
@@ -227,9 +230,47 @@ describe('HomeLibraryWidget', () => {
       expect(within(failedDeleteDialog).getByRole('alert')).toHaveTextContent('delete failed');
       await user.click(screen.getByRole('button', { name: 'Cancel' }));
       expect(screen.getByRole('heading', { name: 'Canonical Fixture' })).toBeInTheDocument();
-    }
-    finally {
+    } finally {
       consoleError.mockRestore();
+    }
+  });
+
+  test('adds a library card video through the shared playlist chooser', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        Response.json({
+          success: true,
+          playlists: [
+            {
+              id: 'collection',
+              name: 'My collection',
+              ownerId: 'user-1',
+              type: 'user_created',
+              isPublic: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              videoIds: [],
+            },
+          ],
+          totalCount: 1,
+          hasMore: false,
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ success: true }));
+    try {
+      renderHomePage();
+      await user.click(screen.getByRole('button', { name: /^Open actions menu for / }));
+      await user.click(screen.getByRole('menuitem', { name: 'Add to playlist' }));
+      await user.click(await screen.findByRole('button', { name: /My collection/ }));
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        '/api/playlists/collection/items',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ videoId: 'video-1' }) }),
+      );
+      expect(screen.getByRole('heading', { name: 'Catalog Fixture' })).toBeInTheDocument();
+    } finally {
+      fetchMock.mockRestore();
     }
   });
 
@@ -239,7 +280,7 @@ describe('HomeLibraryWidget', () => {
     updateVideoMock.mockReset();
     deleteVideoMock.mockResolvedValueOnce(undefined);
 
-    renderHomeLibraryWidget({
+    renderHomePage({
       description: 'Canonical description',
       tags: ['Action', 'Neo'],
       title: 'Canonical Fixture',

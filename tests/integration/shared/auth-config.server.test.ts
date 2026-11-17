@@ -28,8 +28,7 @@ afterEach(() => {
     const value = originalEnv.get(key);
     if (value === undefined) {
       delete process.env[key];
-    }
-    else {
+    } else {
       process.env[key] = value;
     }
   }
@@ -61,14 +60,16 @@ describe('auth server config', () => {
     process.env.MEDIAVAULT_AUTH_MAX_FAILED_LOGIN_ATTEMPTS = '';
     process.env.MEDIAVAULT_AUTH_SESSION_TTL_MS = '';
 
-    expect(getAuthConfig()).toEqual(expect.objectContaining({
-      failedLoginBlockDurationMs: 300_000,
-      failedLoginDelayMs: 750,
-      failedLoginWindowMs: 300_000,
-      maxFailedLoginAttempts: 5,
-      sessionCookieSecure: false,
-      sessionTtlMs: 604_800_000,
-    }));
+    expect(getAuthConfig()).toEqual(
+      expect.objectContaining({
+        failedLoginBlockDurationMs: 300_000,
+        failedLoginDelayMs: 750,
+        failedLoginWindowMs: 300_000,
+        maxFailedLoginAttempts: 5,
+        sessionCookieSecure: false,
+        sessionTtlMs: 604_800_000,
+      }),
+    );
   });
 
   test.each([
@@ -89,12 +90,14 @@ describe('auth server config', () => {
   test('uses secure cookies for default __Host-prefixed names', () => {
     process.env.NODE_ENV = 'development';
 
-    expect(getAuthCookieConfig()).toEqual(expect.objectContaining({
-      clientCookieName: '__Host-mediavault-client',
-      sessionCookieName: '__Host-mediavault-session',
-      sessionCookiePath: '/',
-      sessionCookieSecure: true,
-    }));
+    expect(getAuthCookieConfig()).toEqual(
+      expect.objectContaining({
+        clientCookieName: '__Host-mediavault-client',
+        sessionCookieName: '__Host-mediavault-session',
+        sessionCookiePath: '/',
+        sessionCookieSecure: true,
+      }),
+    );
   });
 
   test.each([

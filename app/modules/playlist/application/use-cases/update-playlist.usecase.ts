@@ -1,5 +1,6 @@
 import type { Playlist, UpdatePlaylistRequest } from '../../domain/playlist';
 import type { PlaylistRepositoryPort } from '../ports/playlist-repository.port';
+import { PlaylistAccessPolicy } from '../../domain/policies/playlist-access.policy';
 
 export interface UpdatePlaylistInput extends UpdatePlaylistRequest {
   ownerId: string;
@@ -14,20 +15,20 @@ export interface UpdatePlaylistOutput {
 
 export type UpdatePlaylistUseCaseResult =
   | {
-    ok: true;
-    data: UpdatePlaylistOutput;
-  }
+      ok: true;
+      data: UpdatePlaylistOutput;
+    }
   | {
-    ok: false;
-    message: string;
-    reason:
-      | 'DUPLICATE_PLAYLIST_NAME'
-      | 'INVALID_PLAYLIST_DATA'
-      | 'PLAYLIST_MUTATION_FAILED'
-      | 'PLAYLIST_NOT_FOUND'
-      | 'PLAYLIST_PERMISSION_DENIED'
-      | 'VALIDATION_ERROR';
-  };
+      ok: false;
+      message: string;
+      reason:
+        | 'DUPLICATE_PLAYLIST_NAME'
+        | 'INVALID_PLAYLIST_DATA'
+        | 'PLAYLIST_MUTATION_FAILED'
+        | 'PLAYLIST_NOT_FOUND'
+        | 'PLAYLIST_PERMISSION_DENIED'
+        | 'VALIDATION_ERROR';
+    };
 
 interface UpdatePlaylistUseCaseDependencies {
   playlistRepository: Pick<PlaylistRepositoryPort, 'findById' | 'nameExistsForOwner' | 'update'>;
@@ -37,7 +38,8 @@ function validateUpdateRequest(
   input: UpdatePlaylistRequest,
   normalizedName: string | undefined,
 ): UpdatePlaylistUseCaseResult | null {
-  const hasUpdates = input.name !== undefined ||
+  const hasUpdates =
+    input.name !== undefined ||
     input.description !== undefined ||
     input.isPublic !== undefined ||
     input.metadata !== undefined;
@@ -78,9 +80,7 @@ function validateUpdateRequest(
 }
 
 export class UpdatePlaylistUseCase {
-  constructor(
-    private readonly deps: UpdatePlaylistUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: UpdatePlaylistUseCaseDependencies) {}
 
   async execute(input: UpdatePlaylistInput): Promise<UpdatePlaylistUseCaseResult> {
     const normalizedName = input.name?.trim();
@@ -100,7 +100,7 @@ export class UpdatePlaylistUseCase {
         };
       }
 
-      if (playlist.ownerId !== input.ownerId) {
+      if (!PlaylistAccessPolicy.canManage({ ownerId: input.ownerId, playlist })) {
         return {
           message: `User "${input.ownerId}" does not have permission to update playlist "${input.playlistId}"`,
           ok: false,
@@ -109,7 +109,11 @@ export class UpdatePlaylistUseCase {
       }
 
       if (normalizedName !== undefined && normalizedName !== playlist.name) {
-        const nameExists = await this.deps.playlistRepository.nameExistsForOwner(normalizedName, input.ownerId, playlist.id);
+        const nameExists = await this.deps.playlistRepository.nameExistsForOwner(
+          normalizedName,
+          input.ownerId,
+          playlist.id,
+        );
         if (nameExists) {
           return {
             message: `Playlist with name "${normalizedName}" already exists for user "${input.ownerId}"`,
@@ -128,7 +132,7 @@ export class UpdatePlaylistUseCase {
       }
 
       if (input.description !== undefined && input.description !== playlist.description) {
-        updates.description = input.description?.trim() || undefined;
+        updates.description = input.description.trim() || undefined;
         fieldsUpdated.push('description');
       }
 
@@ -174,8 +178,7 @@ export class UpdatePlaylistUseCase {
           playlist: updated,
         },
       };
-    }
-    catch {
+    } catch {
       return {
         message: 'Failed to update playlist',
         ok: false,

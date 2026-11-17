@@ -6,7 +6,10 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { selectIngestMediaPreparationStrategy } from '../../../../app/modules/ingest/domain/media-preparation-policy';
 import { FfprobeIngestVideoAnalysisAdapter } from '../../../../app/modules/ingest/infrastructure/analysis/ffprobe-ingest-video-analysis.adapter';
 import { FfmpegMediaPreparationAdapter } from '../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter';
-import { getFFmpegPath, getShakaPackagerPath } from '../../../../app/shared/config/video-tools.server';
+import {
+  getFFmpegPath,
+  getShakaPackagerPath,
+} from '../../../../app/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '../../../../app/shared/lib/server/ffmpeg-process-manager.server';
 import {
   type GeneratedIngestMediaFixture,
@@ -14,7 +17,8 @@ import {
   generateHevcAacMp4Fixture,
 } from '../../../support/ingest-media-fixtures';
 
-const localMediaToolsAvailable = commandAvailable(getFFmpegPath()) && commandAvailable(getShakaPackagerPath());
+const localMediaToolsAvailable =
+  commandAvailable(getFFmpegPath()) && commandAvailable(getShakaPackagerPath());
 const describeWithLocalMediaTools = localMediaToolsAvailable ? describe : describe.skip;
 
 describeWithLocalMediaTools('FfmpegMediaPreparationAdapter real media path', () => {
@@ -22,7 +26,7 @@ describeWithLocalMediaTools('FfmpegMediaPreparationAdapter real media path', () 
   let workspaceRoot = '';
 
   afterEach(async () => {
-    await Promise.all(generatedFixtures.splice(0).map(fixture => fixture.cleanup()));
+    await Promise.all(generatedFixtures.splice(0).map((fixture) => fixture.cleanup()));
 
     if (workspaceRoot) {
       await rm(workspaceRoot, { force: true, recursive: true });
@@ -51,14 +55,16 @@ describeWithLocalMediaTools('FfmpegMediaPreparationAdapter real media path', () 
       },
     });
 
-    await expect(adapter.prepareMedia({
-      analysis,
-      sourcePath: fixture.sourcePath,
-      strategy,
-      title: 'Generated H.264 Fixture',
-      videoId: 'real-h264',
-      workspaceRootDir: workspace,
-    })).resolves.toEqual({
+    await expect(
+      adapter.prepareMedia({
+        analysis,
+        sourcePath: fixture.sourcePath,
+        strategy,
+        title: 'Generated H.264 Fixture',
+        videoId: 'real-h264',
+        workspaceRootDir: workspace,
+      }),
+    ).resolves.toEqual({
       dashEnabled: true,
       message: 'Video added to library successfully with media preparation',
     });
@@ -90,14 +96,16 @@ describeWithLocalMediaTools('FfmpegMediaPreparationAdapter real media path', () 
       },
     });
 
-    await expect(adapter.prepareMedia({
-      analysis,
-      sourcePath: fixture.sourcePath,
-      strategy,
-      title: 'Generated HEVC Fixture',
-      videoId: 'real-hevc',
-      workspaceRootDir: workspace,
-    })).resolves.toEqual({
+    await expect(
+      adapter.prepareMedia({
+        analysis,
+        sourcePath: fixture.sourcePath,
+        strategy,
+        title: 'Generated HEVC Fixture',
+        videoId: 'real-hevc',
+        workspaceRootDir: workspace,
+      }),
+    ).resolves.toEqual({
       dashEnabled: true,
       message: 'Video added to library successfully with media preparation',
     });
@@ -140,8 +148,12 @@ describeWithLocalMediaTools('FfmpegMediaPreparationAdapter real media path', () 
     expect(buffer.includes(Buffer.from(boxType, 'ascii'))).toBe(true);
   }
 
-  function expectSinglePreservePrepareCommand(commandCalls: Array<{ args: string[]; command: string }>) {
-    const prepareCalls = commandCalls.filter(call => call.command === 'ffmpeg' && call.args.includes('-f'));
+  function expectSinglePreservePrepareCommand(
+    commandCalls: Array<{ args: string[]; command: string }>,
+  ) {
+    const prepareCalls = commandCalls.filter(
+      (call) => call.command === 'ffmpeg' && call.args.includes('-f'),
+    );
 
     expect(prepareCalls).toHaveLength(1);
     expect(prepareCalls[0].args).toContain('-c:v');
@@ -156,5 +168,5 @@ function commandAvailable(command: string) {
 
   return (process.env.PATH ?? '')
     .split(path.delimiter)
-    .some(searchPath => existsSync(path.join(searchPath, command)));
+    .some((searchPath) => existsSync(path.join(searchPath, command)));
 }

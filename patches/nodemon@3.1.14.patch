@@ -1,0 +1,15 @@
+diff --git a/lib/monitor/run.js b/lib/monitor/run.js
+index 5fa7f45ad215c29c9591ac5b0b7a7fc094f7dec9..6d87d8026ee5afa348601f69e45c89346b0cb6da 100644
+--- a/lib/monitor/run.js
++++ b/lib/monitor/run.js
+@@ -520,8 +520,8 @@ bus.on('quit', function onQuit(code) {
+   config.run = false;
+ 
+   if (child) {
+-    // give up waiting for the kids after 10 seconds
+-    exitTimer = setTimeout(exit, 10 * 1000);
++    // Allow Mediavault's 30-second application drain plus its 5-second supervisor buffer.
++    exitTimer = setTimeout(exit, 35 * 1000);
+     child.removeAllListeners('exit');
+     child.once('exit', exit);
+ 

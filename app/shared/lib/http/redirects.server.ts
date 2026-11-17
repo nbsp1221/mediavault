@@ -6,5 +6,12 @@ export function getSafeRedirectTarget(request: Request, fallbackPath: string): s
     return fallbackPath;
   }
 
-  return candidate;
+  try {
+    const target = new URL(candidate, url.origin);
+    return target.origin === url.origin
+      ? `${target.pathname}${target.search}${target.hash}`
+      : fallbackPath;
+  } catch {
+    return fallbackPath;
+  }
 }

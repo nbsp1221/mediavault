@@ -14,15 +14,13 @@ const originalStorageDir = process.env.MEDIAVAULT_STORAGE_DIR;
 afterEach(() => {
   if (originalDatabaseEncryptionKey === undefined) {
     delete process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY;
-  }
-  else {
+  } else {
     process.env.MEDIAVAULT_DATABASE_ENCRYPTION_KEY = originalDatabaseEncryptionKey;
   }
 
   if (originalStorageDir === undefined) {
     delete process.env.MEDIAVAULT_STORAGE_DIR;
-  }
-  else {
+  } else {
     process.env.MEDIAVAULT_STORAGE_DIR = originalStorageDir;
   }
 });
@@ -66,24 +64,34 @@ describe('runtime env config boundary', () => {
   });
 
   test('keeps secret values out of validation errors', () => {
-    expect(() => getMediaKeyDerivationConfig({
-      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: '   ',
-    })).toThrow('MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET environment variable is required for video encryption');
+    expect(() =>
+      getMediaKeyDerivationConfig({
+        MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: '   ',
+      }),
+    ).toThrow(
+      'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET environment variable is required for video encryption',
+    );
 
-    expect(() => getMediaKeyDerivationConfig({
-      MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: '   ',
-    })).not.toThrow('secret');
+    expect(() =>
+      getMediaKeyDerivationConfig({
+        MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET: '   ',
+      }),
+    ).not.toThrow('secret');
   });
 
   test('parses media packaging segment duration in one config boundary', () => {
-    expect(getMediaPackagingConfig({
-      DASH_SEGMENT_DURATION: '6',
-    })).toEqual({
+    expect(
+      getMediaPackagingConfig({
+        DASH_SEGMENT_DURATION: '6',
+      }),
+    ).toEqual({
       segmentDuration: 6,
     });
-    expect(getMediaPackagingConfig({
-      DASH_SEGMENT_DURATION: '   ',
-    })).toEqual({
+    expect(
+      getMediaPackagingConfig({
+        DASH_SEGMENT_DURATION: '   ',
+      }),
+    ).toEqual({
       segmentDuration: 10,
     });
     expect(getMediaPackagingConfig({})).toEqual({
@@ -91,34 +99,42 @@ describe('runtime env config boundary', () => {
     });
   });
 
-  test.each([
-    '0',
-    '-1',
-    '1.5',
-    '6seconds',
-  ])('rejects invalid explicit DASH_SEGMENT_DURATION=%s', (value) => {
-    expect(() => getMediaPackagingConfig({
-      DASH_SEGMENT_DURATION: value,
-    })).toThrow('DASH_SEGMENT_DURATION');
-    expect(() => getMediaPackagingConfig({
-      DASH_SEGMENT_DURATION: value,
-    })).not.toThrow(value);
-  });
+  test.each(['0', '-1', '1.5', '6seconds'])(
+    'rejects invalid explicit DASH_SEGMENT_DURATION=%s',
+    (value) => {
+      expect(() =>
+        getMediaPackagingConfig({
+          DASH_SEGMENT_DURATION: value,
+        }),
+      ).toThrow('DASH_SEGMENT_DURATION');
+      expect(() =>
+        getMediaPackagingConfig({
+          DASH_SEGMENT_DURATION: value,
+        }),
+      ).not.toThrow(value);
+    },
+  );
 
   test('rejects invalid runtime mode values from explicit env maps', () => {
-    expect(() => getRuntimeConfig({
-      NODE_ENV: 'prod',
-    })).toThrow('NODE_ENV');
-    expect(() => getRuntimeConfig({
-      NODE_ENV: 'staging-secret',
-    })).not.toThrow('staging-secret');
+    expect(() =>
+      getRuntimeConfig({
+        NODE_ENV: 'prod',
+      }),
+    ).toThrow('NODE_ENV');
+    expect(() =>
+      getRuntimeConfig({
+        NODE_ENV: 'staging-secret',
+      }),
+    ).not.toThrow('staging-secret');
   });
 
   test('reads runtime mode without validating unrelated settings', () => {
-    expect(getRuntimeConfig({
-      DASH_SEGMENT_DURATION: 'bad',
-      NODE_ENV: 'development',
-    })).toEqual({
+    expect(
+      getRuntimeConfig({
+        DASH_SEGMENT_DURATION: 'bad',
+        NODE_ENV: 'development',
+      }),
+    ).toEqual({
       isProductionRuntime: false,
       nodeEnv: 'development',
     });
@@ -163,12 +179,16 @@ describe('runtime env config boundary', () => {
     ];
 
     for (const { key, read, value } of invalidNumericInputs) {
-      expect(() => read({
-        [key]: value,
-      })).toThrow(key);
-      expect(() => read({
-        [key]: value,
-      })).not.toThrow(value);
+      expect(() =>
+        read({
+          [key]: value,
+        }),
+      ).toThrow(key);
+      expect(() =>
+        read({
+          [key]: value,
+        }),
+      ).not.toThrow(value);
     }
   });
 
@@ -182,10 +202,14 @@ describe('runtime env config boundary', () => {
   });
 
   test('exposes runtime mode flags from explicit env maps', () => {
-    expect(getRuntimeConfig({
-      NODE_ENV: 'production',
-    })).toEqual(expect.objectContaining({
-      isProductionRuntime: true,
-    }));
+    expect(
+      getRuntimeConfig({
+        NODE_ENV: 'production',
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        isProductionRuntime: true,
+      }),
+    );
   });
 });

@@ -17,7 +17,7 @@ function createPlaylist(overrides: Partial<Playlist> = {}): Playlist {
 }
 
 describe('FindPlaylistsUseCase', () => {
-  test('filters inaccessible and empty playlists, then sorts, paginates, and optionally adds stats', async () => {
+  test('filters inaccessible and empty playlists, then sorts and paginates accessible videos', async () => {
     const storedPlaylists = [
       createPlaylist({
         id: 'playlist-visible-large',
@@ -50,27 +50,31 @@ describe('FindPlaylistsUseCase', () => {
     const useCase = new FindPlaylistsUseCase({
       playlistRepository: {
         findWithFilters,
-        getPlaylistItems: vi.fn(async (playlistId) => {
-          const playlist = storedPlaylists.find(candidate => candidate.id === playlistId);
-          return playlist?.videoIds.map((videoId, index) => ({
-            addedAt: new Date('2026-03-08T00:00:00.000Z'),
-            addedBy: playlist.ownerId,
-            playlistId,
-            position: index,
-            videoId,
-          })) ?? [];
+        getPlaylistItems: vi.fn(async (playlistId: string) => {
+          const playlist = storedPlaylists.find((candidate) => candidate.id === playlistId);
+          return (
+            playlist?.videoIds.map((videoId, index) => ({
+              addedAt: new Date('2026-03-08T00:00:00.000Z'),
+              addedBy: playlist.ownerId,
+              playlistId,
+              position: index,
+              videoId,
+            })) ?? []
+          );
         }),
       },
       videoCatalog: {
         findById: vi.fn(),
-        getPlaylistVideos: vi.fn(async (items: PlaylistItem[]) => items
-          .filter(item => item.videoId !== 'video-2')
-          .map(item => ({
-            duration: 60,
-            id: item.videoId,
-            position: item.position,
-            title: item.videoId,
-          }))),
+        getPlaylistVideos: vi.fn(async (items: PlaylistItem[]) =>
+          items
+            .filter((item) => item.videoId !== 'video-2')
+            .map((item) => ({
+              duration: 60,
+              id: item.videoId,
+              position: item.position,
+              title: item.videoId,
+            })),
+        ),
       },
     });
 
@@ -80,7 +84,6 @@ describe('FindPlaylistsUseCase', () => {
         searchQuery: 'vault',
       },
       includeEmpty: false,
-      includeStats: true,
       limit: 1,
       offset: 0,
       ownerId: 'owner-1',
@@ -112,12 +115,6 @@ describe('FindPlaylistsUseCase', () => {
             videoIds: ['video-1', 'video-3'],
           }),
         ],
-        stats: [
-          expect.objectContaining({
-            id: 'playlist-visible-large',
-            totalVideos: 2,
-          }),
-        ],
         totalCount: 2,
       },
     });
@@ -135,15 +132,16 @@ describe('FindPlaylistsUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      filters: {},
-      includeEmpty: true,
-      includeStats: false,
-      limit: 0,
-      offset: 0,
-      sortBy: 'updatedAt',
-      sortOrder: 'desc',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        filters: {},
+        includeEmpty: true,
+        limit: 0,
+        offset: 0,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      }),
+    ).resolves.toEqual({
       message: 'Limit must be an integer between 1 and 100',
       ok: false,
       reason: 'VALIDATION_ERROR',
@@ -163,43 +161,46 @@ describe('FindPlaylistsUseCase', () => {
       },
     });
 
-    await expect(useCase.execute({
-      filters: {},
-      includeEmpty: true,
-      includeStats: false,
-      limit: Number.NaN,
-      offset: 0,
-      sortBy: 'updatedAt',
-      sortOrder: 'desc',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        filters: {},
+        includeEmpty: true,
+        limit: Number.NaN,
+        offset: 0,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      }),
+    ).resolves.toEqual({
       message: 'Limit must be an integer between 1 and 100',
       ok: false,
       reason: 'VALIDATION_ERROR',
     });
 
-    await expect(useCase.execute({
-      filters: {},
-      includeEmpty: true,
-      includeStats: false,
-      limit: 20,
-      offset: 1.5,
-      sortBy: 'updatedAt',
-      sortOrder: 'desc',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        filters: {},
+        includeEmpty: true,
+        limit: 20,
+        offset: 1.5,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      }),
+    ).resolves.toEqual({
       message: 'Offset must be a non-negative integer',
       ok: false,
       reason: 'VALIDATION_ERROR',
     });
 
-    await expect(useCase.execute({
-      filters: {},
-      includeEmpty: true,
-      includeStats: false,
-      limit: Number.POSITIVE_INFINITY,
-      offset: -1,
-      sortBy: 'updatedAt',
-      sortOrder: 'desc',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        filters: {},
+        includeEmpty: true,
+        limit: Number.POSITIVE_INFINITY,
+        offset: -1,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      }),
+    ).resolves.toEqual({
       message: 'Limit must be an integer between 1 and 100',
       ok: false,
       reason: 'VALIDATION_ERROR',

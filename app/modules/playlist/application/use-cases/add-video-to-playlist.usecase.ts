@@ -2,6 +2,7 @@ import { createVideoReadAccessScope } from '~/modules/library/application/polici
 import type { PlaylistItem } from '../../domain/playlist';
 import type { PlaylistRepositoryPort } from '../ports/playlist-repository.port';
 import type { PlaylistVideoCatalogPort } from '../ports/playlist-video-catalog.port';
+import { PlaylistAccessPolicy } from '../../domain/policies/playlist-access.policy';
 
 export interface AddVideoToPlaylistInput {
   episodeMetadata?: PlaylistItem['episodeMetadata'];
@@ -21,20 +22,20 @@ export interface AddVideoToPlaylistOutput {
 
 export type AddVideoToPlaylistUseCaseResult =
   | {
-    ok: true;
-    data: AddVideoToPlaylistOutput;
-  }
+      ok: true;
+      data: AddVideoToPlaylistOutput;
+    }
   | {
-    ok: false;
-    message: string;
-    reason:
-      | 'DUPLICATE_VIDEO_IN_PLAYLIST'
-      | 'INVALID_PLAYLIST_POSITION'
-      | 'PLAYLIST_MUTATION_FAILED'
-      | 'PLAYLIST_NOT_FOUND'
-      | 'PLAYLIST_PERMISSION_DENIED'
-      | 'VIDEO_NOT_FOUND';
-  };
+      ok: false;
+      message: string;
+      reason:
+        | 'DUPLICATE_VIDEO_IN_PLAYLIST'
+        | 'INVALID_PLAYLIST_POSITION'
+        | 'PLAYLIST_MUTATION_FAILED'
+        | 'PLAYLIST_NOT_FOUND'
+        | 'PLAYLIST_PERMISSION_DENIED'
+        | 'VIDEO_NOT_FOUND';
+    };
 
 interface AddVideoToPlaylistUseCaseDependencies {
   playlistRepository: Pick<PlaylistRepositoryPort, 'addVideoToPlaylist' | 'findById'>;
@@ -42,9 +43,7 @@ interface AddVideoToPlaylistUseCaseDependencies {
 }
 
 export class AddVideoToPlaylistUseCase {
-  constructor(
-    private readonly deps: AddVideoToPlaylistUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: AddVideoToPlaylistUseCaseDependencies) {}
 
   async execute(input: AddVideoToPlaylistInput): Promise<AddVideoToPlaylistUseCaseResult> {
     try {
@@ -58,7 +57,7 @@ export class AddVideoToPlaylistUseCase {
         };
       }
 
-      if (playlist.ownerId !== input.ownerId) {
+      if (!PlaylistAccessPolicy.canManage({ ownerId: input.ownerId, playlist })) {
         return {
           message: `User "${input.ownerId}" does not have permission to add video to playlist "${input.playlistId}"`,
           ok: false,
@@ -74,10 +73,13 @@ export class AddVideoToPlaylistUseCase {
         };
       }
 
-      const video = await this.deps.videoCatalog.findById(input.videoId, createVideoReadAccessScope({
-        type: 'authenticated',
-        userId: input.ownerId,
-      }));
+      const video = await this.deps.videoCatalog.findById(
+        input.videoId,
+        createVideoReadAccessScope({
+          type: 'authenticated',
+          userId: input.ownerId,
+        }),
+      );
       if (!video) {
         return {
           message: `Video with ID "${input.videoId}" not found`,
@@ -113,8 +115,7 @@ export class AddVideoToPlaylistUseCase {
           videoTitle: video.title,
         },
       };
-    }
-    catch {
+    } catch {
       return {
         message: 'Failed to add video to playlist',
         ok: false,

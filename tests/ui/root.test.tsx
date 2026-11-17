@@ -1,5 +1,6 @@
+import type * as ReactRouter from 'react-router';
 import { render, screen } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider } from 'react-router';
+import { RouterProvider, createMemoryRouter } from 'react-router';
 import { describe, expect, test, vi } from 'vitest';
 import App, { ErrorBoundary, Layout, links } from '../../app/root';
 
@@ -8,11 +9,10 @@ vi.mock('~/shared/ui/sonner', () => ({
 }));
 
 vi.mock('react-router', async () => {
-  const actual = await vi.importActual<typeof import('react-router')>('react-router');
+  const actual = await vi.importActual<typeof ReactRouter>('react-router');
 
   return {
     ...actual,
-    isRouteErrorResponse: (error: unknown) => Boolean((error as { isRouteErrorResponse?: boolean } | null)?.isRouteErrorResponse),
     Links: () => null,
     Meta: () => null,
     Scripts: () => null,
@@ -45,8 +45,7 @@ describe('root UI shell', () => {
           <main>Route content</main>
         </Layout>,
       );
-    }
-    finally {
+    } finally {
       consoleError.mockRestore();
     }
 
@@ -55,19 +54,22 @@ describe('root UI shell', () => {
   });
 
   test('app marks hydration and renders child routes through the outlet', async () => {
-    const router = createMemoryRouter([
+    const router = createMemoryRouter(
+      [
+        {
+          element: <App />,
+          children: [
+            {
+              path: '/',
+              element: <main>Home outlet</main>,
+            },
+          ],
+        },
+      ],
       {
-        element: <App />,
-        children: [
-          {
-            path: '/',
-            element: <main>Home outlet</main>,
-          },
-        ],
+        initialEntries: ['/'],
       },
-    ], {
-      initialEntries: ['/'],
-    });
+    );
 
     render(<RouterProvider router={router} />);
 
@@ -76,7 +78,14 @@ describe('root UI shell', () => {
   });
 
   test('error boundary renders unexpected errors in development-friendly copy', () => {
-    render(<ErrorBoundary error={new Error('boom')} params={{}} loaderData={undefined} actionData={undefined} />);
+    render(
+      <ErrorBoundary
+        error={new Error('boom')}
+        params={{}}
+        loaderData={undefined}
+        actionData={undefined}
+      />,
+    );
 
     expect(screen.getByRole('heading', { name: 'Oops!' })).toBeInTheDocument();
     expect(screen.getByText('boom')).toBeInTheDocument();
@@ -84,12 +93,20 @@ describe('root UI shell', () => {
 
   test('error boundary renders route error responses without exposing stack traces', () => {
     const routeError = {
-      isRouteErrorResponse: true,
+      internal: false,
+      data: 'Not found',
       status: 404,
       statusText: 'Not Found',
     };
 
-    render(<ErrorBoundary error={routeError} params={{}} loaderData={undefined} actionData={undefined} />);
+    render(
+      <ErrorBoundary
+        error={routeError}
+        params={{}}
+        loaderData={undefined}
+        actionData={undefined}
+      />,
+    );
 
     expect(screen.getByRole('heading', { name: '404' })).toBeInTheDocument();
     expect(screen.getByText('The requested page could not be found.')).toBeInTheDocument();

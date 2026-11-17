@@ -15,7 +15,9 @@ export function toVideoPolicyViewer(viewer: RequestViewer): VideoViewer {
   };
 }
 
-export function toAuthenticatedVideoPolicyViewer(session: Pick<AuthSession, 'userId'>): VideoViewer {
+export function toAuthenticatedVideoPolicyViewer(
+  session: Pick<AuthSession, 'userId'>,
+): VideoViewer {
   return {
     type: 'authenticated',
     userId: session.userId,

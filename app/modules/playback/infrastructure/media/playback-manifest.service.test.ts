@@ -44,8 +44,7 @@ describe('PlaybackManifestService', () => {
           'X-Content-Type-Options': 'nosniff',
         },
       });
-    }
-    finally {
+    } finally {
       await rm(rootDir, { force: true, recursive: true });
     }
   });
@@ -59,15 +58,16 @@ describe('PlaybackManifestService', () => {
     const service = new PlaybackManifestService();
 
     try {
-      await expect(service.getManifest({
-        videoId: validVideoId,
-      })).rejects.toMatchObject({
+      await expect(
+        service.getManifest({
+          videoId: validVideoId,
+        }),
+      ).rejects.toMatchObject({
         message: 'Playback manifest not found',
         name: 'NotFoundError',
         statusCode: 404,
       });
-    }
-    finally {
+    } finally {
       await rm(rootDir, { force: true, recursive: true });
     }
   });
@@ -82,15 +82,16 @@ describe('PlaybackManifestService', () => {
     const service = new PlaybackManifestService();
 
     try {
-      await expect(service.getManifest({
-        videoId: validVideoId,
-      })).rejects.toMatchObject({
+      await expect(
+        service.getManifest({
+          videoId: validVideoId,
+        }),
+      ).rejects.toMatchObject({
         message: 'Video encryption key not found',
         name: 'NotFoundError',
         statusCode: 404,
       });
-    }
-    finally {
+    } finally {
       await rm(rootDir, { force: true, recursive: true });
     }
   });
@@ -99,9 +100,11 @@ describe('PlaybackManifestService', () => {
     const { PlaybackManifestService } = await import('./playback-manifest.service');
     const service = new PlaybackManifestService();
 
-    await expect(service.getManifest({
-      videoId: '../escape',
-    })).rejects.toMatchObject({
+    await expect(
+      service.getManifest({
+        videoId: '../escape',
+      }),
+    ).rejects.toMatchObject({
       message: 'Invalid video ID format',
       name: 'ValidationError',
       statusCode: 400,

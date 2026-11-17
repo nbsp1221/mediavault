@@ -4,33 +4,43 @@ import type { AuthDecision, AuthSession } from '~/modules/auth/domain/auth-sessi
 import type { RequestViewer } from '~/modules/auth/domain/request-viewer';
 import type { SiteViewer } from '~/modules/auth/domain/site-viewer';
 import type { VideoViewer } from '~/modules/library/domain/policies/video-access.policy';
-import { type AdminApiOperation, evaluateAdminApiAccess } from '~/modules/auth/application/policies/admin-api-access.policy';
+import {
+  type AdminApiOperation,
+  evaluateAdminApiAccess,
+} from '~/modules/auth/application/policies/admin-api-access.policy';
 import { CreateAuthSessionUseCase } from '~/modules/auth/application/use-cases/create-auth-session.usecase';
 import { DestroyAuthSessionUseCase } from '~/modules/auth/application/use-cases/destroy-auth-session.usecase';
 import { EvaluateSiteAccessUseCase } from '~/modules/auth/application/use-cases/evaluate-site-access.usecase';
 import { ResolveAuthSessionUseCase } from '~/modules/auth/application/use-cases/resolve-auth-session.usecase';
+import { ValidateAuthSessionBindingUseCase } from '~/modules/auth/application/use-cases/validate-auth-session-binding.usecase';
 import { ANONYMOUS_VIEWER } from '~/modules/auth/domain/request-viewer';
 import { Argon2PasswordHashService } from '~/modules/auth/infrastructure/password/argon2-password-hash.service';
 import { InMemoryLoginAttemptGuard } from '~/modules/auth/infrastructure/security/in-memory-login-attempt-guard';
 import { SqliteSessionRepository } from '~/modules/auth/infrastructure/sqlite/sqlite-session.repository';
 import { SqliteUserCredentialReaderAdapter } from '~/modules/auth/infrastructure/sqlite/sqlite-user-credential-reader.adapter';
+import { SqliteActiveUploadCounterAdapter } from '~/modules/ingest/infrastructure/staging/sqlite-active-upload-counter.adapter';
 import { SqliteOwnedVideoCounterAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-owned-video-counter.adapter';
 import { CreateUserUseCase } from '~/modules/user/application/use-cases/create-user.usecase';
-import { type DeleteUserUseCaseResult, DeleteUserUseCase } from '~/modules/user/application/use-cases/delete-user.usecase';
-import { SqliteUserRepository } from '~/modules/user/infrastructure/sqlite/sqlite-user.repository';
-import { getPrimaryStorageConfig } from '~/shared/config/app-config.server';
-import { getAdminApiConfig } from '~/shared/config/app-config.server';
 import {
+  DeleteUserUseCase,
+  type DeleteUserUseCaseResult,
+} from '~/modules/user/application/use-cases/delete-user.usecase';
+import { SqliteUserRepository } from '~/modules/user/infrastructure/sqlite/sqlite-user.repository';
+import {
+  getAdminApiConfig,
   getAuthConfig,
   getAuthCookieConfig,
+  getPrimaryStorageConfig,
 } from '~/shared/config/app-config.server';
 import { getCookieValue, serializeCookie } from '~/shared/lib/http/cookies.server';
+import { rejectCrossOriginMutation } from '~/shared/lib/http/csrf.server';
 import { toVideoPolicyViewer } from './video-access-viewer';
 
 interface ServerSessionServices {
   destroyAuthSession: DestroyAuthSessionUseCase;
   evaluateSiteAccess: EvaluateSiteAccessUseCase;
   resolveAuthSession: ResolveAuthSessionUseCase;
+  validateSessionBinding: ValidateAuthSessionBindingUseCase;
   resolveSiteViewerByUserId: (userId: string) => Promise<SiteViewer | null>;
 }
 
@@ -100,13 +110,16 @@ function getCachedServerSessionServices(): CachedServerSessionServices {
       resolveAuthSession,
     }),
     resolveAuthSession,
+    validateSessionBinding: new ValidateAuthSessionBindingUseCase({
+      hasUser: async (userId) => (await userRepository.findById(userId)) !== null,
+      sessionRepository,
+    }),
     resolveSiteViewerByUserId: async (userId: string) => {
       const user = await userRepository.findById(userId);
 
       return user
         ? {
             id: user.id,
-            role: user.role,
             username: user.username,
           }
         : null;
@@ -118,7 +131,9 @@ function getCachedServerSessionServices(): CachedServerSessionServices {
   return cachedSessionServices;
 }
 
-export async function resolveSiteViewerForSession(session: AuthSession): Promise<SiteViewer | null> {
+export async function resolveSiteViewerForSession(
+  session: AuthSession,
+): Promise<SiteViewer | null> {
   return getServerSessionServices().resolveSiteViewerByUserId(session.userId);
 }
 
@@ -154,7 +169,9 @@ export function getServerAuthServices(): ServerAuthServices {
       credentialReader,
       loginAttemptGuard,
       onInvalidCredentials: async () => {
-        await new Promise(resolve => setTimeout(resolve, authConfig.failedLoginDelayMs));
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, authConfig.failedLoginDelayMs);
+        });
       },
       passwordHashService: new Argon2PasswordHashService(),
       sessionRepository: sessionServices.sessionRepository,
@@ -163,6 +180,7 @@ export function getServerAuthServices(): ServerAuthServices {
     destroyAuthSession: sessionServices.destroyAuthSession,
     evaluateSiteAccess: sessionServices.evaluateSiteAccess,
     resolveAuthSession: sessionServices.resolveAuthSession,
+    validateSessionBinding: sessionServices.validateSessionBinding,
     resolveSiteViewerByUserId: sessionServices.resolveSiteViewerByUserId,
   };
 
@@ -197,6 +215,7 @@ export function createServerAdminAuthServices(
     dbPath,
   });
   const deleteUser = new DeleteUserUseCase({
+    activeUploadCounter: new SqliteActiveUploadCounterAdapter({ dbPath }),
     ownedVideoCounter: new SqliteOwnedVideoCounterAdapter({
       dbPath,
     }),
@@ -214,12 +233,13 @@ export function createServerAdminAuthServices(
       deleteUser,
       sessionRepository,
     }),
-    evaluateAdminApiAccess: async input => evaluateAdminApiAccess({
-      authUserCount: await userRepository.count(),
-      authorizationHeader: input.authorizationHeader,
-      config: getAdminApiConfig(),
-      operation: input.operation,
-    }),
+    evaluateAdminApiAccess: async (input) =>
+      evaluateAdminApiAccess({
+        authUserCount: await userRepository.count(),
+        authorizationHeader: input.authorizationHeader,
+        config: getAdminApiConfig(),
+        operation: input.operation,
+      }),
   };
 }
 
@@ -299,6 +319,7 @@ export async function resolveRequestViewer(request: Request): Promise<RequestVie
 
 export async function resolvePublicVideoAccess(request: Request): Promise<{
   headers: Headers;
+  sessionId?: string;
   viewer: VideoViewer;
 }> {
   const headers = new Headers({
@@ -339,6 +360,7 @@ export async function resolvePublicVideoAccess(request: Request): Promise<{
 
   return {
     headers,
+    sessionId: session.id,
     viewer: toVideoPolicyViewer({
       type: 'authenticated',
       userId: siteViewer.id,
@@ -401,10 +423,15 @@ export async function requireProtectedApiSessionValue(request: Request) {
   const access = await requireProtectedSessionAccess(request, 'protected-api');
 
   if (!access.decision.allowed || !access.session) {
-    return createUnauthorizedAuthResponse(401, 'Authentication required', createStaleSessionHeaders(access));
+    return createUnauthorizedAuthResponse(
+      401,
+      'Authentication required',
+      createStaleSessionHeaders(access),
+    );
   }
 
-  return access.session;
+  const csrfResponse = rejectCrossOriginMutation(request);
+  return csrfResponse ?? access.session;
 }
 
 function createStaleSessionHeaders(access: ProtectedSessionAccess): HeadersInit | undefined {
@@ -432,30 +459,39 @@ async function requireProtectedHttpSession(
   const access = await requireProtectedSessionAccess(request, surface);
 
   if (!access.decision.allowed) {
-    return createUnauthorizedAuthResponse(401, 'Authentication required', createStaleSessionHeaders(access));
+    return createUnauthorizedAuthResponse(
+      401,
+      'Authentication required',
+      createStaleSessionHeaders(access),
+    );
   }
 
   return null;
 }
 
 export async function requireProtectedApiSession(request: Request) {
-  return requireProtectedHttpSession(request, 'protected-api');
+  const unauthorized = await requireProtectedHttpSession(request, 'protected-api');
+  return unauthorized ?? rejectCrossOriginMutation(request);
 }
 
 export async function requireProtectedMediaSession(request: Request) {
   return requireProtectedHttpSession(request, 'media-resource');
 }
 
-type ProtectedMediaSessionValue =
-  | { response: Response }
-  | { session: AuthSession };
+type ProtectedMediaSessionValue = { response: Response } | { session: AuthSession };
 
-export async function requireProtectedMediaSessionValue(request: Request): Promise<ProtectedMediaSessionValue> {
+export async function requireProtectedMediaSessionValue(
+  request: Request,
+): Promise<ProtectedMediaSessionValue> {
   const access = await requireProtectedSessionAccess(request, 'media-resource');
 
   if (!access.decision.allowed || !access.session) {
     return {
-      response: createUnauthorizedAuthResponse(401, 'Authentication required', createStaleSessionHeaders(access)),
+      response: createUnauthorizedAuthResponse(
+        401,
+        'Authentication required',
+        createStaleSessionHeaders(access),
+      ),
     };
   }
 

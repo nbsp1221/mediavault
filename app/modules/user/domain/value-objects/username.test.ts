@@ -1,8 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  createUsername,
-  normalizeUsernameKey,
-} from './username';
+import { createUsername, normalizeUsernameKey } from './username';
 
 describe('username', () => {
   test('trims display username and normalizes lookup key', () => {

@@ -24,54 +24,61 @@ function createPlaylistRepository(
 ): PlaylistRepositoryPort {
   return {
     addVideoToPlaylist: async () => {},
-    create: async input => buildPlaylist({
-      id: 'created-playlist',
-      isPublic: input.isPublic,
-      metadata: input.metadata,
-      name: input.name,
-      ownerId: input.ownerId,
-      type: input.type,
-      videoIds: input.videoIds ?? [],
-    }),
+    create: async (input) =>
+      buildPlaylist({
+        id: 'created-playlist',
+        isPublic: input.isPublic,
+        metadata: input.metadata,
+        name: input.name,
+        ownerId: input.ownerId,
+        type: input.type,
+        videoIds: input.videoIds ?? [],
+      }),
     delete: async () => true,
     findById: async () => buildPlaylist(),
     findBySeries: async () => [],
     findWithFilters: async () => [],
-    getPlaylistItems: async playlistId => [{
-      addedAt: new Date('2026-03-08T00:00:00.000Z'),
-      addedBy: 'owner-1',
-      playlistId,
-      position: 0,
-      videoId: 'video-1',
-    }],
+    getPlaylistItems: async (playlistId) => [
+      {
+        addedAt: new Date('2026-03-08T00:00:00.000Z'),
+        addedBy: 'owner-1',
+        playlistId,
+        position: 0,
+        videoId: 'video-1',
+      },
+    ],
     nameExistsForOwner: async () => false,
     removeVideoFromPlaylist: async () => {},
     reorderPlaylistItems: async () => {},
-    update: async (id, updates) => buildPlaylist({
-      id,
-      description: updates.description,
-      isPublic: updates.isPublic ?? false,
-      metadata: updates.metadata,
-      name: updates.name ?? 'Updated Playlist',
-    }),
+    update: async (id, updates) =>
+      buildPlaylist({
+        id,
+        description: updates.description,
+        isPublic: updates.isPublic ?? false,
+        metadata: updates.metadata,
+        name: updates.name ?? 'Updated Playlist',
+      }),
     ...overrides,
   };
 }
 
-function createVideoCatalog(overrides: Partial<PlaylistVideoCatalogPort> = {}): PlaylistVideoCatalogPort {
+function createVideoCatalog(
+  overrides: Partial<PlaylistVideoCatalogPort> = {},
+): PlaylistVideoCatalogPort {
   return {
-    findById: async videoId => ({
+    findById: async (videoId) => ({
       duration: 90,
       id: videoId,
       title: 'Playlist Video',
     }),
-    getPlaylistVideos: async items => items.map(item => ({
-      duration: 90,
-      episodeMetadata: item.episodeMetadata,
-      id: item.videoId,
-      position: item.position,
-      title: 'Playlist Video',
-    })),
+    getPlaylistVideos: async (items) =>
+      items.map((item) => ({
+        duration: 90,
+        episodeMetadata: item.episodeMetadata,
+        id: item.videoId,
+        position: item.position,
+        title: 'Playlist Video',
+      })),
     ...overrides,
   };
 }
@@ -119,6 +126,7 @@ describe('playlist composition owner contract', () => {
   });
 
   test('maps route-facing failure statuses without owner fallback', async () => {
+    expect.hasAssertions();
     const ownerPlaylistRepository = createPlaylistRepository({
       findById: async () => buildPlaylist({ videoIds: ['video-1'] }),
     });
@@ -126,56 +134,80 @@ describe('playlist composition owner contract', () => {
       findById: async () => buildPlaylist({ ownerId: 'owner-2', videoIds: ['video-1'] }),
     });
 
-    await expectFailure(
+    expectFailure(
       await createServerPlaylistServices({
         playlistRepository: createPlaylistRepository(),
         videoCatalog: createVideoCatalog(),
       }).createPlaylist.execute({ name: '', ownerId: 'owner-1', type: 'user_created' }),
       { reason: 'INVALID_PLAYLIST_DATA', status: 400 },
     );
-    await expectFailure(
+    expectFailure(
       await createServerPlaylistServices({
         playlistRepository: createPlaylistRepository({ nameExistsForOwner: async () => true }),
         videoCatalog: createVideoCatalog(),
-      }).createPlaylist.execute({ name: 'Duplicate Playlist', ownerId: 'owner-1', type: 'user_created' }),
+      }).createPlaylist.execute({
+        name: 'Duplicate Playlist',
+        ownerId: 'owner-1',
+        type: 'user_created',
+      }),
       { reason: 'DUPLICATE_PLAYLIST_NAME', status: 409 },
     );
-    await expectFailure(
+    expectFailure(
       await createServerPlaylistServices({
         playlistRepository: permissionDeniedRepository,
         videoCatalog: createVideoCatalog(),
-      }).updatePlaylist.execute({ name: 'Denied Update', ownerId: 'owner-1', playlistId: 'playlist-1' }),
+      }).updatePlaylist.execute({
+        name: 'Denied Update',
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+      }),
       { reason: 'PLAYLIST_PERMISSION_DENIED', status: 403 },
     );
-    await expectFailure(
+    expectFailure(
       await createServerPlaylistServices({
         playlistRepository: ownerPlaylistRepository,
         videoCatalog: createVideoCatalog(),
-      }).addVideoToPlaylist.execute({ ownerId: 'owner-1', playlistId: 'playlist-1', videoId: 'video-1' }),
+      }).addVideoToPlaylist.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        videoId: 'video-1',
+      }),
       { reason: 'DUPLICATE_VIDEO_IN_PLAYLIST', status: 409 },
     );
-    await expectFailure(
+    expectFailure(
       await createServerPlaylistServices({
         playlistRepository: createPlaylistRepository(),
         videoCatalog: createVideoCatalog({ findById: async () => null }),
-      }).addVideoToPlaylist.execute({ ownerId: 'owner-1', playlistId: 'playlist-1', videoId: 'missing-video' }),
+      }).addVideoToPlaylist.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        videoId: 'missing-video',
+      }),
       { reason: 'VIDEO_NOT_FOUND', status: 400 },
     );
-    await expectFailure(
+    expectFailure(
       await createServerPlaylistServices({
         playlistRepository: ownerPlaylistRepository,
         videoCatalog: createVideoCatalog(),
-      }).removeVideoFromPlaylist.execute({ ownerId: 'owner-1', playlistId: 'playlist-1', videoId: 'missing-video' }),
+      }).removeVideoFromPlaylist.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+        videoId: 'missing-video',
+      }),
       { reason: 'VIDEO_NOT_FOUND_IN_PLAYLIST', status: 404 },
     );
-    await expectFailure(
+    expectFailure(
       await createServerPlaylistServices({
         playlistRepository: ownerPlaylistRepository,
         videoCatalog: createVideoCatalog(),
-      }).reorderPlaylistItems.execute({ newOrder: [], ownerId: 'owner-1', playlistId: 'playlist-1' }),
+      }).reorderPlaylistItems.execute({
+        newOrder: [],
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+      }),
       { reason: 'VALIDATION_ERROR', status: 400 },
     );
-    await expectFailure(
+    expectFailure(
       await createServerPlaylistServices({
         playlistRepository: createPlaylistRepository({
           findWithFilters: async () => {
@@ -186,7 +218,6 @@ describe('playlist composition owner contract', () => {
       }).findPlaylists.execute({
         filters: {},
         includeEmpty: true,
-        includeStats: false,
         limit: 20,
         offset: 0,
         ownerId: 'owner-1',

@@ -1,56 +1,24 @@
-import { createConfigs } from '@retn0/eslint-config';
-import reactHooks from 'eslint-plugin-react-hooks';
-import { defineConfig } from 'eslint/config';
+import retn0 from '@retn0/eslint-config';
+import eslintConfigOxlint from '@retn0/eslint-config-oxlint';
+import oxlintConfig from './oxlint.config.mts';
 
-export default defineConfig([
-  ...createConfigs(),
-  {
-    files: [
-      '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-    ],
-    ...reactHooks.configs.flat.recommended,
-  },
-  {
-    settings: {
-      react: {
-        version: 'detect',
-      },
-    },
-  },
+export default retn0(
+  { environments: ['node', 'browser'], react: true, vitest: true },
+  eslintConfigOxlint(oxlintConfig),
   {
     ignores: [
-      '.react-router',
-      '.stryker-tmp',
-      'build',
-      'playwright-report',
-      'test-results',
-      'app/shared/ui/**/*',
-      'app/components/ui/**/*',
+      '.react-router/**',
+      'build/**',
+      'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
+      'app/shared/ui/**',
     ],
   },
   {
-    rules: {
-      '@stylistic/operator-linebreak': ['error', 'after', {
-        overrides: {
-          '?': 'before',
-          ':': 'before',
-          '&': 'before',
-          '|': 'before',
-        },
-      }],
-      '@stylistic/multiline-ternary': ['error', 'always-multiline', {
-        ignoreJSX: true,
-      }],
-      '@stylistic/jsx-one-expression-per-line': ['error', { allow: 'non-jsx' }],
-    },
-  },
-  {
-    files: [
-      '**/*.{ts,tsx}',
-    ],
-    rules: {
-      '@typescript-eslint/no-explicit-any': ['warn'],
-    },
+    files: ['**/*.{test,spec}.{js,mjs,cjs,jsx,ts,mts,cts,tsx}', 'tests/support/**/*.ts'],
+    // Async test doubles may satisfy an asynchronous port without awaiting work themselves.
+    rules: { '@typescript-eslint/require-await': 'off' },
   },
   {
     files: [
@@ -61,18 +29,22 @@ export default defineConfig([
       'app/widgets/**/*.{ts,tsx}',
     ],
     rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [
-          {
-            group: ['~/components/ui/*'],
-            message: 'Use shadcn primitives from ~/shared/ui/* instead of deprecated UI paths.',
-          },
-          {
-            group: ['@radix-ui/*', 'radix-ui'],
-            message: 'Import vendor primitives only inside ~/shared/ui/* and consume them elsewhere via ~/shared/ui/*.',
-          },
-        ],
-      }],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['~/components/ui/*'],
+              message: 'Use shadcn primitives from ~/shared/ui/* instead of deprecated UI paths.',
+            },
+            {
+              group: ['@radix-ui/*', 'radix-ui'],
+              message:
+                'Import vendor primitives only inside ~/shared/ui/* and consume them elsewhere via ~/shared/ui/*.',
+            },
+          ],
+        },
+      ],
     },
   },
-]);
+);

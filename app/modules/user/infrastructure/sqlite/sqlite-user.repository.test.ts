@@ -2,7 +2,6 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
 import { SqliteUserRepository } from './sqlite-user.repository';
 
 describe('SqliteUserRepository', () => {
@@ -26,7 +25,6 @@ describe('SqliteUserRepository', () => {
       createdAt,
       id: 'user-1',
       passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
       username: 'Owner',
       usernameKey: 'owner',
     });
@@ -35,7 +33,6 @@ describe('SqliteUserRepository', () => {
       createdAt,
       id: 'user-1',
       passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
       username: 'Owner',
       usernameKey: 'owner',
     });
@@ -51,19 +48,19 @@ describe('SqliteUserRepository', () => {
       createdAt,
       id: 'user-1',
       passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
       username: 'Owner',
       usernameKey: 'owner',
     });
 
-    await expect(repository.create({
-      createdAt,
-      id: 'user-2',
-      passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
-      username: 'OWNER',
-      usernameKey: 'owner',
-    })).rejects.toThrow();
+    await expect(
+      repository.create({
+        createdAt,
+        id: 'user-2',
+        passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
+        username: 'OWNER',
+        usernameKey: 'owner',
+      }),
+    ).rejects.toThrow();
   });
 
   test('returns null for first-user-only creation after a user already exists', async () => {
@@ -74,21 +71,24 @@ describe('SqliteUserRepository', () => {
       createdAt,
       id: 'user-1',
       passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
       username: 'Owner',
       usernameKey: 'owner',
     });
 
-    await expect(repository.create({
-      createdAt,
-      id: 'user-2',
-      passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
-      username: 'Second',
-      usernameKey: 'second',
-    }, {
-      requireFirstUser: true,
-    })).resolves.toBeNull();
+    await expect(
+      repository.create(
+        {
+          createdAt,
+          id: 'user-2',
+          passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
+          username: 'Second',
+          usernameKey: 'second',
+        },
+        {
+          requireFirstUser: true,
+        },
+      ),
+    ).resolves.toBeNull();
 
     await expect(repository.count()).resolves.toBe(1);
   });
@@ -101,7 +101,6 @@ describe('SqliteUserRepository', () => {
       createdAt,
       id: 'user-1',
       passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
       username: 'Owner',
       usernameKey: 'owner',
     });
@@ -120,53 +119,30 @@ describe('SqliteUserRepository', () => {
       createdAt,
       id: 'user-1',
       passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
       username: 'Owner',
       usernameKey: 'owner',
     });
     await expect(repository.count()).resolves.toBe(1);
   });
 
-  test('assigns existing single-user playlists to the first user', async () => {
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
-    await database.prepare(`
-      INSERT INTO playlists (
-        id,
-        owner_id,
-        name,
-        name_key,
-        type,
-        is_public,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      'playlist-1',
-      'site-owner',
-      'Watch Later',
-      'watch later',
-      'manual',
-      0,
-      '2026-05-15T00:00:00.000Z',
-      '2026-05-15T00:00:00.000Z',
-    );
-
+  test('allows only one concurrent first-account bootstrap', async () => {
     const repository = new SqliteUserRepository({ dbPath });
-    await repository.create({
-      createdAt: new Date('2026-05-16T00:00:00.000Z'),
-      id: 'user-1',
-      passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$salt$hash',
-      role: 'admin',
-      username: 'Owner',
-      usernameKey: 'owner',
-    });
-
-    await expect(database.prepare<{ owner_id: string }>(`
-      SELECT owner_id
-      FROM playlists
-      WHERE id = ?
-    `).get('playlist-1')).resolves.toEqual({
-      owner_id: 'user-1',
-    });
+    const createdAt = new Date('2026-05-16T00:00:00.000Z');
+    const results = await Promise.all(
+      ['first', 'second'].map((id) =>
+        repository.create(
+          {
+            createdAt,
+            id,
+            passwordHash: '$argon2id$test-hash',
+            username: id,
+            usernameKey: id,
+          },
+          { requireFirstUser: true },
+        ),
+      ),
+    );
+    expect(results.filter(Boolean)).toHaveLength(1);
+    await expect(repository.count()).resolves.toBe(1);
   });
 });

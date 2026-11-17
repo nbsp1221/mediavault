@@ -1,15 +1,19 @@
-import { createMigratedPrimarySqliteDatabase } from '../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '../../app/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { toRequestCookieHeader } from '../helpers/cookies';
+import { routeArgs } from '../helpers/route-args';
 import { E2E_AUTH_PASSWORD, E2E_AUTH_USERNAME, seedRuntimeAuthUser } from './auth-account';
 import { createRuntimeTestWorkspace } from './create-runtime-test-workspace';
 import { TEST_DATABASE_ENCRYPTION_KEY } from './database-encryption-key';
-import { type SeedLibraryVideoInput, seedLibraryVideoMetadata } from './seed-library-video-metadata';
+import {
+  type SeedLibraryVideoInput,
+  seedLibraryVideoMetadata,
+} from './seed-library-video-metadata';
 
 export const PLAYLIST_OWNER_ID = 'seeded-owner-1';
 
 interface PlaylistRuntimeWorkspaceOptions {
-  playlistItems?: unknown[];
-  playlists?: unknown[];
+  playlistItems?: SeedPlaylistItemRow[];
+  playlists?: SeedPlaylistRow[];
   videos?: SeedLibraryVideoInput[];
 }
 
@@ -79,8 +83,7 @@ const ENV_KEYS_TO_RESTORE = [
   'MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET',
 ] as const;
 
-type RestorableEnvKey = typeof ENV_KEYS_TO_RESTORE[number];
-type PreviousEnvValues = Record<RestorableEnvKey, string | undefined>;
+type RestorableEnvKey = (typeof ENV_KEYS_TO_RESTORE)[number];
 
 interface SeedPlaylistRow {
   createdAt?: string;
@@ -105,45 +108,56 @@ interface SeedPlaylistItemRow {
   videoId: string;
 }
 
-function normalizePlaylistRows(value: unknown[] | undefined): SeedPlaylistRow[] {
-  return (value ?? DEFAULT_PLAYLISTS) as SeedPlaylistRow[];
+function normalizePlaylistRows(value: SeedPlaylistRow[] | undefined): SeedPlaylistRow[] {
+  return value ?? DEFAULT_PLAYLISTS;
 }
 
 function normalizePlaylistItemRows(
   playlists: SeedPlaylistRow[],
-  value: unknown[] | undefined,
+  value: SeedPlaylistItemRow[] | undefined,
 ): SeedPlaylistItemRow[] {
   if (value) {
-    return value as SeedPlaylistItemRow[];
+    return value;
   }
 
-  return playlists.flatMap(playlist => (playlist.videoIds ?? []).map((videoId, index) => ({
-    addedAt: playlist.updatedAt ?? playlist.createdAt,
-    addedBy: playlist.ownerId,
-    playlistId: playlist.id,
-    position: index + 1,
-    videoId,
-  })));
+  return playlists.flatMap((playlist) =>
+    (playlist.videoIds ?? []).map((videoId, index) => ({
+      addedAt: playlist.updatedAt ?? playlist.createdAt,
+      addedBy: playlist.ownerId,
+      playlistId: playlist.id,
+      position: index + 1,
+      videoId,
+    })),
+  );
 }
 
-function collectReferencedVideoIds(playlists: SeedPlaylistRow[], playlistItems: SeedPlaylistItemRow[]) {
-  return Array.from(new Set([
-    ...playlists.flatMap(playlist => playlist.videoIds ?? []),
-    ...playlistItems.map(item => item.videoId),
-  ]));
+function collectReferencedVideoIds(
+  playlists: SeedPlaylistRow[],
+  playlistItems: SeedPlaylistItemRow[],
+) {
+  return Array.from(
+    new Set([
+      ...playlists.flatMap((playlist) => playlist.videoIds ?? []),
+      ...playlistItems.map((item) => item.videoId),
+    ]),
+  );
 }
 
-async function seedPlaylists(databasePath: string, input: {
-  playlistItems?: unknown[];
-  playlists?: unknown[];
-}) {
-  const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+async function seedPlaylists(
+  databasePath: string,
+  input: {
+    playlistItems?: SeedPlaylistItemRow[];
+    playlists?: SeedPlaylistRow[];
+  },
+) {
+  const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
   const playlists = normalizePlaylistRows(input.playlists);
   const playlistItems = normalizePlaylistItemRows(playlists, input.playlistItems);
 
   await database.transaction(async (transaction) => {
     for (const playlist of playlists) {
-      await transaction.prepare(`
+      await transaction
+        .prepare(`
         INSERT INTO playlists (
           id,
           owner_id,
@@ -157,23 +171,25 @@ async function seedPlaylists(databasePath: string, input: {
           created_at,
           updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        playlist.id,
-        playlist.ownerId,
-        playlist.name,
-        playlist.name.trim().toLowerCase(),
-        playlist.description ?? null,
-        playlist.type,
-        playlist.isPublic ? 1 : 0,
-        playlist.thumbnailUrl ?? null,
-        playlist.metadata ? JSON.stringify(playlist.metadata) : null,
-        playlist.createdAt ?? new Date(0).toISOString(),
-        playlist.updatedAt ?? playlist.createdAt ?? new Date(0).toISOString(),
-      );
+      `)
+        .run(
+          playlist.id,
+          playlist.ownerId,
+          playlist.name,
+          playlist.name.trim().toLowerCase(),
+          playlist.description ?? null,
+          playlist.type,
+          playlist.isPublic ? 1 : 0,
+          playlist.thumbnailUrl ?? null,
+          playlist.metadata ? JSON.stringify(playlist.metadata) : null,
+          playlist.createdAt ?? new Date(0).toISOString(),
+          playlist.updatedAt ?? playlist.createdAt ?? new Date(0).toISOString(),
+        );
     }
 
     for (const item of playlistItems) {
-      await transaction.prepare(`
+      await transaction
+        .prepare(`
         INSERT INTO playlist_items (
           playlist_id,
           video_id,
@@ -182,14 +198,15 @@ async function seedPlaylists(databasePath: string, input: {
           added_by,
           episode_metadata_json
         ) VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
-        item.playlistId,
-        item.videoId,
-        Math.max((item.position ?? 1) - 1, 0),
-        item.addedAt ?? new Date(0).toISOString(),
-        item.addedBy ?? PLAYLIST_OWNER_ID,
-        item.episodeMetadata ? JSON.stringify(item.episodeMetadata) : null,
-      );
+      `)
+        .run(
+          item.playlistId,
+          item.videoId,
+          Math.max((item.position ?? 1) - 1, 0),
+          item.addedAt ?? new Date(0).toISOString(),
+          item.addedBy ?? PLAYLIST_OWNER_ID,
+          item.episodeMetadata ? JSON.stringify(item.episodeMetadata) : null,
+        );
     }
   });
 }
@@ -197,16 +214,15 @@ async function seedPlaylists(databasePath: string, input: {
 export async function createPlaylistRuntimeTestWorkspace(
   options: PlaylistRuntimeWorkspaceOptions = {},
 ): Promise<PlaylistRuntimeWorkspace> {
-  const previousEnv = ENV_KEYS_TO_RESTORE.reduce<PreviousEnvValues>((values, key) => {
-    values[key] = process.env[key];
-    return values;
-  }, {} as PreviousEnvValues);
+  const previousEnv = new Map<RestorableEnvKey, string | undefined>(
+    ENV_KEYS_TO_RESTORE.map((key) => [key, process.env[key]]),
+  );
   const workspace = await createRuntimeTestWorkspace();
   const playlists = normalizePlaylistRows(options.playlists);
   const playlistItems = normalizePlaylistItemRows(playlists, options.playlistItems);
 
   function restoreEnvValue(key: RestorableEnvKey): void {
-    const value = previousEnv[key];
+    const value = previousEnv.get(key);
     if (value === undefined) {
       delete process.env[key];
       return;
@@ -221,13 +237,10 @@ export async function createPlaylistRuntimeTestWorkspace(
   delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
   delete process.env.MEDIAVAULT_MEDIA_KEY_DERIVATION_SECRET;
 
-  await seedLibraryVideoMetadata(
-    workspace.databasePath,
-    options.videos ?? DEFAULT_VIDEOS,
-  );
-  const seededVideoIds = new Set((options.videos ?? DEFAULT_VIDEOS).map(video => video.id));
+  await seedLibraryVideoMetadata(workspace.databasePath, options.videos ?? DEFAULT_VIDEOS);
+  const seededVideoIds = new Set((options.videos ?? DEFAULT_VIDEOS).map((video) => video.id));
   const missingReferencedVideos = collectReferencedVideoIds(playlists, playlistItems)
-    .filter(videoId => !seededVideoIds.has(videoId))
+    .filter((videoId) => !seededVideoIds.has(videoId))
     .map((videoId, index) => ({
       createdAt: '2026-03-21T00:00:00.000Z',
       description: `Generated playlist fixture for ${videoId}`,
@@ -264,18 +277,21 @@ export async function createPlaylistRuntimeTestWorkspace(
     },
     login: async () => {
       const { action } = await import('../../app/routes/api.auth.login');
-      const response = await action({
-        request: new Request('http://localhost/api/auth/login', {
-          body: JSON.stringify({
-            password: E2E_AUTH_PASSWORD,
-            username: E2E_AUTH_USERNAME,
+      const response = await action(
+        routeArgs({
+          request: new Request('http://localhost/api/auth/login', {
+            body: JSON.stringify({
+              password: E2E_AUTH_PASSWORD,
+              username: E2E_AUTH_USERNAME,
+            }),
+            headers: {
+              'Content-Type': 'application/json',
+              'Origin': 'http://localhost',
+            },
+            method: 'POST',
           }),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          method: 'POST',
         }),
-      } as never);
+      );
 
       return toRequestCookieHeader(response.headers.get('Set-Cookie'));
     },

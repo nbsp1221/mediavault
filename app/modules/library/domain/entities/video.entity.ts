@@ -21,14 +21,14 @@ export interface CreateVideoEntityInput {
 export type CreateVideoEntityResult =
   | { ok: true; video: VideoEntity }
   | {
-    ok: false;
-    reason:
-      | 'VIDEO_ID_REQUIRED'
-      | 'VIDEO_ID_UNSAFE'
-      | 'VIDEO_OWNER_REQUIRED'
-      | 'VIDEO_TITLE_REQUIRED'
-      | 'VIDEO_VISIBILITY_INVALID';
-  };
+      ok: false;
+      reason:
+        | 'VIDEO_ID_REQUIRED'
+        | 'VIDEO_ID_UNSAFE'
+        | 'VIDEO_OWNER_REQUIRED'
+        | 'VIDEO_TITLE_REQUIRED'
+        | 'VIDEO_VISIBILITY_INVALID';
+    };
 
 interface VideoEntityProps {
   contentTypeSlug?: string;
@@ -148,9 +148,7 @@ export class VideoEntity {
     tags?: string[];
     title?: string;
   }): CreateVideoEntityResult {
-    const title = typeof input.title === 'string'
-      ? createVideoTitle(input.title)
-      : null;
+    const title = typeof input.title === 'string' ? createVideoTitle(input.title) : null;
 
     if (title && !title.ok) {
       return title;

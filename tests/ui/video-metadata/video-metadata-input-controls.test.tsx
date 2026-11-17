@@ -65,7 +65,7 @@ describe('Video metadata input controls', () => {
     await user.type(screen.getByLabelText('Tags'), '  Neo, New Tag, action!!, , ');
     await user.keyboard('{Enter}');
 
-    expect(onChange).toHaveBeenLastCalledWith(['neo', 'new_tag', 'action']);
+    expect(onChange).toHaveBeenLastCalledWith(['neo', 'new tag', 'action!!']);
     expect(screen.getByLabelText('Tags')).toHaveValue('');
   });
 
@@ -87,7 +87,7 @@ describe('Video metadata input controls', () => {
     await user.type(screen.getByLabelText('Tags'), '  Quiet Scene  ');
     await user.click(screen.getByRole('button', { name: 'Next field' }));
 
-    expect(onChange).toHaveBeenCalledWith(['quiet_scene']);
+    expect(onChange).toHaveBeenCalledWith(['quiet scene']);
   });
 
   test('removes tags through chips and only backspaces chips from an empty draft', async () => {
@@ -149,7 +149,10 @@ describe('Video metadata input controls', () => {
     await user.click(screen.getByRole('combobox', { name: 'Content type' }));
     await user.click(await screen.findByText('Series'));
     expect(onChange).toHaveBeenLastCalledWith('series');
-    expect(screen.getByRole('combobox', { name: 'Content type' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('combobox', { name: 'Content type' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
 
     await user.click(screen.getByRole('combobox', { name: 'Content type' }));
     await user.click(await screen.findByText('No selection'));

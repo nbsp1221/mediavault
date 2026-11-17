@@ -4,15 +4,16 @@ import type {
   IngestMediaPreparationPort,
   PrepareIngestMediaCommand,
 } from '~/modules/ingest/application/ports/ingest-media-preparation.port';
-import type { ThumbnailFinalizerPort } from '~/modules/thumbnail/application/ports/thumbnail-finalizer.port';
-import type { MediaKeyDerivationConfig } from '~/shared/config/app-config.server';
-import type { RuntimeEnvInput } from '~/shared/config/app-config.server';
+import type { MediaKeyDerivationConfig, RuntimeEnvInput } from '~/shared/config/app-config.server';
 import { derivePlaybackEncryptionKey } from '~/modules/playback/infrastructure/license/derive-playback-encryption-key';
 import { generatePlaybackKeyId } from '~/modules/playback/infrastructure/license/generate-playback-key-id';
-import { ThumbnailFinalizerAdapter } from '~/modules/thumbnail/infrastructure/finalization/thumbnail-finalizer.adapter';
-import { getMediaKeyDerivationConfig, getMediaPackagingConfig } from '~/shared/config/app-config.server';
+import {
+  getMediaKeyDerivationConfig,
+  getMediaPackagingConfig,
+} from '~/shared/config/app-config.server';
 import { getShakaPackagerPath } from '~/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '~/shared/lib/server/ffmpeg-process-manager.server';
+import { MediaProcessError } from '~/shared/lib/server/supervised-process.server';
 import { normalizeClearKeyManifest } from './normalize-clearkey-manifest';
 
 interface LoggerLike {
@@ -30,48 +31,46 @@ interface WorkspacePaths {
   videoDir: string;
 }
 
-type MediaPreparationPhase = 'cleanup' | 'manifest' | 'package' | 'prepare' | 'thumbnail' | 'verify';
+type MediaPreparationPhase =
+  | 'cleanup'
+  | 'manifest'
+  | 'package'
+  | 'prepare'
+  | 'thumbnail'
+  | 'verify';
 
 interface FfmpegMediaPreparationAdapterDependencies {
   env?: RuntimeEnvInput;
   executeCommand?: (input: {
     args: string[];
     command: string;
+    signal?: AbortSignal;
     timeoutMs?: number;
   }) => Promise<Awaited<ReturnType<typeof executeFFmpegCommand>>>;
   getShakaPackagerPath?: () => string;
   logger?: LoggerLike;
   mediaKeyConfig?: MediaKeyDerivationConfig;
   segmentDuration?: number;
-  thumbnailFinalizer?: ThumbnailFinalizerPort;
 }
 
 export class FfmpegMediaPreparationAdapter implements IngestMediaPreparationPort {
-  private readonly executeCommand: NonNullable<FfmpegMediaPreparationAdapterDependencies['executeCommand']>;
-  private readonly getShakaPackagerPath: NonNullable<FfmpegMediaPreparationAdapterDependencies['getShakaPackagerPath']>;
+  private readonly executeCommand: NonNullable<
+    FfmpegMediaPreparationAdapterDependencies['executeCommand']
+  >;
+  private readonly getShakaPackagerPath: NonNullable<
+    FfmpegMediaPreparationAdapterDependencies['getShakaPackagerPath']
+  >;
   private readonly logger: LoggerLike;
   private readonly mediaKeyConfig: MediaKeyDerivationConfig;
   private readonly segmentDuration: number;
-  private readonly thumbnailFinalizer: ThumbnailFinalizerPort;
 
   constructor(deps: FfmpegMediaPreparationAdapterDependencies = {}) {
     this.executeCommand = deps.executeCommand ?? executeFFmpegCommand;
     this.getShakaPackagerPath = deps.getShakaPackagerPath ?? getShakaPackagerPath;
     this.logger = deps.logger ?? console;
     this.mediaKeyConfig = deps.mediaKeyConfig ?? getMediaKeyDerivationConfig(deps.env);
-    this.segmentDuration = deps.segmentDuration ?? getMediaPackagingConfig(deps.env).segmentDuration;
-    this.thumbnailFinalizer = deps.thumbnailFinalizer ?? new ThumbnailFinalizerAdapter({
-      logger: this.logger,
-    });
-  }
-
-  async finalizeSuccessfulVideo(command: { title: string; videoId: string }): Promise<void> {
-    try {
-      await this.thumbnailFinalizer.finalizeThumbnail(command);
-    }
-    catch (error) {
-      this.logger.error(`Failed to finalize thumbnail for ${command.videoId}`, error);
-    }
+    this.segmentDuration =
+      deps.segmentDuration ?? getMediaPackagingConfig(deps.env).segmentDuration;
   }
 
   async prepareMedia(command: PrepareIngestMediaCommand): Promise<{
@@ -89,8 +88,8 @@ export class FfmpegMediaPreparationAdapter implements IngestMediaPreparationPort
         dashEnabled: true,
         message: 'Video added to library successfully with media preparation',
       };
-    }
-    catch (error) {
+    } catch (error) {
+      command.signal?.throwIfAborted();
       this.logger.error(`Media preparation failed for ${command.videoId}`, error);
 
       return {
@@ -103,16 +102,21 @@ export class FfmpegMediaPreparationAdapter implements IngestMediaPreparationPort
   private async prepareWithFallback(command: PrepareIngestMediaCommand) {
     try {
       await this.prepareAttempt(command);
-    }
-    catch (error) {
-      if (!shouldRetryWithFullTranscode({
-        error,
-        strategy: command.strategy,
-      })) {
+    } catch (error) {
+      command.signal?.throwIfAborted();
+      if (
+        !shouldRetryWithFullTranscode({
+          error,
+          strategy: command.strategy,
+        })
+      ) {
         throw error;
       }
 
-      this.logger.error(`Media preparation strategy ${command.strategy} failed; retrying H.264/AAC fallback for ${command.videoId}`, error);
+      this.logger.error(
+        `Media preparation strategy ${command.strategy} failed; retrying H.264/AAC fallback for ${command.videoId}`,
+        error,
+      );
       const workspace = resolveWorkspacePaths(command);
       await cleanupPreparedOutput(workspace);
       await this.prepareAttempt({
@@ -123,7 +127,12 @@ export class FfmpegMediaPreparationAdapter implements IngestMediaPreparationPort
   }
 
   private async prepareAttempt(command: PrepareIngestMediaCommand) {
+    command.signal?.throwIfAborted();
     const workspace = resolveWorkspacePaths(command);
+
+    const executeCommand: typeof this.executeCommand = (input) =>
+      this.executeCommand({ ...input, signal: command.signal });
+
     const key = derivePlaybackEncryptionKey({
       config: this.mediaKeyConfig,
       videoId: command.videoId,
@@ -133,33 +142,47 @@ export class FfmpegMediaPreparationAdapter implements IngestMediaPreparationPort
     await mkdir(workspace.audioDir, { recursive: true });
     await writeFile(workspace.keyPath, key);
 
-    await runPreparationPhase('prepare', () => this.executeCommand({
-      args: buildPrepareArgs({
-        command,
-        outputPath: workspace.intermediatePath,
+    await command.onPhase?.('preparing');
+    command.signal?.throwIfAborted();
+    await runPreparationPhase('prepare', () =>
+      executeCommand({
+        args: buildPrepareArgs({
+          command,
+          outputPath: workspace.intermediatePath,
+        }),
+        command: 'ffmpeg',
       }),
-      command: 'ffmpeg',
-    }));
+    );
 
-    await runPreparationPhase('package', () => this.executeCommand({
-      args: buildPackagerArgs({
-        inputPath: workspace.intermediatePath,
-        key,
-        keyId: generatePlaybackKeyId(command.videoId),
-        manifestPath: workspace.manifestPath,
-        outputDir: workspace.rootDir,
-        segmentDuration: this.segmentDuration,
+    await command.onPhase?.('packaging');
+    command.signal?.throwIfAborted();
+    await runPreparationPhase('package', () =>
+      executeCommand({
+        args: buildPackagerArgs({
+          inputPath: workspace.intermediatePath,
+          key,
+          keyId: generatePlaybackKeyId(command.videoId),
+          manifestPath: workspace.manifestPath,
+          outputDir: workspace.rootDir,
+          segmentDuration: this.segmentDuration,
+        }),
+        command: this.getShakaPackagerPath(),
       }),
-      command: this.getShakaPackagerPath(),
-    }));
+    );
 
-    await runPreparationPhase('thumbnail', () => ensureThumbnailAsset({
-      duration: command.analysis.duration,
-      executeCommand: this.executeCommand,
-      sourcePath: command.sourcePath,
-      thumbnailPath: workspace.thumbnailPath,
-    }));
+    await command.onPhase?.('thumbnail');
+    command.signal?.throwIfAborted();
+    await runPreparationPhase('thumbnail', () =>
+      ensureThumbnailAsset({
+        duration: command.analysis.duration,
+        executeCommand,
+        sourcePath: command.sourcePath,
+        thumbnailPath: workspace.thumbnailPath,
+      }),
+    );
     await runPreparationPhase('manifest', () => normalizeManifest(workspace.manifestPath));
+    await command.onPhase?.('verifying');
+    command.signal?.throwIfAborted();
     await runPreparationPhase('verify', () => verifyPackagedPlaybackAssets(workspace));
     await runPreparationPhase('cleanup', () => rm(workspace.intermediatePath, { force: true }));
   }
@@ -170,7 +193,9 @@ class MediaPreparationAttemptError extends Error {
   readonly phase: MediaPreparationPhase;
 
   constructor(phase: MediaPreparationPhase, originalError: unknown) {
-    super(originalError instanceof Error ? originalError.message : `Media preparation ${phase} failed`);
+    super(
+      originalError instanceof Error ? originalError.message : `Media preparation ${phase} failed`,
+    );
     this.name = 'MediaPreparationAttemptError';
     this.originalError = originalError;
     this.phase = phase;
@@ -189,8 +214,7 @@ async function runPreparationPhase<T>(
 ): Promise<T> {
   try {
     return await action();
-  }
-  catch (error) {
+  } catch (error) {
     throw new MediaPreparationAttemptError(phase, error);
   }
 }
@@ -207,7 +231,17 @@ function shouldRetryWithFullTranscode(input: {
     return false;
   }
 
-  return input.error.phase === 'prepare' || input.error.phase === 'package' || input.error.phase === 'verify';
+  if (
+    input.error.originalError instanceof MediaProcessError &&
+    input.error.originalError.code !== 'PROCESS_FAILED'
+  ) {
+    return false;
+  }
+  return (
+    input.error.phase === 'prepare' ||
+    input.error.phase === 'package' ||
+    input.error.phase === 'verify'
+  );
 }
 
 function resolveWorkspacePaths(input: {
@@ -292,7 +326,9 @@ function buildStreamCopyArgs(input: {
     ...buildHevcMp4TagArgs(input.command),
     '-c:a',
     input.audioMode,
-    ...(input.audioMode === 'aac' ? buildAacTranscodeArgs() : buildAacBitstreamFilterArgs(input.command)),
+    ...(input.audioMode === 'aac'
+      ? buildAacTranscodeArgs()
+      : buildAacBitstreamFilterArgs(input.command)),
     ...buildMp4OutputArgs(input.outputPath),
   ];
 }
@@ -343,7 +379,9 @@ function buildVideoTranscodeArgs(input: {
     ...buildH264VideoArgs(),
     '-c:a',
     input.audioMode,
-    ...(input.audioMode === 'aac' ? buildAacTranscodeArgs() : buildAacBitstreamFilterArgs(input.command)),
+    ...(input.audioMode === 'aac'
+      ? buildAacTranscodeArgs()
+      : buildAacBitstreamFilterArgs(input.command)),
     ...buildMp4OutputArgs(input.outputPath),
   ];
 }
@@ -368,14 +406,7 @@ function buildH264VideoArgs() {
 }
 
 function buildAacTranscodeArgs() {
-  return [
-    '-b:a',
-    '128k',
-    '-ac',
-    '2',
-    '-ar',
-    '44100',
-  ];
+  return ['-b:a', '128k', '-ac', '2', '-ar', '44100'];
 }
 
 function buildAacBitstreamFilterArgs(command: PrepareIngestMediaCommand) {
@@ -396,14 +427,7 @@ function buildHevcMp4TagArgs(command: PrepareIngestMediaCommand) {
 }
 
 function buildMp4OutputArgs(outputPath: string) {
-  return [
-    '-f',
-    'mp4',
-    '-movflags',
-    '+faststart',
-    '-y',
-    outputPath,
-  ];
+  return ['-f', 'mp4', '-movflags', '+faststart', '-y', outputPath];
 }
 
 function buildPackagerArgs(input: {
@@ -535,7 +559,7 @@ async function ensureStreamAssets(streamDir: string, label: 'audio' | 'video') {
     stat(path.join(streamDir, 'segment-0001.m4s')),
     stat(path.join(streamDir, 'segment-1.m4s')),
   ]);
-  const hasSegment = segmentStats.some(result => result.status === 'fulfilled');
+  const hasSegment = segmentStats.some((result) => result.status === 'fulfilled');
 
   if (!hasSegment) {
     throw new Error(`missing packaged media segments: ${label}`);
@@ -546,8 +570,7 @@ async function pathExists(targetPath: string) {
   try {
     await stat(targetPath);
     return true;
-  }
-  catch {
+  } catch {
     return false;
   }
 }

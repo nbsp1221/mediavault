@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
@@ -7,16 +7,14 @@ const activeHomeRoots = [
   join(projectRoot, 'app/routes/_index.tsx'),
   join(projectRoot, 'app/pages/home'),
   join(projectRoot, 'app/entities/library-video'),
-  join(projectRoot, 'app/entities/pending-video'),
-  join(projectRoot, 'app/features/home-library-video-actions'),
-  join(projectRoot, 'app/features/home-tag-filter'),
-  join(projectRoot, 'app/features/home-quick-view'),
-  join(projectRoot, 'app/widgets/home-library'),
+  join(projectRoot, 'app/features/video-management'),
   join(projectRoot, 'app/widgets/product-shell'),
 ];
 
 async function collectFiles(path: string): Promise<string[]> {
-  const exists = await stat(path).then(() => true).catch(() => false);
+  const exists = await stat(path)
+    .then(() => true)
+    .catch(() => false);
 
   if (!exists) {
     return [];
@@ -27,15 +25,17 @@ async function collectFiles(path: string): Promise<string[]> {
   }
 
   const entries = await readdir(path, { withFileTypes: true });
-  const files = await Promise.all(entries.map(async (entry) => {
-    const fullPath = join(path, entry.name);
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const fullPath = join(path, entry.name);
 
-    if (entry.isDirectory()) {
-      return collectFiles(fullPath);
-    }
+      if (entry.isDirectory()) {
+        return collectFiles(fullPath);
+      }
 
-    return /\.(ts|tsx)$/.test(entry.name) ? [fullPath] : [];
-  }));
+      return /\.(ts|tsx)$/.test(entry.name) ? [fullPath] : [];
+    }),
+  );
 
   return files.flat();
 }
@@ -43,6 +43,7 @@ async function collectFiles(path: string): Promise<string[]> {
 describe('home UI ownership boundary', () => {
   test('home UI does not derive video authorization from owner or visibility fields', async () => {
     const files = (await Promise.all(activeHomeRoots.map(collectFiles))).flat();
+    expect(files.length).toBeGreaterThan(0);
     const forbiddenAuthorizationPatterns = [
       /VideoAccessPolicy/,
       /video-access\.policy/,

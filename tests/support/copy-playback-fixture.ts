@@ -9,9 +9,5 @@ export async function copyPlaybackFixture(input: {
 }): Promise<void> {
   const fixtureDir = await assertRequiredPlaybackFixture(input.sourceVideoId ?? input.videoId);
 
-  await cp(
-    fixtureDir,
-    join(input.targetVideosDir, input.videoId),
-    { recursive: true },
-  );
+  await cp(fixtureDir, join(input.targetVideosDir, input.videoId), { recursive: true });
 }

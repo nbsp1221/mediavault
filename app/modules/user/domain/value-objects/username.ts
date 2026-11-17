@@ -6,10 +6,7 @@ export type CreateUsernameResult =
   | { ok: false; reason: 'USERNAME_REQUIRED' | 'USERNAME_UNSAFE' };
 
 export function normalizeUsernameKey(rawUsername: string): string | null {
-  const usernameKey = rawUsername
-    .trim()
-    .toLowerCase()
-    .replace(USERNAME_WHITESPACE_PATTERN, ' ');
+  const usernameKey = rawUsername.trim().toLowerCase().replace(USERNAME_WHITESPACE_PATTERN, ' ');
 
   return usernameKey || null;
 }
@@ -24,7 +21,11 @@ export function createUsername(rawUsername: string): CreateUsernameResult {
     };
   }
 
-  if (USERNAME_UNSAFE_PATTERN.test(username) || username.includes('..') || username.includes('\0')) {
+  if (
+    USERNAME_UNSAFE_PATTERN.test(username) ||
+    username.includes('..') ||
+    username.includes('\0')
+  ) {
     return {
       ok: false,
       reason: 'USERNAME_UNSAFE',
@@ -34,6 +35,6 @@ export function createUsername(rawUsername: string): CreateUsernameResult {
   return {
     ok: true,
     username,
-    usernameKey: normalizeUsernameKey(username)!,
+    usernameKey: username.toLowerCase().replace(USERNAME_WHITESPACE_PATTERN, ' '),
   };
 }

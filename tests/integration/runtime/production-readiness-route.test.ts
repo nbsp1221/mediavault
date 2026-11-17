@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { ProductionReadinessReport } from '../../../app/modules/runtime/application/production-readiness.policy';
-import { createHealthReadyLoader } from '../../../app/routes/health.ready';
+import { createHealthReadyLoader } from '../../../app/routes/.server/health-ready-loader';
 
 function createReport(input: Partial<ProductionReadinessReport>): ProductionReadinessReport {
   return {
@@ -28,20 +28,23 @@ describe('production readiness route', () => {
     const localStoragePath = '/srv/mediavault/storage';
     const binaryPath = '/usr/local/bin/ffmpeg';
     const loader = createHealthReadyLoader({
-      checkProductionReadiness: async () => createReport({
-        issues: [{
-          code: 'media-tool-unavailable',
-          message: [
-            secretValue,
-            localStoragePath,
-            binaryPath,
-            'storage database media ffmpeg ffprobe packager',
-          ].join(' '),
-          severity: 'readiness-only',
-          subject: 'ffmpeg',
-        }],
-        ready: false,
-      }),
+      checkProductionReadiness: async () =>
+        createReport({
+          issues: [
+            {
+              code: 'media-tool-unavailable',
+              message: [
+                secretValue,
+                localStoragePath,
+                binaryPath,
+                'storage database media ffmpeg ffprobe packager',
+              ].join(' '),
+              severity: 'readiness-only',
+              subject: 'ffmpeg',
+            },
+          ],
+          ready: false,
+        }),
     });
 
     const response = await loader();

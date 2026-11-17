@@ -86,12 +86,14 @@ export async function createRuntimeTestWorkspace(): Promise<RuntimeTestWorkspace
 
   await mkdir(join(storageDir, 'videos'), { recursive: true });
 
-  await Promise.all([
-    ...REQUIRED_BROWSER_PLAYBACK_FIXTURE_IDS.map(videoId => copyPlaybackFixture({
-      targetVideosDir: join(storageDir, 'videos'),
-      videoId,
-    })),
-  ]);
+  await Promise.all(
+    REQUIRED_BROWSER_PLAYBACK_FIXTURE_IDS.map((videoId) =>
+      copyPlaybackFixture({
+        targetVideosDir: join(storageDir, 'videos'),
+        videoId,
+      }),
+    ),
+  );
 
   await seedRuntimeAuthUser(databasePath);
   await seedLibraryVideoMetadata(databasePath, SEEDED_VIDEOS);

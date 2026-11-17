@@ -3,8 +3,8 @@ import { collectCriticalProductionSecretIssues } from '../../../app/modules/runt
 import { getPlaybackConfig } from '../../../app/shared/config/app-config.server';
 import { PUBLIC_ENV_KEYS } from '../../../app/shared/config/public-env.server';
 import {
-  isWeakPlaybackJwtSecret,
   MIN_PLAYBACK_JWT_SECRET_LENGTH,
+  isWeakPlaybackJwtSecret,
 } from '../../../app/shared/config/runtime-config-contract.server';
 import {
   assertRuntimeTestEnvConfigurable,
@@ -48,36 +48,48 @@ describe('runtime test env contract', () => {
     process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = 'ambient-short-secret';
 
     try {
-      expect(createRuntimeTestEnv().MEDIAVAULT_PLAYBACK_JWT_SECRET).not.toBe('ambient-short-secret');
-      expect(() => assertRuntimeTestEnvConfigurable(createProductionRuntimeTestEnv())).not.toThrow();
-    }
-    finally {
+      expect(createRuntimeTestEnv().MEDIAVAULT_PLAYBACK_JWT_SECRET).not.toBe(
+        'ambient-short-secret',
+      );
+      expect(() =>
+        assertRuntimeTestEnvConfigurable(createProductionRuntimeTestEnv()),
+      ).not.toThrow();
+    } finally {
       if (originalPlaybackSecret === undefined) {
         delete process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET;
-      }
-      else {
+      } else {
         process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = originalPlaybackSecret;
       }
     }
   });
 
   test('production fixture contract catches missing and weak playback secrets before Docker runs', () => {
-    expect(collectCriticalProductionSecretIssues(
-      withoutRuntimeEnvKey(createProductionRuntimeTestEnv(), PUBLIC_ENV_KEYS.playbackJwtSecret),
-    )).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        code: 'missing-critical-secret',
-        subject: PUBLIC_ENV_KEYS.playbackJwtSecret,
-      }),
-    ]));
+    expect(
+      collectCriticalProductionSecretIssues(
+        withoutRuntimeEnvKey(createProductionRuntimeTestEnv(), PUBLIC_ENV_KEYS.playbackJwtSecret),
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'missing-critical-secret',
+          subject: PUBLIC_ENV_KEYS.playbackJwtSecret,
+        }),
+      ]),
+    );
 
-    expect(collectCriticalProductionSecretIssues(createProductionRuntimeTestEnv({
-      [PUBLIC_ENV_KEYS.playbackJwtSecret]: 'short',
-    }))).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        code: 'weak-critical-secret',
-        subject: PUBLIC_ENV_KEYS.playbackJwtSecret,
-      }),
-    ]));
+    expect(
+      collectCriticalProductionSecretIssues(
+        createProductionRuntimeTestEnv({
+          [PUBLIC_ENV_KEYS.playbackJwtSecret]: 'short',
+        }),
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'weak-critical-secret',
+          subject: PUBLIC_ENV_KEYS.playbackJwtSecret,
+        }),
+      ]),
+    );
   });
 });

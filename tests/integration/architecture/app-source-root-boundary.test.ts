@@ -20,7 +20,7 @@ const allowedAppRootEntries = new Set([
 describe('app source root boundary', () => {
   test('app root contains only target architecture entries', async () => {
     const entries = await readdir('app');
-    const unexpectedEntries = entries.filter(entry => !allowedAppRootEntries.has(entry));
+    const unexpectedEntries = entries.filter((entry) => !allowedAppRootEntries.has(entry));
 
     expect(unexpectedEntries).toEqual([]);
   });

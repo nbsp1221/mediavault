@@ -126,10 +126,9 @@ describe('thumbnail composition ownership', () => {
   test('loadDecryptedThumbnailResponse returns 500 for invalid thumbnail ids', async () => {
     const { loadDecryptedThumbnailResponse } = await importRealThumbnailComposition();
     const response = await loadDecryptedThumbnailResponse(
-      createDecryptedThumbnailRequest(
-        new Request('http://localhost/api/thumbnail/not-a-uuid'),
-        { videoId: 'not-a-uuid' },
-      ),
+      createDecryptedThumbnailRequest(new Request('http://localhost/api/thumbnail/not-a-uuid'), {
+        videoId: 'not-a-uuid',
+      }),
     );
 
     expect(response.status).toBe(500);
@@ -140,13 +139,15 @@ describe('thumbnail composition ownership', () => {
     mockDecryptThumbnail.mockResolvedValue(createSuccessfulDecryptResult());
 
     const { loadDecryptedThumbnailResponse } = await importThumbnailComposition();
-    const response = await loadDecryptedThumbnailResponse(createDecryptedThumbnailRequest(
-      new Request('http://localhost/api/thumbnail/video-1', {
-        headers: {
-          'If-None-Match': '"thumbnail-video-1-4"',
-        },
-      }),
-    ));
+    const response = await loadDecryptedThumbnailResponse(
+      createDecryptedThumbnailRequest(
+        new Request('http://localhost/api/thumbnail/video-1', {
+          headers: {
+            'If-None-Match': '"thumbnail-video-1-4"',
+          },
+        }),
+      ),
+    );
 
     expect(response.status).toBe(304);
   });

@@ -36,18 +36,14 @@ export function ProductHeader({
 }: ProductHeaderProps) {
   const isBrowseHeader = headerMode === 'browse';
   const shouldShowMobileNavigationTrigger = !leadingAction;
-  const actionContent = mobileActions
-    ? (
-        <>
-          <div className="hidden items-center gap-2 md:flex">
-            {actions}
-          </div>
-          <div className="flex items-center gap-2 md:hidden">
-            {mobileActions}
-          </div>
-        </>
-      )
-    : actions;
+  const actionContent = mobileActions ? (
+    <>
+      <div className="hidden items-center gap-2 md:flex">{actions}</div>
+      <div className="flex items-center gap-2 md:hidden">{mobileActions}</div>
+    </>
+  ) : (
+    actions
+  );
 
   return (
     <header className="border-b border-border/70 bg-background/95">
@@ -66,20 +62,9 @@ export function ProductHeader({
             <Menu aria-hidden />
           </Button>
         ) : null}
-        {leadingAction ? (
-          <div className="shrink-0">
-            {leadingAction}
-          </div>
-        ) : null}
-        <div
-          className={cn(
-            'min-w-0',
-            isBrowseHeader ? 'shrink-0 md:w-44' : 'flex-1',
-          )}
-        >
-          <h1
-            className="truncate text-base font-semibold leading-6 text-foreground md:text-lg"
-          >
+        {leadingAction ? <div className="shrink-0">{leadingAction}</div> : null}
+        <div className={cn('min-w-0', isBrowseHeader ? 'shrink-0 md:w-44' : 'flex-1')}>
+          <h1 className="truncate text-base font-semibold leading-6 text-foreground md:text-lg">
             {title}
           </h1>
           {description && !isBrowseHeader ? (
@@ -90,22 +75,21 @@ export function ProductHeader({
         </div>
 
         {toolbar && isBrowseHeader ? (
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
-            {toolbar}
-          </div>
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-3">{toolbar}</div>
         ) : null}
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {actionContent ? (
-            <div className={cn('items-center gap-2', isBrowseHeader ? 'hidden md:flex' : 'flex')}>
+            <div
+              className={cn(
+                'items-center gap-2',
+                isBrowseHeader && !mobileActions ? 'hidden md:flex' : 'flex',
+              )}
+            >
               {actionContent}
             </div>
           ) : null}
-          <div
-            className={cn(
-              accountActionVisibility === 'desktop-only' && 'hidden md:block',
-            )}
-          >
+          <div className={cn(accountActionVisibility === 'desktop-only' && 'hidden md:block')}>
             <ProductAccountMenu />
           </div>
         </div>
@@ -113,9 +97,7 @@ export function ProductHeader({
 
       {description && isBrowseHeader ? (
         <div className="border-t border-border/60 px-4 py-2 text-sm text-muted-foreground md:px-8">
-          <p className="truncate">
-            {description}
-          </p>
+          <p className="truncate">{description}</p>
         </div>
       ) : null}
 

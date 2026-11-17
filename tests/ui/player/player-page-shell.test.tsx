@@ -3,13 +3,13 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { PlaybackCatalogVideo } from '../../../app/modules/playback/application/ports/video-catalog.port';
 
-const rootUserMock = vi.fn();
+const rootUserMock = vi.fn<() => { id: string; role: string; username: string } | null>();
 
 vi.mock('~/shared/hooks/use-root-user', () => ({
   useRootUser: () => rootUserMock(),
 }));
 
-vi.mock('~/widgets/player-surface/ui/PlayerSurface', () => ({
+vi.mock('~/pages/player/ui/PlayerSurface', () => ({
   PlayerSurface: () => (
     <div data-testid="watch-surface">
       <div data-testid="player-viewport">Player viewport</div>
@@ -59,8 +59,14 @@ describe('PlayerPage product shell', () => {
 
     expect(screen.getAllByRole('main')).toHaveLength(1);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 1, name: 'Shell backed player fixture' })).toBeInTheDocument();
-    expect(screen.getByText(`1:30 • Added ${new Intl.DateTimeFormat('en-US').format(new Date('2026-03-09T00:00:00.000Z'))}`)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Shell backed player fixture' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        `1:30 • Added ${new Intl.DateTimeFormat('en-US').format(new Date('2026-03-09T00:00:00.000Z'))}`,
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open navigation menu' })).toBeInTheDocument();
     expect(screen.getByLabelText('Product sidebar')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Videos' })).toHaveAttribute('aria-current', 'page');

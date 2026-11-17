@@ -17,5 +17,8 @@ export interface PlayerVideoResult {
 }
 
 export interface VideoCatalogPort {
-  getPlayerVideo: (videoId: string, scope: VideoReadAccessScope) => Promise<PlayerVideoResult | null>;
+  getPlayerVideo: (
+    videoId: string,
+    scope: VideoReadAccessScope,
+  ) => Promise<PlayerVideoResult | null>;
 }

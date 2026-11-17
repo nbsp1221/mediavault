@@ -1,87 +1,52 @@
 import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { type ReactNode, useEffect } from 'react';
+import { useEffect } from 'react';
 import { MemoryRouter } from 'react-router';
 import { vi } from 'vitest';
-import type { PlaybackCatalogVideo } from '../../../app/modules/playback/application/ports/video-catalog.port';
-import { PlayerSurface } from '../../../app/widgets/player-surface/ui/PlayerSurface';
+import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
+import type { PlayerPlaylistContext } from '~/pages/player/model/usePlaylistPlayback';
+import type { ProtectedPlaybackSession } from '~/pages/player/model/useProtectedPlaybackSession';
+import { PlayerSurface } from '~/pages/player/ui/PlayerSurface';
 
-export interface MockProtectedPlaybackSessionState {
-  drmConfig: {
-    readonly key: string;
-    readonly keyId: string;
-  } | null;
-  error: string | null;
-  isLoading: boolean;
-  manifestUrl: string | null;
-  token: string | null;
-}
-
-const protectedPlaybackSessionState = vi.hoisted<{ current: MockProtectedPlaybackSessionState }>(() => ({
+const protectedPlaybackSessionState = vi.hoisted<{ current: ProtectedPlaybackSession }>(() => ({
   current: {
-    drmConfig: null,
     error: null,
     isLoading: false,
-    manifestUrl: 'https://cdn.example.com/video-1.mpd',
-    token: null,
+    licenseUrl: '/videos/video-1/clearkey',
+    manifestUrl: '/videos/video-1/manifest.mpd',
+    token: 'test-playback-token',
   },
 }));
+const playbackHarness = vi.hoisted(() => ({ mounts: 0, unmounts: 0 }));
 
-const providerHarness = vi.hoisted((): {
-  configureDashPlaybackProvider: ReturnType<typeof vi.fn>;
-  mediaPlayerMounts: number;
-  mediaPlayerUnmounts: number;
-  onProviderChange: ((detail: unknown) => void) | null;
-} => ({
-  configureDashPlaybackProvider: vi.fn(),
-  mediaPlayerMounts: 0,
-  mediaPlayerUnmounts: 0,
-  onProviderChange: null,
+vi.mock('~/pages/player/model/useProtectedPlaybackSession', () => ({
+  useProtectedPlaybackSession: () => protectedPlaybackSessionState.current,
 }));
-
-vi.mock('@vidstack/react', () => ({
-  MediaPlayer: ({
-    children,
-    onProviderChange,
+vi.mock('~/pages/player/ui/SecureVideo', () => ({
+  SecureVideo: ({
     title,
-    src,
+    manifestUrl,
+    onEnded,
   }: {
-    children: ReactNode;
-    onProviderChange?: (detail: unknown) => void;
     title: string;
-    src?: string | null;
+    manifestUrl: string;
+    onEnded?: () => void;
   }) => {
-    providerHarness.onProviderChange = onProviderChange ?? null;
     useEffect(() => {
-      providerHarness.mediaPlayerMounts += 1;
-
+      playbackHarness.mounts++;
       return () => {
-        providerHarness.mediaPlayerUnmounts += 1;
+        playbackHarness.unmounts++;
       };
     }, []);
-
     return (
-      <div data-player-src={src ?? ''} data-testid="media-player">
-        {title}
-        {children}
+      <div data-player-src={manifestUrl} data-testid="media-player">
+        <video aria-label={title} />
+        <button onClick={onEnded} type="button">
+          Finish video
+        </button>
       </div>
     );
   },
-  MediaProvider: () => <div data-testid="media-provider" />,
-  isDASHProvider: (detail: { isDash?: boolean } | null) => Boolean(detail?.isDash),
-}));
-
-vi.mock('@vidstack/react/player/layouts/default', () => ({
-  defaultLayoutIcons: {},
-  DefaultVideoLayout: () => <div data-testid="default-video-layout" />,
-}));
-
-vi.mock('../../../app/widgets/player-surface/model/useProtectedPlaybackSession', () => ({
-  useProtectedPlaybackSession: () => protectedPlaybackSessionState.current,
-}));
-
-vi.mock('../../../app/widgets/player-surface/lib/configure-dash-playback-provider', () => ({
-  configureDashPlaybackProvider: providerHarness.configureDashPlaybackProvider,
 }));
 
 export function createVideo(overrides: Partial<PlaybackCatalogVideo> = {}): PlaybackCatalogVideo {
@@ -93,28 +58,27 @@ export function createVideo(overrides: Partial<PlaybackCatalogVideo> = {}): Play
     tags: ['vault', 'alpha'],
     thumbnailUrl: '/api/thumbnail/video-1',
     title: 'Primary fixture video',
-    videoUrl: 'https://cdn.example.com/video-1.mpd',
+    videoUrl: '/videos/video-1/manifest.mpd',
     ...overrides,
   };
 }
 
-export function renderPlayerSurface(props?: {
+interface SurfaceProps {
+  playlist?: PlayerPlaylistContext;
   relatedVideos?: PlaybackCatalogVideo[];
   video?: PlaybackCatalogVideo;
-}) {
-  const user = userEvent.setup();
-  const renderResult = render(createPlayerSurfaceElement(props));
-
-  return { ...renderResult, user };
 }
 
-export function createPlayerSurfaceElement(props?: {
-  relatedVideos?: PlaybackCatalogVideo[];
-  video?: PlaybackCatalogVideo;
-}) {
+export function renderPlayerSurface(props?: SurfaceProps) {
+  const user = userEvent.setup();
+  return { ...render(createPlayerSurfaceElement(props)), user };
+}
+
+export function createPlayerSurfaceElement(props?: SurfaceProps) {
   return (
     <MemoryRouter>
       <PlayerSurface
+        playlist={props?.playlist}
         relatedVideos={props?.relatedVideos ?? []}
         video={props?.video ?? createVideo()}
       />
@@ -122,4 +86,4 @@ export function createPlayerSurfaceElement(props?: {
   );
 }
 
-export { protectedPlaybackSessionState, providerHarness };
+export { protectedPlaybackSessionState, playbackHarness };

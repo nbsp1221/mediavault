@@ -3,6 +3,7 @@ import type {
   PlaybackMediaSegmentService,
   PlaybackMediaType,
 } from '../ports/playback-media-segment-service.port';
+import type { PlaybackSessionValidator } from '../ports/playback-session-validator.port';
 import type { PlaybackTokenService } from '../ports/playback-token-service.port';
 import {
   type PlaybackResourceReadAuthorizationResult,
@@ -11,6 +12,7 @@ import {
 
 interface ServePlaybackMediaSegmentUseCaseDependencies {
   mediaSegmentService: PlaybackMediaSegmentService;
+  sessionValidator: PlaybackSessionValidator;
   tokenService: PlaybackTokenService;
   videoRead: LibraryVideoReadPort;
 }
@@ -25,21 +27,24 @@ interface ServePlaybackMediaSegmentUseCaseInput {
 
 type ServePlaybackMediaSegmentUseCaseResult =
   | {
-    headers: Record<string, string>;
-    isRangeResponse: boolean;
-    ok: true;
-    statusCode?: number;
-    stream: ReadableStream;
-  }
+      headers: Record<string, string>;
+      isRangeResponse: boolean;
+      ok: true;
+      statusCode?: number;
+      stream: ReadableStream;
+    }
   | Exclude<PlaybackResourceReadAuthorizationResult<'audio-segment' | 'segment'>, { ok: true }>;
 
 export class ServePlaybackMediaSegmentUseCase {
   constructor(private readonly deps: ServePlaybackMediaSegmentUseCaseDependencies) {}
 
-  async execute(input: ServePlaybackMediaSegmentUseCaseInput): Promise<ServePlaybackMediaSegmentUseCaseResult> {
+  async execute(
+    input: ServePlaybackMediaSegmentUseCaseInput,
+  ): Promise<ServePlaybackMediaSegmentUseCaseResult> {
     const resource = input.mediaType === 'audio' ? 'audio-segment' : 'segment';
     const authorization = await authorizePlaybackResourceRead({
       resource,
+      sessionValidator: this.deps.sessionValidator,
       token: input.token,
       tokenService: this.deps.tokenService,
       videoId: input.videoId,

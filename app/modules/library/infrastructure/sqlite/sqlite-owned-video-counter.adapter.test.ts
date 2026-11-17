@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { createMigratedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { SqliteOwnedVideoCounterAdapter } from './sqlite-owned-video-counter.adapter';
 
 describe('SqliteOwnedVideoCounterAdapter', () => {
@@ -19,25 +19,26 @@ describe('SqliteOwnedVideoCounterAdapter', () => {
   });
 
   test('counts videos by required owner_id', async () => {
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath });
-    await database.prepare(`
-      INSERT INTO auth_users (id, username, username_key, password_hash, role, created_at)
-      VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)
-    `).run(
-      'user-1',
-      'Owner One',
-      'owner-one',
-      'test-password-hash',
-      'user',
-      '2026-05-16T00:00:00.000Z',
-      'user-2',
-      'Owner Two',
-      'owner-two',
-      'test-password-hash',
-      'user',
-      '2026-05-16T00:00:00.000Z',
-    );
-    await database.prepare(`
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath });
+    await database
+      .prepare(`
+      INSERT INTO auth_users (id, username, username_key, password_hash, created_at)
+      VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)
+    `)
+      .run(
+        'user-1',
+        'Owner One',
+        'owner-one',
+        'test-password-hash',
+        '2026-05-16T00:00:00.000Z',
+        'user-2',
+        'Owner Two',
+        'owner-two',
+        'test-password-hash',
+        '2026-05-16T00:00:00.000Z',
+      );
+    await database
+      .prepare(`
       INSERT INTO videos (
         id,
         title,
@@ -48,17 +49,19 @@ describe('SqliteOwnedVideoCounterAdapter', () => {
         updated_at,
         sort_index
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      'video-1',
-      'Owned video',
-      10,
-      'user-1',
-      'private',
-      '2026-05-16T00:00:00.000Z',
-      '2026-05-16T00:00:00.000Z',
-      1,
-    );
-    await database.prepare(`
+    `)
+      .run(
+        'video-1',
+        'Owned video',
+        10,
+        'user-1',
+        'private',
+        '2026-05-16T00:00:00.000Z',
+        '2026-05-16T00:00:00.000Z',
+        1,
+      );
+    await database
+      .prepare(`
       INSERT INTO videos (
         id,
         title,
@@ -69,16 +72,17 @@ describe('SqliteOwnedVideoCounterAdapter', () => {
         updated_at,
         sort_index
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      'video-2',
-      'Other video',
-      10,
-      'user-2',
-      'public',
-      '2026-05-16T00:00:00.000Z',
-      '2026-05-16T00:00:00.000Z',
-      2,
-    );
+    `)
+      .run(
+        'video-2',
+        'Other video',
+        10,
+        'user-2',
+        'public',
+        '2026-05-16T00:00:00.000Z',
+        '2026-05-16T00:00:00.000Z',
+        2,
+      );
 
     const adapter = new SqliteOwnedVideoCounterAdapter({ dbPath });
 

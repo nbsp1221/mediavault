@@ -22,9 +22,7 @@ export type ProductionReadinessIssueCode =
   | 'storage-unavailable'
   | 'weak-critical-secret';
 
-export type ProductionReadinessIssueSeverity =
-  | 'readiness-only'
-  | 'startup-blocking';
+export type ProductionReadinessIssueSeverity = 'readiness-only' | 'startup-blocking';
 
 export interface ProductionReadinessIssue {
   code: ProductionReadinessIssueCode;
@@ -66,23 +64,27 @@ export function collectCriticalProductionSecretIssues(
     const value = env[key]?.trim();
     if (value) {
       if (key === PUBLIC_ENV_KEYS.playbackJwtSecret && isWeakPlaybackJwtSecret(value)) {
-        return [{
-          code: 'weak-critical-secret',
-          message: `Production startup preflight failed: ${getWeakPlaybackJwtSecretMessage()}`,
-          severity: 'startup-blocking',
-          subject: key,
-        } satisfies ProductionReadinessIssue];
+        return [
+          {
+            code: 'weak-critical-secret',
+            message: `Production startup preflight failed: ${getWeakPlaybackJwtSecretMessage()}`,
+            severity: 'startup-blocking',
+            subject: key,
+          } satisfies ProductionReadinessIssue,
+        ];
       }
 
       return [];
     }
 
-    return [{
-      code: 'missing-critical-secret',
-      message: `Production startup preflight failed: missing required env ${key}`,
-      severity: 'startup-blocking',
-      subject: key,
-    } satisfies ProductionReadinessIssue];
+    return [
+      {
+        code: 'missing-critical-secret',
+        message: `Production startup preflight failed: missing required env ${key}`,
+        severity: 'startup-blocking',
+        subject: key,
+      } satisfies ProductionReadinessIssue,
+    ];
   });
 }
 
@@ -98,12 +100,14 @@ export function collectAuthAccountIssues(input: {
     return [];
   }
 
-  return [{
-    code: 'missing-auth-user',
-    message: `Production startup preflight failed: no auth users exist and ${PUBLIC_ENV_KEYS.adminApiMode}=bootstrap with ${PUBLIC_ENV_KEYS.adminApiToken} is not configured`,
-    severity: 'startup-blocking',
-    subject: 'auth_users',
-  }];
+  return [
+    {
+      code: 'missing-auth-user',
+      message: `Production startup preflight failed: no auth users exist and ${PUBLIC_ENV_KEYS.adminApiMode}=bootstrap with ${PUBLIC_ENV_KEYS.adminApiToken} is not configured`,
+      severity: 'startup-blocking',
+      subject: 'auth_users',
+    },
+  ];
 }
 
 export function classifyStorageProbeResults(
@@ -115,20 +119,25 @@ export function classifyStorageProbeResults(
     }
 
     if (result.target === 'database-path') {
-      return [{
-        code: 'database-unavailable',
-        message: 'Production startup preflight failed: primary SQLite database path is not usable',
-        severity: 'startup-blocking',
-        subject: 'primary_database_path',
-      } satisfies ProductionReadinessIssue];
+      return [
+        {
+          code: 'database-unavailable',
+          message:
+            'Production startup preflight failed: primary SQLite database path is not usable',
+          severity: 'startup-blocking',
+          subject: 'primary_database_path',
+        } satisfies ProductionReadinessIssue,
+      ];
     }
 
-    return [{
-      code: 'storage-unavailable',
-      message: `Production startup preflight failed: ${PUBLIC_ENV_KEYS.storageDir} is not usable`,
-      severity: 'startup-blocking',
-      subject: PUBLIC_ENV_KEYS.storageDir,
-    } satisfies ProductionReadinessIssue];
+    return [
+      {
+        code: 'storage-unavailable',
+        message: `Production startup preflight failed: ${PUBLIC_ENV_KEYS.storageDir} is not usable`,
+        severity: 'startup-blocking',
+        subject: PUBLIC_ENV_KEYS.storageDir,
+      } satisfies ProductionReadinessIssue,
+    ];
   });
 }
 
@@ -140,21 +149,23 @@ export function classifyMediaToolProbeResults(
       return [];
     }
 
-    return [{
-      code: 'media-tool-unavailable',
-      message: `Production readiness failed: media tool ${result.tool} is unavailable`,
-      severity: 'readiness-only',
-      subject: result.tool,
-    } satisfies ProductionReadinessIssue];
+    return [
+      {
+        code: 'media-tool-unavailable',
+        message: `Production readiness failed: media tool ${result.tool} is unavailable`,
+        severity: 'readiness-only',
+        subject: result.tool,
+      } satisfies ProductionReadinessIssue,
+    ];
   });
 }
 
-export function createProductionReadinessReport(
-  input: { issues: ProductionReadinessIssue[] },
-): ProductionReadinessReport {
+export function createProductionReadinessReport(input: {
+  issues: ProductionReadinessIssue[];
+}): ProductionReadinessReport {
   return {
     issues: input.issues,
     ready: input.issues.length === 0,
-    startupBlocked: input.issues.some(issue => issue.severity === 'startup-blocking'),
+    startupBlocked: input.issues.some((issue) => issue.severity === 'startup-blocking'),
   };
 }

@@ -1,15 +1,8 @@
 import type { VideoVisibility } from '../value-objects/video-visibility';
 
-export type VideoAccessOperation =
-  | 'view'
-  | 'play'
-  | 'edit'
-  | 'delete'
-  | 'manage_visibility';
+export type VideoAccessOperation = 'view' | 'play' | 'edit' | 'delete' | 'manage_visibility';
 
-export type VideoViewer =
-  | { type: 'anonymous' }
-  | { type: 'authenticated'; userId: string };
+export type VideoViewer = { type: 'anonymous' } | { type: 'authenticated'; userId: string };
 
 export type VideoAccessDecision =
   | { allowed: true }
@@ -41,7 +34,10 @@ export class VideoAccessPolicy {
       return { allowed: true };
     }
 
-    if (input.visibility === 'public' && (input.operation === 'view' || input.operation === 'play')) {
+    if (
+      input.visibility === 'public' &&
+      (input.operation === 'view' || input.operation === 'play')
+    ) {
       return { allowed: true };
     }
 

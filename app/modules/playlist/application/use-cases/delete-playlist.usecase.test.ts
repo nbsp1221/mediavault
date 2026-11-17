@@ -26,14 +26,15 @@ describe('DeletePlaylistUseCase', () => {
       playlistRepository: {
         delete: deletePlaylist,
         findById: vi.fn(async () => createPlaylist()),
-        findBySeries: vi.fn(),
       },
     });
 
-    await expect(useCase.execute({
-      ownerId: 'intruder-owner',
-      playlistId: 'playlist-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'intruder-owner',
+        playlistId: 'playlist-1',
+      }),
+    ).resolves.toEqual({
       message: 'User "intruder-owner" does not have permission to delete playlist "playlist-1"',
       ok: false,
       reason: 'PLAYLIST_PERMISSION_DENIED',
@@ -47,23 +48,19 @@ describe('DeletePlaylistUseCase', () => {
       playlistRepository: {
         delete: vi.fn(async () => true),
         findById: vi.fn(async () => createPlaylist()),
-        findBySeries: vi.fn(async () => [
-          createPlaylist(),
-          createPlaylist({ id: 'playlist-2', name: 'Vault 2' }),
-        ]),
       },
     });
 
-    await expect(useCase.execute({
-      ownerId: 'owner-1',
-      playlistId: 'playlist-1',
-    })).resolves.toEqual({
+    await expect(
+      useCase.execute({
+        ownerId: 'owner-1',
+        playlistId: 'playlist-1',
+      }),
+    ).resolves.toEqual({
       ok: true,
       data: {
         deletedPlaylistName: 'Vault',
         message: 'Playlist "Vault" deleted successfully',
-        relatedPlaylistsAffected: ['playlist-2'],
-        videosAffected: 2,
       },
     });
   });

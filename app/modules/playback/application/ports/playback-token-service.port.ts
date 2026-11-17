@@ -5,18 +5,21 @@ interface PlaybackTokenPayloadBase {
   videoId: string;
 }
 
-export type PlaybackTokenPayload = PlaybackTokenPayloadBase & (
-  | {
-    readScope: 'public_only';
-    subjectUserId?: never;
-    viewerType: 'anonymous';
-  }
-  | {
-    readScope: 'public_or_owned';
-    subjectUserId: string;
-    viewerType: 'authenticated';
-  }
-);
+export type PlaybackTokenPayload = PlaybackTokenPayloadBase &
+  (
+    | {
+        readScope: 'public_only';
+        sessionId?: never;
+        subjectUserId?: never;
+        viewerType: 'anonymous';
+      }
+    | {
+        readScope: 'public_or_owned';
+        sessionId: string;
+        subjectUserId: string;
+        viewerType: 'authenticated';
+      }
+  );
 
 interface PlaybackTokenIssueInputBase {
   ipAddress?: string;
@@ -24,18 +27,21 @@ interface PlaybackTokenIssueInputBase {
   videoId: string;
 }
 
-export type PlaybackTokenIssueInput = PlaybackTokenIssueInputBase & (
-  | {
-    readScope: 'public_only';
-    subjectUserId?: never;
-    viewerType: 'anonymous';
-  }
-  | {
-    readScope: 'public_or_owned';
-    subjectUserId: string;
-    viewerType: 'authenticated';
-  }
-);
+export type PlaybackTokenIssueInput = PlaybackTokenIssueInputBase &
+  (
+    | {
+        readScope: 'public_only';
+        sessionId?: never;
+        subjectUserId?: never;
+        viewerType: 'anonymous';
+      }
+    | {
+        readScope: 'public_or_owned';
+        sessionId: string;
+        subjectUserId: string;
+        viewerType: 'authenticated';
+      }
+  );
 
 export interface PlaybackTokenService {
   issue: (input: PlaybackTokenIssueInput) => Promise<string>;

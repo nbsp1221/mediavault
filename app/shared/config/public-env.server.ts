@@ -18,6 +18,7 @@ export const PUBLIC_ENV_KEYS = {
   mediaKeyDerivationSalt: 'MEDIAVAULT_MEDIA_KEY_DERIVATION_SALT',
   nodeEnv: 'NODE_ENV',
   playbackJwtSecret: 'MEDIAVAULT_PLAYBACK_JWT_SECRET',
+  publicOrigin: 'MEDIAVAULT_PUBLIC_ORIGIN',
   shakaPackagerPath: 'SHAKA_PACKAGER_PATH',
   storageDir: 'MEDIAVAULT_STORAGE_DIR',
 } as const;

@@ -1,10 +1,10 @@
 import type { ActionFunctionArgs } from 'react-router';
+import { z } from 'zod';
 import { getServerAdminAuthServices } from '~/composition/server/auth';
 
-interface CreateAdminUserBody {
-  password?: unknown;
-  username?: unknown;
-}
+const createAdminUserSchema = z.object({ password: z.string(), username: z.string() });
+
+type CreateAdminUserBody = z.infer<typeof createAdminUserSchema>;
 
 async function readCreateUserBody(request: Request): Promise<CreateAdminUserBody | null> {
   const contentType = request.headers.get('Content-Type') || '';
@@ -13,9 +13,10 @@ async function readCreateUserBody(request: Request): Promise<CreateAdminUserBody
   }
 
   try {
-    return await request.json() as CreateAdminUserBody;
-  }
-  catch {
+    const body: unknown = await request.json();
+    const parsed = createAdminUserSchema.safeParse(body);
+    return parsed.success ? parsed.data : null;
+  } catch {
     return null;
   }
 }
@@ -34,10 +35,7 @@ function createAdminAccessResponse(reason: 'FORBIDDEN' | 'UNAUTHORIZED'): Respon
 
 export async function action({ request }: ActionFunctionArgs): Promise<Response> {
   if (request.method !== 'POST') {
-    return Response.json(
-      { error: 'Method not allowed', success: false },
-      { status: 405 },
-    );
+    return Response.json({ error: 'Method not allowed', success: false }, { status: 405 });
   }
 
   const authServices = getServerAdminAuthServices();
@@ -51,7 +49,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
   }
 
   const body = await readCreateUserBody(request);
-  if (!body || typeof body.username !== 'string' || typeof body.password !== 'string') {
+  if (!body) {
     return Response.json(
       { error: 'Username and password are required', success: false },
       { status: 400 },
@@ -65,22 +63,19 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response>
   });
 
   if (!result.ok) {
-    const status = result.reason === 'USERNAME_ALREADY_EXISTS'
-      ? 409
-      : result.reason === 'AUTH_USERS_ALREADY_EXIST'
-        ? 403
-        : 400;
-    return Response.json(
-      { error: result.reason, success: false },
-      { status },
-    );
+    const status =
+      result.reason === 'USERNAME_ALREADY_EXISTS'
+        ? 409
+        : result.reason === 'AUTH_USERS_ALREADY_EXIST'
+          ? 403
+          : 400;
+    return Response.json({ error: result.reason, success: false }, { status });
   }
 
   return Response.json(
     {
       user: {
         id: result.user.id,
-        role: result.user.role,
         username: result.user.username,
       },
     },

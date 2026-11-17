@@ -1,22 +1,19 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { describe, expect, test } from 'vitest';
+import { z } from 'zod';
 
 async function fileExists(path: string): Promise<boolean> {
   try {
     await stat(path);
     return true;
-  }
-  catch {
+  } catch {
     return false;
   }
 }
 
 describe('auth admin architecture boundary', () => {
   test('admin routes use composition/use-case boundaries instead of SQLite infrastructure', async () => {
-    const routeFiles = [
-      'app/routes/api.admin.users.ts',
-      'app/routes/api.admin.users.$username.ts',
-    ];
+    const routeFiles = ['app/routes/api.admin.users.ts', 'app/routes/api.admin.users.$username.ts'];
 
     for (const routeFile of routeFiles) {
       const source = await readFile(routeFile, 'utf8');
@@ -33,22 +30,23 @@ describe('auth admin architecture boundary', () => {
   });
 
   test('account-management scripts cannot bypass the server Admin API boundary', async () => {
-    const packageJson = JSON.parse(await readFile('package.json', 'utf8')) as {
-      scripts?: Record<string, string>;
-    };
+    const contents: unknown = JSON.parse(await readFile('package.json', 'utf8'));
+    const packageJson = z.object({ scripts: z.record(z.string(), z.string()) }).parse(contents);
 
     expect(packageJson.scripts).not.toHaveProperty('auth:add-user');
     expect(packageJson.scripts).not.toHaveProperty('auth:delete-user');
 
     const scriptFiles = (await readdir('scripts'))
-      .filter(file => file.endsWith('.ts'))
-      .filter(file => file !== 'seed-demo-storage.ts')
-      .filter(file => file !== 'migrate-video-access-model.ts')
-      .map(file => `scripts/${file}`);
+      .filter((file) => file.endsWith('.ts'))
+      .filter((file) => file !== 'seed-demo-storage.ts')
+      .filter((file) => file !== 'migrate-video-access-model.ts')
+      .map((file) => `scripts/${file}`);
 
     for (const scriptFile of scriptFiles) {
       const source = await readFile(scriptFile, 'utf8');
-      expect(source).not.toMatch(/SqliteAuthUserRepository|createServerAdminAuthServices|auth_users|CreateAuthUserUseCase|DeleteAuthUserUseCase/i);
+      expect(source).not.toMatch(
+        /SqliteAuthUserRepository|createServerAdminAuthServices|auth_users|CreateAuthUserUseCase|DeleteAuthUserUseCase/i,
+      );
     }
   });
 });

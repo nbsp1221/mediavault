@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-
-import { HomeFilterSurface } from '../../../app/features/home-tag-filter/ui/HomeFilterSurface';
-import { createHomeLibraryFilters } from '../../../app/widgets/home-library/model/home-library-filters';
+import { createHomeLibraryFilters } from '../../../app/pages/home/model/home-library-filters';
+import { HomeFilterSurface } from '../../../app/pages/home/ui/HomeFilterSurface';
 
 vi.mock('../../../app/features/video-metadata/ui/VideoTagInput', () => ({
   VideoTagInput: ({
@@ -15,7 +14,10 @@ vi.mock('../../../app/features/video-metadata/ui/VideoTagInput', () => ({
     onChange: (tags: string[]) => void;
     value: string[];
   }) => (
-    <button onClick={() => onChange([...value, ariaLabel === 'Require tags' ? 'drama' : 'spoiler'])} type="button">
+    <button
+      onClick={() => onChange([...value, ariaLabel === 'Require tags' ? 'drama' : 'spoiler'])}
+      type="button"
+    >
       {ariaLabel}
     </button>
   ),
@@ -35,11 +37,12 @@ vi.mock('../../../app/features/video-metadata/ui/VideoTaxonomyCombobox', () => (
 }));
 
 vi.mock('~/shared/ui/drawer', () => ({
-  Drawer: ({ children, open }: { children: ReactNode; open?: boolean }) => (
-    open ? <div data-testid="mock-drawer">{children}</div> : null
-  ),
+  Drawer: ({ children, open }: { children: ReactNode; open?: boolean }) =>
+    open ? <div data-testid="mock-drawer">{children}</div> : null,
   DrawerContent: ({ children }: { children: ReactNode }) => (
-    <section aria-label="Filters" role="dialog">{children}</section>
+    <section aria-label="Filters" role="dialog">
+      {children}
+    </section>
   ),
   DrawerDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
   DrawerFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
@@ -48,11 +51,12 @@ vi.mock('~/shared/ui/drawer', () => ({
 }));
 
 vi.mock('~/shared/ui/sheet', () => ({
-  Sheet: ({ children, open }: { children: ReactNode; open?: boolean }) => (
-    open ? <div data-testid="mock-sheet">{children}</div> : null
-  ),
+  Sheet: ({ children, open }: { children: ReactNode; open?: boolean }) =>
+    open ? <div data-testid="mock-sheet">{children}</div> : null,
   SheetContent: ({ children }: { children: ReactNode }) => (
-    <section aria-label="Filters" role="dialog">{children}</section>
+    <section aria-label="Filters" role="dialog">
+      {children}
+    </section>
   ),
   SheetDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
   SheetHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
@@ -105,22 +109,30 @@ describe('home filter surface controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Content type filter' }));
     fireEvent.click(screen.getByRole('button', { name: 'Genre filter' }));
 
-    expect(handleFiltersChange).toHaveBeenCalledWith(expect.objectContaining({
-      includeTags: ['drama'],
-      query: 'vault',
-    }));
-    expect(handleFiltersChange).toHaveBeenCalledWith(expect.objectContaining({
-      excludeTags: ['spoiler'],
-      query: 'vault',
-    }));
-    expect(handleFiltersChange).toHaveBeenCalledWith(expect.objectContaining({
-      contentTypeSlug: 'movie',
-      query: 'vault',
-    }));
-    expect(handleFiltersChange).toHaveBeenCalledWith(expect.objectContaining({
-      genreSlugs: ['noir'],
-      query: 'vault',
-    }));
+    expect(handleFiltersChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        includeTags: ['drama'],
+        query: 'vault',
+      }),
+    );
+    expect(handleFiltersChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        excludeTags: ['spoiler'],
+        query: 'vault',
+      }),
+    );
+    expect(handleFiltersChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentTypeSlug: 'movie',
+        query: 'vault',
+      }),
+    );
+    expect(handleFiltersChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        genreSlugs: ['noir'],
+        query: 'vault',
+      }),
+    );
   });
 
   test('keeps closed mobile drafts isolated until the drawer opens again', () => {
@@ -141,9 +153,11 @@ describe('home filter surface controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Require tags' }));
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
-    expect(handleFiltersChange).toHaveBeenLastCalledWith(expect.objectContaining({
-      includeTags: ['drama'],
-    }));
+    expect(handleFiltersChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        includeTags: ['drama'],
+      }),
+    );
 
     rerender(
       <HomeFilterSurface
@@ -170,8 +184,10 @@ describe('home filter surface controls', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-    expect(handleFiltersChange).toHaveBeenLastCalledWith(expect.objectContaining({
-      includeTags: ['comedy'],
-    }));
+    expect(handleFiltersChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        includeTags: ['comedy'],
+      }),
+    );
   });
 });

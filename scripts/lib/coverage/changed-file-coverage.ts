@@ -50,8 +50,7 @@ export function isCoverageEligibleChangedProductionFile(path: string): boolean {
   }
 
   return !(
-    normalizedPath.startsWith('app/shared/ui/') ||
-    normalizedPath.startsWith('app/components/ui/')
+    normalizedPath.startsWith('app/shared/ui/') || normalizedPath.startsWith('app/components/ui/')
   );
 }
 
@@ -68,24 +67,37 @@ export function filterCoverageEligibleChangedProductionFiles(paths: string[]): s
   return [...eligiblePaths].sort();
 }
 
-export async function listCoverageEligibleChangedProductionFiles(options: ChangedFileOptions): Promise<string[]> {
-  return filterCoverageEligibleChangedProductionFiles(
-    await listLocalChangedFiles(options),
-  );
+export async function listCoverageEligibleChangedProductionFiles(
+  options: ChangedFileOptions,
+): Promise<string[]> {
+  return filterCoverageEligibleChangedProductionFiles(await listLocalChangedFiles(options));
 }
 
 export { listLocalChangedFiles };
 
-export async function listChangedFilesSinceBase(options: BranchChangedFileOptions): Promise<string[]> {
+export async function listChangedFilesSinceBase(
+  options: BranchChangedFileOptions,
+): Promise<string[]> {
   try {
     return await listSharedChangedFilesSinceBase(options);
-  }
-  catch (error) {
+  } catch (error) {
     if (error instanceof Error) {
-      throw new Error(error.message
-        .replace('Unable to resolve changed base ref', 'Unable to resolve coverage changed base ref')
-        .replace('Unable to resolve changed merge base', 'Unable to resolve coverage changed merge base')
-        .replace('Unable to list changed files since base ref', 'Unable to list changed files since coverage changed base ref'));
+      throw new Error(
+        error.message
+          .replace(
+            'Unable to resolve changed base ref',
+            'Unable to resolve coverage changed base ref',
+          )
+          .replace(
+            'Unable to resolve changed merge base',
+            'Unable to resolve coverage changed merge base',
+          )
+          .replace(
+            'Unable to list changed files since base ref',
+            'Unable to list changed files since coverage changed base ref',
+          ),
+        { cause: error },
+      );
     }
 
     throw error;
@@ -93,12 +105,11 @@ export async function listChangedFilesSinceBase(options: BranchChangedFileOption
 }
 
 export function buildChangedFileCoverageVitestArgs(options: BuildVitestArgsOptions): string[] {
-  const changedArgs = options.changedBase
-    ? ['--changed', options.changedBase]
-    : ['--changed'];
+  const changedArgs = options.changedBase ? ['--changed', options.changedBase] : ['--changed'];
 
   return [
-    '--no-env-file',
+    '--import',
+    'tsx',
     './scripts/run-vitest.ts',
     'run',
     ...changedArgs,
@@ -109,7 +120,7 @@ export function buildChangedFileCoverageVitestArgs(options: BuildVitestArgsOptio
     `--coverage.thresholds.branches=${THRESHOLD_PERCENTAGE}`,
     `--coverage.thresholds.functions=${THRESHOLD_PERCENTAGE}`,
     `--coverage.thresholds.statements=${THRESHOLD_PERCENTAGE}`,
-    ...options.files.map(file => `--coverage.include=${file}`),
+    ...options.files.map((file) => `--coverage.include=${file}`),
   ];
 }
 
@@ -138,16 +149,22 @@ export async function runChangedFileCoverage(
     return 0;
   }
 
-  stdout([
-    'Changed production files requiring coverage:',
-    ...files.map(file => `- ${file}`),
-    '',
-    'Running changed-file coverage gate with Vitest...',
-  ].join('\n'));
+  stdout(
+    [
+      'Changed production files requiring coverage:',
+      ...files.map((file) => `- ${file}`),
+      '',
+      'Running changed-file coverage gate with Vitest...',
+    ].join('\n'),
+  );
 
-  const result = spawn('bun', buildChangedFileCoverageVitestArgs({
-    files,
-  }), { cwd });
+  const result = spawn(
+    process.execPath,
+    buildChangedFileCoverageVitestArgs({
+      files,
+    }),
+    { cwd },
+  );
 
   if (result.error) {
     throw result.error;

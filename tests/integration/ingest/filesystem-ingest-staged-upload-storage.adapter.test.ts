@@ -7,7 +7,7 @@ import { FilesystemIngestStagedUploadStorageAdapter } from '../../../app/modules
 const cleanupTasks: Array<() => Promise<void>> = [];
 
 afterEach(async () => {
-  await Promise.all(cleanupTasks.splice(0).map(task => task()));
+  await Promise.all(cleanupTasks.splice(0).map((task) => task()));
 });
 
 async function createWorkspace() {
@@ -41,20 +41,30 @@ describe('FilesystemIngestStagedUploadStorageAdapter', () => {
 
     await expect(readFile(result.storagePath, 'utf8')).resolves.toBe('video-data');
     await expect(access(tempSourcePath)).rejects.toThrow();
-    expect(result.storagePath).toBe(path.join(
+    expect(result.storagePath).toBe(
+      path.join(workspace, 'storage', 'data', 'staging', 'staging-123', 'fixture-video.mp4'),
+    );
+  });
+
+  test('deletes persisted staged bytes and request-scoped temp bytes', async () => {
+    const { adapter, workspace } = await createWorkspace();
+    const stagedPath = path.join(
       workspace,
       'storage',
       'data',
       'staging',
       'staging-123',
       'fixture-video.mp4',
-    ));
-  });
-
-  test('deletes persisted staged bytes and request-scoped temp bytes', async () => {
-    const { adapter, workspace } = await createWorkspace();
-    const stagedPath = path.join(workspace, 'storage', 'data', 'staging', 'staging-123', 'fixture-video.mp4');
-    const tempPath = path.join(workspace, 'storage', 'data', 'staging', 'temp', 'request-123', 'fixture-video.mp4');
+    );
+    const tempPath = path.join(
+      workspace,
+      'storage',
+      'data',
+      'staging',
+      'temp',
+      'request-123',
+      'fixture-video.mp4',
+    );
     await mkdir(path.dirname(stagedPath), { recursive: true });
     await mkdir(path.dirname(tempPath), { recursive: true });
     await writeFile(stagedPath, 'video-data');

@@ -1,5 +1,6 @@
 import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import type { PlaybackManifestService } from '../ports/playback-manifest-service.port';
+import type { PlaybackSessionValidator } from '../ports/playback-session-validator.port';
 import type { PlaybackTokenService } from '../ports/playback-token-service.port';
 import {
   type PlaybackResourceReadAuthorizationResult,
@@ -8,6 +9,7 @@ import {
 
 interface ServePlaybackManifestUseCaseDependencies {
   manifestService: PlaybackManifestService;
+  sessionValidator: PlaybackSessionValidator;
   tokenService: PlaybackTokenService;
   videoRead: LibraryVideoReadPort;
 }
@@ -19,18 +21,21 @@ interface ServePlaybackManifestUseCaseInput {
 
 type ServePlaybackManifestUseCaseResult =
   | {
-    body: string;
-    headers: Record<string, string>;
-    ok: true;
-  }
+      body: string;
+      headers: Record<string, string>;
+      ok: true;
+    }
   | Exclude<PlaybackResourceReadAuthorizationResult<'manifest'>, { ok: true }>;
 
 export class ServePlaybackManifestUseCase {
   constructor(private readonly deps: ServePlaybackManifestUseCaseDependencies) {}
 
-  async execute(input: ServePlaybackManifestUseCaseInput): Promise<ServePlaybackManifestUseCaseResult> {
+  async execute(
+    input: ServePlaybackManifestUseCaseInput,
+  ): Promise<ServePlaybackManifestUseCaseResult> {
     const authorization = await authorizePlaybackResourceRead({
       resource: 'manifest',
+      sessionValidator: this.deps.sessionValidator,
       token: input.token,
       tokenService: this.deps.tokenService,
       videoId: input.videoId,

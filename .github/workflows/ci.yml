@@ -23,160 +23,139 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
 
-      - name: Cache dependencies
-        uses: actions/cache@v5.0.5
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Generate types and typecheck
-        run: bun run typecheck
+        run: pnpm typecheck
 
   lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
 
-      - name: Cache dependencies
-        uses: actions/cache@v5.0.5
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Design lint
-        run: bun run design:lint
+        run: pnpm design:lint
+
+      - name: Formatting
+        run: pnpm format:check
 
       - name: Lint
-        run: bun run lint
+        run: pnpm lint
 
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
 
-      - name: Cache dependencies
-        uses: actions/cache@v5.0.5
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Test
-        run: bun run check:hermetic-inputs && bun run test
+        run: pnpm check:hermetic-inputs && pnpm test
 
   runtime-smoke:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
 
-      - name: Cache dependencies
-        uses: actions/cache@v5.0.5
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Runtime smoke
-        run: bun run test:runtime:smoke
+        run: pnpm test:runtime:smoke
 
   coverage:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
 
-      - name: Cache dependencies
-        uses: actions/cache@v5.0.5
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Coverage
-        run: bun run check:hermetic-inputs && bun run test:coverage
+        run: pnpm check:hermetic-inputs && pnpm test:coverage
 
   e2e-smoke:
     runs-on: ubuntu-latest
     env:
-      LOCAL_STREAMER_PLAYWRIGHT_INSTALL_DEPS: "true"
+      LOCAL_STREAMER_PLAYWRIGHT_INSTALL_DEPS: 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
 
-      - name: Cache dependencies
-        uses: actions/cache@v5.0.5
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Browser smoke
-        run: bun run test:e2e:smoke
+        run: pnpm test:e2e:smoke
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-report
           path: playwright-report/
@@ -187,26 +166,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
 
-      - name: Cache dependencies
-        uses: actions/cache@v5.0.5
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: bun run build
+        run: pnpm build
 
   docker-image:
     runs-on: ubuntu-latest
@@ -216,7 +191,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4

@@ -47,8 +47,7 @@ export class ResolveAuthSessionUseCase {
         id: touchedSession.id,
         lastAccessedAt: touchedSession.lastAccessedAt,
       });
-    }
-    catch (error) {
+    } catch (error) {
       if (!isTransientSessionTouchError(error)) {
         throw error;
       }

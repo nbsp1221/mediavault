@@ -1,10 +1,9 @@
 import type { Plugin } from 'vite';
 import { reactRouter } from '@react-router/dev/vite';
 import tailwindcss from '@tailwindcss/vite';
-import { reactRouterHonoServer } from 'react-router-hono-server/dev';
-import { defineConfig } from 'vite';
-import tsconfigPaths from 'vite-tsconfig-paths';
-import { resolveViteEnvDir } from './scripts/vite-env-files';
+import { defineConfig } from 'vitest/config';
+import developmentWatch from './nodemon.json' with { type: 'json' };
+import { resolveViteEnvDir } from './scripts/vite-env-files.ts';
 
 export function normalizeRequestUrl(url: string | undefined): { pathname: string; search: string } {
   try {
@@ -14,8 +13,7 @@ export function normalizeRequestUrl(url: string | undefined): { pathname: string
       pathname: decodeURIComponent(parsedUrl.pathname).replace(/\/+/g, '/'),
       search: parsedUrl.search,
     };
-  }
-  catch {
+  } catch {
     return {
       pathname: '/',
       search: '',
@@ -30,7 +28,10 @@ export function isSensitiveDirectDevPath(pathname: string, search = ''): boolean
     return false;
   }
 
-  return pathname === '/.env' ||
+  return (
+    pathname.includes('/.server/') ||
+    pathname.endsWith('/.server') ||
+    pathname === '/.env' ||
     pathname.startsWith('/.env.') ||
     pathname.startsWith('/storage/') ||
     pathname.startsWith('/binaries/') ||
@@ -41,10 +42,11 @@ export function isSensitiveDirectDevPath(pathname: string, search = ''): boolean
     pathname.startsWith('/app/shared/lib/server/') ||
     /^\/app\/shared\/config\/.*\.server\.[cm]?[tj]sx?$/.test(pathname) ||
     /^\/app\/modules\/[^/]+\/infrastructure\//.test(pathname) ||
-    /^\/app\/routes\/api\./.test(pathname) ||
-    /^\/app\/routes\/videos\./.test(pathname) ||
+    pathname.startsWith('/app/routes/api.') ||
+    pathname.startsWith('/app/routes/videos.') ||
     /^\/app\/routes\/health\.ready\.[cm]?[tj]sx?$/.test(pathname) ||
-    /^\/app\/routes\/.*\.server\.[cm]?[tj]sx?$/.test(pathname);
+    /^\/app\/routes\/.*\.server\.[cm]?[tj]sx?$/.test(pathname)
+  );
 }
 
 function denySensitiveDirectDevRequests(): Plugin {
@@ -66,30 +68,33 @@ function denySensitiveDirectDevRequests(): Plugin {
   };
 }
 
-export default defineConfig(({ command }) => {
+export default defineConfig(() => {
   const projectRoot = process.cwd().replace(/\\/g, '/');
 
   return {
     plugins: [
       denySensitiveDirectDevRequests(),
-      // Use Hono server only in production build
-      ...(command === 'build' ? [reactRouterHonoServer({ runtime: 'bun' })] : []),
       tailwindcss(),
       ...(process.env.VITEST ? [] : [reactRouter()]),
-      tsconfigPaths(),
     ],
+    resolve: {
+      tsconfigPaths: true,
+    },
     build: {
       target: 'es2022',
     },
     server: {
       allowedHosts: [],
       cors: false,
+      // Backend edits use a complete, drained process restart, never an SSR worker hot-swap.
+      watch: { ignored: developmentWatch.watch.map((file) => `${projectRoot}/${file}`) },
       fs: {
         deny: [
           '.env',
           '.env.*',
           '*.{crt,pem}',
           '**/.git/**',
+          '**/.server/**',
           'storage/**',
           `${projectRoot}/storage/**`,
           'binaries/**',
@@ -113,18 +118,14 @@ export default defineConfig(({ command }) => {
         '!app/routes/**/*.server.{ts,tsx}',
         '!app/routes/**/*.test.{ts,tsx}',
       ],
-      include: [
-        '@vidstack/react',
-        '@vidstack/react/player/layouts/default',
-        'dashjs',
-      ],
+      include: ['@videojs/react', '@videojs/media', 'shaka-player'],
     },
     envDir: resolveViteEnvDir(process.env),
     test: {
       globals: true,
       exclude: ['node_modules', 'build', 'public'],
       coverage: {
-        provider: 'v8',
+        provider: 'v8' as const,
         reporter: ['text-summary', 'json-summary', 'html'],
         include: ['app/**/*.{ts,tsx}'],
         exclude: [
@@ -150,12 +151,8 @@ export default defineConfig(({ command }) => {
           test: {
             name: 'modules',
             environment: 'node',
-            setupFiles: [
-              'tests/setup/runtime-test-env.setup.ts',
-            ],
-            include: [
-              'app/modules/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-            ],
+            setupFiles: ['tests/setup/runtime-test-env.setup.ts'],
+            include: ['app/modules/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
           },
         },
         {
@@ -163,12 +160,8 @@ export default defineConfig(({ command }) => {
           test: {
             name: 'integration',
             environment: 'node',
-            setupFiles: [
-              'tests/setup/runtime-test-env.setup.ts',
-            ],
-            include: [
-              'tests/integration/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-            ],
+            setupFiles: ['tests/setup/runtime-test-env.setup.ts'],
+            include: ['tests/integration/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
           },
         },
         {
@@ -176,12 +169,8 @@ export default defineConfig(({ command }) => {
           test: {
             name: 'ui',
             environment: 'jsdom',
-            setupFiles: [
-              'tests/setup/ui-test.setup.ts',
-            ],
-            include: [
-              'tests/ui/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-            ],
+            setupFiles: ['tests/setup/ui-test.setup.ts'],
+            include: ['tests/ui/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
           },
         },
       ],

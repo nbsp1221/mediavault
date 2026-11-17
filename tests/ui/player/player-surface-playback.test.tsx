@@ -1,133 +1,82 @@
 import { screen } from '@testing-library/react';
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import {
   createPlayerSurfaceElement,
   createVideo,
+  playbackHarness,
   protectedPlaybackSessionState,
-  providerHarness,
   renderPlayerSurface,
 } from './player-surface-test-harness';
 
-describe('PlayerSurface playback contracts', () => {
-  test('renders playback errors without mounting the media provider', () => {
+const ready = {
+  error: null,
+  isLoading: false,
+  licenseUrl: '/videos/video-1/clearkey',
+  manifestUrl: '/videos/video-1/manifest.mpd',
+  token: 'test-token-1',
+};
+
+describe('PlayerSurface playback', () => {
+  test('renders bootstrap failures without mounting a playback engine', () => {
     protectedPlaybackSessionState.current = {
-      drmConfig: null,
-      error: 'Could not prepare the playback token.',
+      error: 'This video is no longer available.',
       isLoading: false,
+      licenseUrl: null,
       manifestUrl: null,
       token: null,
     };
-
     renderPlayerSurface();
-
-    expect(screen.getByText('Playback error')).toBeInTheDocument();
-    expect(screen.getByText('Could not prepare the playback token.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Playback error');
+    expect(screen.getByRole('alert')).toHaveTextContent('This video is no longer available.');
     expect(screen.queryByTestId('media-player')).not.toBeInTheDocument();
   });
-
-  test('keeps the player context tree mounted while protected playback is still bootstrapping', () => {
+  test('uses an accessible stable placeholder before credentials are ready', () => {
     protectedPlaybackSessionState.current = {
-      drmConfig: null,
       error: null,
       isLoading: true,
+      licenseUrl: null,
       manifestUrl: null,
       token: null,
     };
-
+    renderPlayerSurface();
+    expect(screen.getByRole('status')).toHaveTextContent('Preparing secure playback');
+    expect(screen.queryByTestId('media-player')).not.toBeInTheDocument();
+  });
+  test('keeps the existing video mounted when only its credential changes', () => {
+    playbackHarness.mounts = 0;
+    playbackHarness.unmounts = 0;
+    protectedPlaybackSessionState.current = ready;
+    const { rerender } = renderPlayerSurface();
+    const video = screen.getByLabelText('Primary fixture video');
+    protectedPlaybackSessionState.current = { ...ready, token: 'test-token-2' };
+    rerender(createPlayerSurfaceElement());
+    expect(screen.getByLabelText('Primary fixture video')).toBe(video);
+    expect(playbackHarness.mounts).toBe(1);
+    expect(playbackHarness.unmounts).toBe(0);
+    rerender(createPlayerSurfaceElement({ video: createVideo({ id: 'video-2' }) }));
+    expect(playbackHarness.mounts).toBe(2);
+    expect(playbackHarness.unmounts).toBe(1);
+  });
+  test('shows playlist context without replacing the related video tag filter', () => {
+    protectedPlaybackSessionState.current = ready;
     renderPlayerSurface({
-      video: createVideo({ videoUrl: '/videos/video-1/manifest.mpd' }),
+      playlist: { id: 'playlist-1', name: 'Public queue', videoIds: ['video-1', 'video-2'] },
     });
-
-    expect(screen.getByTestId('media-player')).toBeInTheDocument();
-    expect(screen.getByTestId('media-provider')).toBeInTheDocument();
-    expect(screen.getByTestId('default-video-layout')).toBeInTheDocument();
-    expect(screen.getByText('Preparing secure playback')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Playlist queue' })).toHaveTextContent(
+      'Video 1 of 2',
+    );
+    expect(screen.getByRole('link', { name: 'Public queue' })).toHaveAttribute(
+      'href',
+      '/playlists/playlist-1',
+    );
+    expect(screen.getByRole('button', { name: 'Next video' })).toBeEnabled();
+    expect(screen.getByRole('complementary', { name: 'Related videos' })).toBeInTheDocument();
   });
-
-  test('shows the loading shell when playback is not loading but has no manifest yet', () => {
-    protectedPlaybackSessionState.current = {
-      drmConfig: null,
-      error: null,
-      isLoading: false,
-      manifestUrl: null,
-      token: null,
-    };
-
-    renderPlayerSurface();
-
-    expect(screen.getByTestId('media-player')).toHaveAttribute('data-player-src', '');
-    expect(screen.getByText('Preparing secure playback')).toBeInTheDocument();
-  });
-
-  test('wires DASH providers with the current DRM configuration and token', async () => {
-    const onInstance = vi.fn(async (callback: (provider: unknown) => Promise<void>) => {
-      await callback({ id: 'dash-provider' });
+  test('does not loop the final playlist item', () => {
+    protectedPlaybackSessionState.current = ready;
+    renderPlayerSurface({
+      playlist: { id: 'playlist-1', name: 'Public queue', videoIds: ['video-1'] },
     });
-    const dashProvider = {
-      isDash: true,
-      onInstance,
-    };
-    protectedPlaybackSessionState.current = {
-      drmConfig: {
-        key: 'clear-key',
-        keyId: 'clear-key-id',
-      },
-      error: null,
-      isLoading: false,
-      manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: 'token-1',
-    };
-
-    renderPlayerSurface();
-
-    await providerHarness.onProviderChange?.(dashProvider);
-
-    expect(screen.queryByText('Preparing secure playback')).not.toBeInTheDocument();
-    expect(onInstance).toHaveBeenCalled();
-    expect(providerHarness.configureDashPlaybackProvider).toHaveBeenCalledWith({
-      drmConfig: {
-        key: 'clear-key',
-        keyId: 'clear-key-id',
-      },
-      provider: { id: 'dash-provider' },
-      token: 'token-1',
-    });
-  });
-
-  test('remounts the media player when playback authorization identity changes', () => {
-    providerHarness.mediaPlayerMounts = 0;
-    providerHarness.mediaPlayerUnmounts = 0;
-    protectedPlaybackSessionState.current = {
-      drmConfig: null,
-      error: null,
-      isLoading: false,
-      manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: null,
-    };
-
-    const { rerender } = renderPlayerSurface({
-      video: createVideo({ id: 'video-1' }),
-    });
-
-    expect(providerHarness.mediaPlayerMounts).toBe(1);
-    expect(providerHarness.mediaPlayerUnmounts).toBe(0);
-
-    protectedPlaybackSessionState.current = {
-      drmConfig: {
-        key: 'next-clear-key',
-        keyId: 'next-clear-key-id',
-      },
-      error: null,
-      isLoading: false,
-      manifestUrl: 'https://cdn.example.com/video-1.mpd',
-      token: 'token-2',
-    };
-
-    rerender(createPlayerSurfaceElement({
-      video: createVideo({ id: 'video-1' }),
-    }));
-
-    expect(providerHarness.mediaPlayerMounts).toBe(2);
-    expect(providerHarness.mediaPlayerUnmounts).toBe(1);
+    expect(screen.getByRole('button', { name: 'Next video' })).toBeDisabled();
   });
 });

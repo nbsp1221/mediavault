@@ -1,12 +1,12 @@
 import { useRouteLoaderData } from 'react-router';
+import type { loader } from '~/root';
 
 export interface RootUser {
   id: string;
-  role: 'admin' | 'user';
   username: string;
 }
 
 export function useRootUser(): RootUser | null {
-  const data = useRouteLoaderData('root') as { user?: RootUser | null } | undefined;
+  const data = useRouteLoaderData<typeof loader>('root');
   return data?.user ?? null;
 }

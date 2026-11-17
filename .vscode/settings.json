@@ -1,10 +1,5 @@
 {
-  "cSpell.words": [
-    "clearkey",
-    "clearkeys",
-    "dashjs",
-    "vidstack"
-  ],
+  "cSpell.words": ["clearkey", "clearkeys", "dashjs", "vidstack"],
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },

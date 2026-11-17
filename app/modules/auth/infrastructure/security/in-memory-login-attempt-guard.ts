@@ -72,8 +72,7 @@ export class InMemoryLoginAttemptGuard implements LoginAttemptGuard {
     return mutex.runExclusive(async () => {
       try {
         return await task();
-      }
-      finally {
+      } finally {
         const finishedAt = Date.now();
         this.mutexTouchedAt.set(key, finishedAt);
         this.cleanupExpiredState(finishedAt);
@@ -122,9 +121,7 @@ export class InMemoryLoginAttemptGuard implements LoginAttemptGuard {
     const nextCount = existingRecord.count + 1;
     this.records.set(input.key, {
       blockedUntil:
-        nextCount >= this.options.maxFailures
-          ? nowMs + this.options.blockDurationMs
-          : null,
+        nextCount >= this.options.maxFailures ? nowMs + this.options.blockDurationMs : null,
       count: nextCount,
       windowStartedAt: existingRecord.windowStartedAt,
     });

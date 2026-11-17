@@ -1,127 +1,126 @@
+import type * as Router from 'react-router';
 import { render, screen } from '@testing-library/react';
-import React from 'react';
-import { describe, expect, test, vi } from 'vitest';
+import { createElement } from 'react';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import type { HomePageProps } from '../../../app/pages/home/ui/HomePage';
+import {
+  createHomeLibraryFilters,
+  writeHomeLibraryFiltersToSearchParams,
+} from '../../../app/pages/home/model/home-library-filters';
 
-const useLoaderDataMock = vi.fn();
-const useSearchParamsMock = vi.fn(() => [
-  new URLSearchParams('q=Action&tag=Good%20Boy-comedy&notTag=Spoiler&type=movie&genre=Drama'),
-  vi.fn(),
-] as const);
-const homePageMock = vi.fn((props: unknown) => (
+const useLoaderDataMock = vi.fn<() => unknown>();
+const useSearchParamsMock = vi.fn(
+  () =>
+    [
+      new URLSearchParams('q=Action&tag=Good%20Boy-comedy&notTag=Spoiler&type=movie&genre=Drama'),
+      vi.fn(),
+    ] as const,
+);
+const homePageMock = vi.fn((props: HomePageProps) => (
   <div data-testid="mock-home-page">{JSON.stringify(props)}</div>
 ));
-
 vi.mock('react-router', async () => {
-  const actual = await vi.importActual<typeof import('react-router')>('react-router');
-
+  const actual = await vi.importActual<typeof Router>('react-router');
   return {
     ...actual,
     useLoaderData: () => useLoaderDataMock(),
     useSearchParams: () => useSearchParamsMock(),
   };
 });
-
 vi.mock('~/pages/home/ui/HomePage', () => ({
-  HomePage: (props: unknown) => homePageMock(props),
+  HomePage: (props: HomePageProps) => homePageMock(props),
 }));
 
-describe('HomeRoute loader forwarding', () => {
-  test('passes initialFilters and videos through to the new HomePage owner', async () => {
-    useLoaderDataMock.mockReturnValue({
-      contentTypes: [{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }],
-      genres: [{ active: true, label: 'Drama', slug: 'drama', sortOrder: 20 }],
-      videos: [
-        {
-          contentTypeSlug: 'movie',
-          createdAt: '2026-03-11T00:00:00.000Z',
-          duration: 180,
-          genreSlugs: ['drama'],
-          id: 'video-1',
-          tags: ['good_boy-comedy'],
-          title: 'Catalog Fixture',
-          videoUrl: '/videos/video-1/manifest.mpd',
-        },
-      ],
-    });
-    const routeModule = await import('../../../app/routes/_index');
+function snapshot() {
+  return {
+    contentTypes: [{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }],
+    genres: [{ active: true, label: 'Drama', slug: 'drama', sortOrder: 20 }],
+    videos: [
+      {
+        contentTypeSlug: 'movie',
+        createdAt: '2026-03-11T00:00:00.000Z',
+        duration: 180,
+        genreSlugs: ['drama'],
+        id: 'video-1',
+        tags: ['good_boy-comedy'],
+        title: 'Catalog Fixture',
+        isPrivate: false,
+        permissions: { canEdit: true, canDelete: true, canManageVisibility: true },
+        videoUrl: '/videos/video-1/manifest.mpd',
+      },
+    ],
+  };
+}
 
-    render(React.createElement(routeModule.default));
-
+describe('Home URL and loader-data adaptation', () => {
+  beforeEach(() => {
+    homePageMock.mockClear();
+    useLoaderDataMock.mockReturnValue(snapshot());
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('q=Action&tag=Good%20Boy-comedy&notTag=Spoiler&type=movie&genre=Drama'),
+      vi.fn(),
+    ] as const);
+  });
+  test('normalizes taxonomy and URL tags and revives dates for the page', async () => {
+    const route = await import('../../../app/routes/_index');
+    render(createElement(route.default));
     expect(screen.getByTestId('mock-home-page')).toBeInTheDocument();
-    expect(homePageMock).toHaveBeenCalledWith(expect.objectContaining({
+    const props = homePageMock.mock.lastCall?.[0];
+    expect(props).toMatchObject({
       initialFilters: {
         contentTypeSlug: 'movie',
         excludeTags: ['spoiler'],
         genreSlugs: ['drama'],
-        includeTags: ['good_boy-comedy'],
+        includeTags: ['good boy-comedy'],
         query: 'Action',
       },
-      contentTypes: [{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }],
-      genres: [{ active: true, label: 'Drama', slug: 'drama', sortOrder: 20 }],
-      videos: [
-        expect.objectContaining({
-          contentTypeSlug: 'movie',
-          createdAt: expect.any(Date),
-          genreSlugs: ['drama'],
-          id: 'video-1',
-        }),
-      ],
-    }));
+      videos: [{ contentTypeSlug: 'movie', genreSlugs: ['drama'], id: 'video-1' }],
+    });
+    expect(props?.videos[0]?.createdAt).toBeInstanceOf(Date);
   });
-
-  test('drops URL tag filters that would render as blank filter labels', async () => {
+  test('preserves punctuation-only and underscore labels as actual text', async () => {
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('tag=Action&tag=__&tag=____&tag=--&notTag=___&notTag=Spoiler'),
       vi.fn(),
     ] as const);
-    useLoaderDataMock.mockReturnValue({
-      contentTypes: [],
-      genres: [],
-      videos: [],
+    const route = await import('../../../app/routes/_index');
+    render(createElement(route.default));
+    expect(homePageMock.mock.lastCall?.[0]).toMatchObject({
+      initialFilters: {
+        excludeTags: ['___', 'spoiler'],
+        includeTags: ['action', '__', '____', '--'],
+      },
     });
-    const routeModule = await import('../../../app/routes/_index');
-
-    render(React.createElement(routeModule.default));
-
-    expect(homePageMock).toHaveBeenCalledWith(expect.objectContaining({
-      initialFilters: expect.objectContaining({
-        excludeTags: ['spoiler'],
-        includeTags: ['action'],
-      }),
-    }));
+  });
+  test('round-trips NFC Korean, spaces, plus signs and URL punctuation without loss', async () => {
+    const filters = createHomeLibraryFilters({
+      query: 'C++',
+      includeTags: ['가족 여행'.normalize('NFD'), 'C++', 'café', 'old_tag', 'x/y?z#1'],
+      excludeTags: ['스포일러'],
+    });
+    const params = writeHomeLibraryFiltersToSearchParams(new URLSearchParams(), filters);
+    const url = new URL(`http://localhost/?${params}`);
+    expect(url.search).toContain('%2B%2B');
+    expect(url.searchParams.getAll('tag')).toEqual([
+      '가족 여행',
+      'c++',
+      'café',
+      'old_tag',
+      'x/y?z#1',
+    ]);
+    useSearchParamsMock.mockReturnValue([url.searchParams, vi.fn()] as const);
+    const route = await import('../../../app/routes/_index');
+    render(createElement(route.default));
+    expect(homePageMock.mock.lastCall?.[0]?.initialFilters).toEqual(filters);
   });
 
-  test('keeps deserialized video references stable across same-snapshot rerenders', async () => {
-    const loaderSnapshot = {
-      contentTypes: [],
-      genres: [],
-      videos: [
-        {
-          contentTypeSlug: 'movie',
-          createdAt: '2026-03-11T00:00:00.000Z',
-          duration: 180,
-          genreSlugs: ['action'],
-          id: 'video-1',
-          tags: ['Action'],
-          title: 'Catalog Fixture',
-          videoUrl: '/videos/video-1/manifest.mpd',
-        },
-      ],
-    };
-    useLoaderDataMock.mockReturnValue(loaderSnapshot);
-    const routeModule = await import('../../../app/routes/_index');
-    const { rerender } = render(React.createElement(routeModule.default));
-
-    const firstCallProps = homePageMock.mock.lastCall?.[0] as {
-      videos: Array<{ id: string }>;
-    };
-
-    rerender(React.createElement(routeModule.default));
-
-    const secondCallProps = homePageMock.mock.lastCall?.[0] as {
-      videos: Array<{ id: string }>;
-    };
-
-    expect(firstCallProps.videos).toBe(secondCallProps.videos);
+  test('retains revived video references while the loader snapshot is unchanged', async () => {
+    const route = await import('../../../app/routes/_index');
+    const { rerender } = render(createElement(route.default));
+    const first = homePageMock.mock.lastCall?.[0];
+    rerender(createElement(route.default));
+    const second = homePageMock.mock.lastCall?.[0];
+    expect(first?.videos).toHaveLength(1);
+    expect(first?.videos).toBe(second?.videos);
   });
 });

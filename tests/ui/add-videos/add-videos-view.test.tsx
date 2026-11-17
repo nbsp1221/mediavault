@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, test, vi } from 'vitest';
 import {
-  type AddVideosViewProps,
   AddVideosView,
-} from '../../../app/widgets/add-videos/ui/AddVideosView';
+  type AddVideosViewProps,
+} from '../../../app/pages/add-videos/ui/AddVideosView';
 
 function createViewProps(overrides: Partial<AddVideosViewProps> = {}): AddVideosViewProps {
   return {
@@ -61,9 +61,13 @@ describe('AddVideosView', () => {
   test('can delegate page chrome to the product shell without rendering the standalone page header', () => {
     renderView(createViewProps({ showPageHeader: false }));
 
-    expect(screen.queryByRole('heading', { level: 1, name: 'Upload a video' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 1, name: 'Upload a video' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Back to Library' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Choose one video to upload' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Choose one video to upload' }),
+    ).toBeInTheDocument();
   });
 
   test('renders the browser-first empty state instead of the old folder-scan flow', () => {
@@ -71,7 +75,9 @@ describe('AddVideosView', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Upload a video' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to Library' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('heading', { level: 2, name: 'Choose one video to upload' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Choose one video to upload' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Choose Video' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
     expect(screen.getByText('Maximum file size: 4 GB')).toBeInTheDocument();
@@ -79,20 +85,24 @@ describe('AddVideosView', () => {
   });
 
   test('renders a single active upload card with inline status and textarea-based metadata editing', () => {
-    renderView(createViewProps({
-      session: createSession({
-        metadata: {
-          description: 'Fixture description',
-          genreSlugs: [],
-          tags: ['one', 'two'],
-          title: 'Fixture title',
-        },
-        progressPercent: 45,
-        size: 1_024 * 1_024,
+    renderView(
+      createViewProps({
+        session: createSession({
+          metadata: {
+            description: 'Fixture description',
+            genreSlugs: [],
+            tags: ['one', 'two'],
+            title: 'Fixture title',
+          },
+          progressPercent: 45,
+          size: 1_024 * 1_024,
+        }),
       }),
-    }));
+    );
 
-    expect(screen.getByRole('heading', { level: 2, name: 'fixture-video.mp4' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'fixture-video.mp4' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('1.0 MB')).toBeInTheDocument();
     expect(screen.getByText('video/mp4')).toBeInTheDocument();
     expect(screen.getByText('Uploading')).toBeInTheDocument();
@@ -110,9 +120,11 @@ describe('AddVideosView', () => {
   });
 
   test('formats staged file sizes across byte, kilobyte, megabyte, and gigabyte boundaries', () => {
-    const { rerender } = renderView(createViewProps({
-      session: createSession({ size: 512 }),
-    }));
+    const { rerender } = renderView(
+      createViewProps({
+        session: createSession({ size: 512 }),
+      }),
+    );
     expect(screen.getByText('512 B')).toBeInTheDocument();
 
     rerender(
@@ -131,7 +143,9 @@ describe('AddVideosView', () => {
 
     rerender(
       <MemoryRouter>
-        <AddVideosView {...createViewProps({ session: createSession({ size: 1024 * 1024 * 1024 }) })} />
+        <AddVideosView
+          {...createViewProps({ session: createSession({ size: 1024 * 1024 * 1024 }) })}
+        />
       </MemoryRouter>,
     );
     expect(screen.getByText('1.0 GB')).toBeInTheDocument();
@@ -143,15 +157,45 @@ describe('AddVideosView', () => {
 
     const dropZone = screen.getByText('Or drag and drop a file here.').closest('div');
     const file = new File(['video'], 'drop.mp4', { type: 'video/mp4' });
-    expect(dropZone).not.toBeNull();
+    if (!dropZone) {
+      throw new Error('Upload drop zone is missing.');
+    }
 
-    fireEvent.dragEnter(dropZone!, { dataTransfer: { files: [file] } });
+    fireEvent.dragEnter(dropZone, { dataTransfer: { files: [file] } });
     expect(dropZone).toHaveClass('border-primary');
-    fireEvent.dragOver(dropZone!, { dataTransfer: { files: [file] } });
-    fireEvent.drop(dropZone!, { dataTransfer: { files: [file] } });
+    fireEvent.dragOver(dropZone, { dataTransfer: { files: [file] } });
+    fireEvent.drop(dropZone, { dataTransfer: { files: [file] } });
 
     expect(onChooseFiles).toHaveBeenCalledWith([file]);
     expect(dropZone).not.toHaveClass('border-primary');
+  });
+
+  test('blocks uploading an invalid tag draft and accepts corrected Unicode labels without stripping punctuation', async () => {
+    const user = userEvent.setup();
+    const onAddToLibrary = vi.fn();
+    const onTagsChange = vi.fn();
+    renderView(
+      createViewProps({
+        canAddToLibrary: true,
+        onAddToLibrary,
+        onTagsChange,
+        session: createSession({ stagingId: 'ready', status: 'uploaded' }),
+      }),
+    );
+    const input = screen.getByLabelText('Tags');
+    fireEvent.change(input, { target: { value: '가'.repeat(101) } });
+    expect(screen.getByRole('alert')).toHaveTextContent('100 characters');
+    expect(screen.getByRole('button', { name: 'Add to Library' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Add to Library' }));
+    expect(onAddToLibrary).not.toHaveBeenCalled();
+    await user.clear(input);
+    await user.click(input);
+    await user.paste('가족 여행, C++');
+    await user.keyboard('{Enter}');
+    expect(onTagsChange).toHaveBeenCalledWith(['가족 여행', 'c++']);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add to Library' }));
+    expect(onAddToLibrary).toHaveBeenCalledOnce();
   });
 
   test('exposes active upload actions through explicit callbacks', async () => {
@@ -159,16 +203,18 @@ describe('AddVideosView', () => {
     const onAddToLibrary = vi.fn();
     const onRemoveSession = vi.fn();
 
-    renderView(createViewProps({
-      canAddToLibrary: true,
-      onAddToLibrary,
-      onRemoveSession,
-      session: createSession({
-        progressPercent: 100,
-        stagingId: 'staging-123',
-        status: 'uploaded',
+    renderView(
+      createViewProps({
+        canAddToLibrary: true,
+        onAddToLibrary,
+        onRemoveSession,
+        session: createSession({
+          progressPercent: 100,
+          stagingId: 'staging-123',
+          status: 'uploaded',
+        }),
       }),
-    }));
+    );
 
     await user.click(screen.getByRole('button', { name: 'Remove' }));
     await user.click(screen.getByRole('button', { name: 'Add to Library' }));
@@ -194,8 +240,10 @@ describe('AddVideosView', () => {
     );
 
     const fileInput = container.querySelector<HTMLInputElement>('#choose-video-input');
-    expect(fileInput).not.toBeNull();
-    fireEvent.change(fileInput!, { target: { files: [file] } });
+    if (!fileInput) {
+      throw new Error('Upload chooser is missing.');
+    }
+    fireEvent.change(fileInput, { target: { files: [file] } });
     expect(onChooseFiles).toHaveBeenCalledWith([file]);
 
     rerender(
@@ -266,16 +314,18 @@ describe('AddVideosView', () => {
   });
 
   test('hides remove while the final library commit is in flight', () => {
-    renderView(createViewProps({
-      session: createSession({
-        progressPercent: 100,
-        stagingId: 'staging-123',
-        status: 'adding_to_library',
+    renderView(
+      createViewProps({
+        session: createSession({
+          progressPercent: 100,
+          stagingId: 'staging-123',
+          status: 'adding_to_library',
+        }),
       }),
-    }));
+    );
 
     expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Adding...' })).toBeDisabled();
-    expect(screen.getByText('Adding the staged file to the library')).toBeInTheDocument();
+    expect(screen.getByText('Submitting the staged file for processing')).toBeInTheDocument();
   });
 });

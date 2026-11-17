@@ -18,8 +18,7 @@ const NativeRequest = globalThis.Request;
 function CompatibleRequest(input: RequestInfo | URL, init?: RequestInit): Request {
   try {
     return new NativeRequest(input, init);
-  }
-  catch (error) {
+  } catch (error) {
     if (init?.signal && error instanceof TypeError && error.message.includes('Expected signal')) {
       return new NativeRequest(input, {
         ...init,

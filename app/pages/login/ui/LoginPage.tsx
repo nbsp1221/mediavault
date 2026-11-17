@@ -1,11 +1,14 @@
 import { AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { z } from 'zod';
 import { Alert, AlertDescription } from '~/shared/ui/alert';
 import { Button } from '~/shared/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/shared/ui/card';
 import { Input } from '~/shared/ui/input';
 import { Label } from '~/shared/ui/label';
+
+const loginResponseSchema = z.object({ success: z.boolean(), error: z.string().optional() });
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -25,7 +28,7 @@ export function LoginPage() {
     return candidate;
   })();
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
@@ -39,20 +42,23 @@ export function LoginPage() {
         },
         method: 'POST',
       });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setError(data.error || 'Sign in failed');
+      const body: unknown = await response.json();
+      const parsed = loginResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        setError('Sign in failed');
         return;
       }
 
-      navigate(redirectTo, { replace: true });
-    }
-    catch (submissionError) {
+      if (!response.ok || !parsed.data.success) {
+        setError(parsed.data.error || 'Sign in failed');
+        return;
+      }
+
+      await navigate(redirectTo, { replace: true });
+    } catch (submissionError) {
       console.error('Sign in failed:', submissionError);
       setError('Sign in failed');
-    }
-    finally {
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -70,14 +76,14 @@ export function LoginPage() {
         </CardHeader>
 
         <CardContent>
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <form className="flex flex-col gap-4" onSubmit={(event) => void handleSubmit(event)}>
             <div className="flex flex-col gap-2">
               <Label htmlFor="username">Username</Label>
               <Input
                 id="username"
                 autoComplete="username"
                 disabled={isSubmitting}
-                onChange={event => setUsername(event.target.value)}
+                onChange={(event) => setUsername(event.target.value)}
                 placeholder="Enter username"
                 required
                 type="text"
@@ -91,7 +97,7 @@ export function LoginPage() {
                 id="password"
                 autoComplete="current-password"
                 disabled={isSubmitting}
-                onChange={event => setPassword(event.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
                 placeholder="Enter password"
                 required
                 type="password"

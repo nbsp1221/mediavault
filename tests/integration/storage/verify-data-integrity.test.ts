@@ -2,10 +2,10 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { verifyPrimaryStorageIntegrity } from '../../../scripts/verify-data-integrity';
 
-type TestDatabase = Awaited<ReturnType<typeof createMigratedPrimarySqliteDatabase>>;
+type TestDatabase = Awaited<ReturnType<typeof createInitializedPrimarySqliteDatabase>>;
 
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
 const workspaces: string[] = [];
@@ -32,24 +32,18 @@ function writeReadyMediaFiles(storageDir: string, videoId: string) {
 }
 
 async function seedIntegrityOwner(database: TestDatabase) {
-  await database.prepare(`
+  await database
+    .prepare(`
     INSERT INTO auth_users (
       id,
       username,
       username_key,
       password_hash,
-      role,
       created_at
-    ) VALUES (?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(id) DO NOTHING
-  `).run(
-    'owner-1',
-    'Owner',
-    'owner',
-    'test-password-hash',
-    'user',
-    '2026-05-23T00:00:00.000Z',
-  );
+  `)
+    .run('owner-1', 'Owner', 'owner', 'test-password-hash', '2026-05-23T00:00:00.000Z');
 }
 
 beforeEach(() => {
@@ -63,8 +57,7 @@ afterEach(() => {
 
   if (ORIGINAL_STORAGE_DIR === undefined) {
     delete process.env.MEDIAVAULT_STORAGE_DIR;
-  }
-  else {
+  } else {
     process.env.MEDIAVAULT_STORAGE_DIR = ORIGINAL_STORAGE_DIR;
   }
 });
@@ -80,11 +73,13 @@ describe('primary storage integrity verification', () => {
     const report = await verifyPrimaryStorageIntegrity();
 
     expect(report.ok).toBe(false);
-    expect(report.findings).toContainEqual(expect.objectContaining({
-      code: 'missing_primary_database',
-      path: databasePath,
-      severity: 'blocking',
-    }));
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        code: 'missing_primary_database',
+        path: databasePath,
+        severity: 'blocking',
+      }),
+    );
     expect(existsSync(databasePath)).toBe(false);
   });
 
@@ -96,15 +91,18 @@ describe('primary storage integrity verification', () => {
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
     await seedIntegrityOwner(database);
 
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
       VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
-    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
-    await database.prepare(`
+    `)
+      .run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
+    await database
+      .prepare(`
       INSERT INTO video_media_assets (
         video_id,
         status,
@@ -119,17 +117,18 @@ describe('primary storage integrity verification', () => {
         audio_segment_glob,
         prepared_at
       ) VALUES (?, 'ready', 1, 'fixture', ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      videoId,
-      `${videoId}/manifest.mpd`,
-      `${videoId}/key.bin`,
-      `${videoId}/thumbnail.jpg`,
-      `${videoId}/video/init.mp4`,
-      `${videoId}/video/segment-*.m4s`,
-      `${videoId}/audio/init.mp4`,
-      `${videoId}/audio/segment-*.m4s`,
-      now,
-    );
+    `)
+      .run(
+        videoId,
+        `${videoId}/manifest.mpd`,
+        `${videoId}/key.bin`,
+        `${videoId}/thumbnail.jpg`,
+        `${videoId}/video/init.mp4`,
+        `${videoId}/video/segment-*.m4s`,
+        `${videoId}/audio/init.mp4`,
+        `${videoId}/audio/segment-*.m4s`,
+        now,
+      );
     writeReadyMediaFiles(storageDir, videoId);
 
     const report = await verifyPrimaryStorageIntegrity();
@@ -146,23 +145,27 @@ describe('primary storage integrity verification', () => {
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
     await seedIntegrityOwner(database);
 
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
       VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
-    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
+    `)
+      .run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
 
     const report = await verifyPrimaryStorageIntegrity();
 
     expect(report.ok).toBe(false);
-    expect(report.findings).toContainEqual(expect.objectContaining({
-      code: 'video_missing_ready_media_asset',
-      severity: 'blocking',
-      videoId,
-    }));
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        code: 'video_missing_ready_media_asset',
+        severity: 'blocking',
+        videoId,
+      }),
+    );
   });
 
   test('reports a blocking finding when a ready media path escapes the videos directory', async () => {
@@ -173,15 +176,18 @@ describe('primary storage integrity verification', () => {
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
     await seedIntegrityOwner(database);
 
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
       VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
-    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
-    await database.prepare(`
+    `)
+      .run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
+    await database
+      .prepare(`
       INSERT INTO video_media_assets (
         video_id,
         status,
@@ -196,10 +202,12 @@ describe('primary storage integrity verification', () => {
         audio_segment_glob,
         prepared_at
       ) VALUES (?, 'preparing', 1, 'fixture', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
-    `).run(videoId);
+    `)
+      .run(videoId);
 
     await database.exec('PRAGMA ignore_check_constraints = ON');
-    await database.prepare(`
+    await database
+      .prepare(`
       UPDATE video_media_assets
       SET
         status = 'ready',
@@ -212,17 +220,18 @@ describe('primary storage integrity verification', () => {
         audio_segment_glob = ?,
         prepared_at = ?
       WHERE video_id = ?
-    `).run(
-      `${videoId}/manifest.mpd`,
-      `${videoId}/key.bin`,
-      `${videoId}/thumbnail.jpg`,
-      `${videoId}/video/init.mp4`,
-      `${videoId}/video/segment-*.m4s`,
-      '../outside/init.mp4',
-      `${videoId}/audio/segment-*.m4s`,
-      now,
-      videoId,
-    );
+    `)
+      .run(
+        `${videoId}/manifest.mpd`,
+        `${videoId}/key.bin`,
+        `${videoId}/thumbnail.jpg`,
+        `${videoId}/video/init.mp4`,
+        `${videoId}/video/segment-*.m4s`,
+        '../outside/init.mp4',
+        `${videoId}/audio/segment-*.m4s`,
+        now,
+        videoId,
+      );
     await database.exec('PRAGMA ignore_check_constraints = OFF');
     writeReadyMediaFiles(storageDir, videoId);
     mkdirSync(path.join(storageDir, 'outside'), { recursive: true });
@@ -231,11 +240,13 @@ describe('primary storage integrity verification', () => {
     const report = await verifyPrimaryStorageIntegrity();
 
     expect(report.ok).toBe(false);
-    expect(report.findings).toContainEqual(expect.objectContaining({
-      code: 'unsafe_ready_media_path',
-      severity: 'blocking',
-      videoId,
-    }));
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        code: 'unsafe_ready_media_path',
+        severity: 'blocking',
+        videoId,
+      }),
+    );
   });
 
   test('reports a blocking finding when a ready media segment glob escapes the videos directory', async () => {
@@ -246,15 +257,18 @@ describe('primary storage integrity verification', () => {
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
     await seedIntegrityOwner(database);
 
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
       VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
-    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
-    await database.prepare(`
+    `)
+      .run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
+    await database
+      .prepare(`
       INSERT INTO video_media_assets (
         video_id,
         status,
@@ -269,10 +283,12 @@ describe('primary storage integrity verification', () => {
         audio_segment_glob,
         prepared_at
       ) VALUES (?, 'preparing', 1, 'fixture', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
-    `).run(videoId);
+    `)
+      .run(videoId);
 
     await database.exec('PRAGMA ignore_check_constraints = ON');
-    await database.prepare(`
+    await database
+      .prepare(`
       UPDATE video_media_assets
       SET
         status = 'ready',
@@ -285,17 +301,18 @@ describe('primary storage integrity verification', () => {
         audio_segment_glob = ?,
         prepared_at = ?
       WHERE video_id = ?
-    `).run(
-      `${videoId}/manifest.mpd`,
-      `${videoId}/key.bin`,
-      `${videoId}/thumbnail.jpg`,
-      `${videoId}/video/init.mp4`,
-      '../outside/segment-*.m4s',
-      `${videoId}/audio/init.mp4`,
-      `${videoId}/audio/segment-*.m4s`,
-      now,
-      videoId,
-    );
+    `)
+      .run(
+        `${videoId}/manifest.mpd`,
+        `${videoId}/key.bin`,
+        `${videoId}/thumbnail.jpg`,
+        `${videoId}/video/init.mp4`,
+        '../outside/segment-*.m4s',
+        `${videoId}/audio/init.mp4`,
+        `${videoId}/audio/segment-*.m4s`,
+        now,
+        videoId,
+      );
     await database.exec('PRAGMA ignore_check_constraints = OFF');
     writeReadyMediaFiles(storageDir, videoId);
     mkdirSync(path.join(storageDir, 'outside'), { recursive: true });
@@ -304,11 +321,13 @@ describe('primary storage integrity verification', () => {
     const report = await verifyPrimaryStorageIntegrity();
 
     expect(report.ok).toBe(false);
-    expect(report.findings).toContainEqual(expect.objectContaining({
-      code: 'unsafe_ready_media_path',
-      severity: 'blocking',
-      videoId,
-    }));
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        code: 'unsafe_ready_media_path',
+        severity: 'blocking',
+        videoId,
+      }),
+    );
   });
 
   test('reports a blocking finding when a ready media directory is a symlink', async () => {
@@ -319,15 +338,18 @@ describe('primary storage integrity verification', () => {
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
     await seedIntegrityOwner(database);
 
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
       VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
-    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
-    await database.prepare(`
+    `)
+      .run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
+    await database
+      .prepare(`
       INSERT INTO video_media_assets (
         video_id,
         status,
@@ -342,17 +364,18 @@ describe('primary storage integrity verification', () => {
         audio_segment_glob,
         prepared_at
       ) VALUES (?, 'ready', 1, 'fixture', ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      videoId,
-      `${videoId}/manifest.mpd`,
-      `${videoId}/key.bin`,
-      `${videoId}/thumbnail.jpg`,
-      `${videoId}/video/init.mp4`,
-      `${videoId}/video/segment-*.m4s`,
-      `${videoId}/audio/init.mp4`,
-      `${videoId}/audio/segment-*.m4s`,
-      now,
-    );
+    `)
+      .run(
+        videoId,
+        `${videoId}/manifest.mpd`,
+        `${videoId}/key.bin`,
+        `${videoId}/thumbnail.jpg`,
+        `${videoId}/video/init.mp4`,
+        `${videoId}/video/segment-*.m4s`,
+        `${videoId}/audio/init.mp4`,
+        `${videoId}/audio/segment-*.m4s`,
+        now,
+      );
     writeReadyMediaFiles(storageDir, videoId);
 
     const outsideVideoDir = path.join(storageDir, 'outside-video-dir');
@@ -365,11 +388,13 @@ describe('primary storage integrity verification', () => {
     const report = await verifyPrimaryStorageIntegrity();
 
     expect(report.ok).toBe(false);
-    expect(report.findings).toContainEqual(expect.objectContaining({
-      code: 'unsafe_symlink',
-      severity: 'blocking',
-      videoId,
-    }));
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        code: 'unsafe_symlink',
+        severity: 'blocking',
+        videoId,
+      }),
+    );
   });
 
   test('reports a blocking finding when only a segment glob directory is a symlink', async () => {
@@ -380,15 +405,18 @@ describe('primary storage integrity verification', () => {
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
     await seedIntegrityOwner(database);
 
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
       VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
-    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
-    await database.prepare(`
+    `)
+      .run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
+    await database
+      .prepare(`
       INSERT INTO video_media_assets (
         video_id,
         status,
@@ -403,17 +431,18 @@ describe('primary storage integrity verification', () => {
         audio_segment_glob,
         prepared_at
       ) VALUES (?, 'ready', 1, 'fixture', ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      videoId,
-      `${videoId}/manifest.mpd`,
-      `${videoId}/key.bin`,
-      `${videoId}/thumbnail.jpg`,
-      `${videoId}/video/init.mp4`,
-      `${videoId}/video-link/segment-*.m4s`,
-      `${videoId}/audio/init.mp4`,
-      `${videoId}/audio/segment-*.m4s`,
-      now,
-    );
+    `)
+      .run(
+        videoId,
+        `${videoId}/manifest.mpd`,
+        `${videoId}/key.bin`,
+        `${videoId}/thumbnail.jpg`,
+        `${videoId}/video/init.mp4`,
+        `${videoId}/video-link/segment-*.m4s`,
+        `${videoId}/audio/init.mp4`,
+        `${videoId}/audio/segment-*.m4s`,
+        now,
+      );
     writeReadyMediaFiles(storageDir, videoId);
 
     const outsideSegmentDir = path.join(storageDir, 'outside-segment-dir');
@@ -424,11 +453,13 @@ describe('primary storage integrity verification', () => {
     const report = await verifyPrimaryStorageIntegrity();
 
     expect(report.ok).toBe(false);
-    expect(report.findings).toContainEqual(expect.objectContaining({
-      code: 'unsafe_symlink',
-      severity: 'blocking',
-      videoId,
-    }));
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        code: 'unsafe_symlink',
+        severity: 'blocking',
+        videoId,
+      }),
+    );
   });
 
   test('reports a blocking finding when a matched segment is a symlink', async () => {
@@ -439,15 +470,18 @@ describe('primary storage integrity verification', () => {
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
     await seedIntegrityOwner(database);
 
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO videos (id, title, description, duration_seconds, content_type_slug, owner_id, visibility, created_at, updated_at, sort_index)
       VALUES (?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)
-    `).run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
-    await database.prepare(`
+    `)
+      .run(videoId, 'Integrity Video', 1, 'owner-1', 'private', now, now, 1);
+    await database
+      .prepare(`
       INSERT INTO video_media_assets (
         video_id,
         status,
@@ -462,17 +496,18 @@ describe('primary storage integrity verification', () => {
         audio_segment_glob,
         prepared_at
       ) VALUES (?, 'ready', 1, 'fixture', ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      videoId,
-      `${videoId}/manifest.mpd`,
-      `${videoId}/key.bin`,
-      `${videoId}/thumbnail.jpg`,
-      `${videoId}/video/init.mp4`,
-      `${videoId}/video/segment-*.m4s`,
-      `${videoId}/audio/init.mp4`,
-      `${videoId}/audio/segment-*.m4s`,
-      now,
-    );
+    `)
+      .run(
+        videoId,
+        `${videoId}/manifest.mpd`,
+        `${videoId}/key.bin`,
+        `${videoId}/thumbnail.jpg`,
+        `${videoId}/video/init.mp4`,
+        `${videoId}/video/segment-*.m4s`,
+        `${videoId}/audio/init.mp4`,
+        `${videoId}/audio/segment-*.m4s`,
+        now,
+      );
     writeReadyMediaFiles(storageDir, videoId);
     rmSync(path.join(storageDir, 'videos', videoId, 'video', 'segment-0001.m4s'));
     symlinkSync(
@@ -483,11 +518,13 @@ describe('primary storage integrity verification', () => {
     const report = await verifyPrimaryStorageIntegrity();
 
     expect(report.ok).toBe(false);
-    expect(report.findings).toContainEqual(expect.objectContaining({
-      code: 'unsafe_symlink',
-      severity: 'blocking',
-      videoId,
-    }));
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        code: 'unsafe_symlink',
+        severity: 'blocking',
+        videoId,
+      }),
+    );
   });
 
   test('reports expired staged uploads without blocking otherwise healthy storage', async () => {
@@ -497,13 +534,15 @@ describe('primary storage integrity verification', () => {
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
 
-    const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+    const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
     const now = new Date('2026-04-28T00:00:00.000Z').toISOString();
     await seedIntegrityOwner(database);
 
-    await database.prepare(`
+    await database
+      .prepare(`
       INSERT INTO ingest_uploads (
         staging_id,
+        owner_id,
         filename,
         mime_type,
         size_bytes,
@@ -512,25 +551,29 @@ describe('primary storage integrity verification', () => {
         created_at,
         updated_at,
         expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      'expired-stage',
-      'upload.mp4',
-      'video/mp4',
-      1,
-      'staging/expired-stage/source',
-      'expired',
-      now,
-      now,
-      new Date('2026-04-27T00:00:00.000Z').toISOString(),
-    );
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+      .run(
+        'expired-stage',
+        'owner-1',
+        'upload.mp4',
+        'video/mp4',
+        1,
+        'staging/expired-stage/source',
+        'expired',
+        now,
+        now,
+        new Date('2026-04-27T00:00:00.000Z').toISOString(),
+      );
 
     const report = await verifyPrimaryStorageIntegrity();
 
     expect(report.ok).toBe(true);
-    expect(report.findings).toContainEqual(expect.objectContaining({
-      code: 'expired_staged_upload',
-      severity: 'warning',
-    }));
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        code: 'expired_staged_upload',
+        severity: 'warning',
+      }),
+    );
   });
 });

@@ -17,10 +17,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return result.data;
 }
 
-export const meta: MetaFunction = () => ([
+export const meta: MetaFunction = () => [
   { title: 'Add Videos - Mediavault' },
   { name: 'description', content: 'Add new videos to your library' },
-]);
+];
 
 export default function AddVideosRoute() {
   const data = useLoaderData<typeof loader>();
@@ -35,13 +35,13 @@ export function ErrorBoundary() {
     <ProductRouteErrorView
       activeRoute="upload"
       contentWidth="standard"
-      description={<p>{error instanceof Error ? error.message : 'Unable to load upload metadata.'}</p>}
+      description={
+        <p>{error instanceof Error ? error.message : 'Unable to load upload metadata.'}</p>
+      }
       icon={<AlertTriangle className="h-6 w-6" aria-hidden />}
       title="Unable to load upload"
       tone="critical"
-      actions={[
-        { label: 'Go to library', to: '/' },
-      ]}
+      actions={[{ label: 'Go to library', to: '/' }]}
     />
   );
 }

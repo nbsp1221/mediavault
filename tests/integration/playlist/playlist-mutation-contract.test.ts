@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { createMigratedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/migrated-primary-sqlite.database';
+import { createInitializedPrimarySqliteDatabase } from '../../../app/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 import { toRequestCookieHeader } from '../../helpers/cookies';
+import { routeArgs } from '../../helpers/route-args';
 import { seedRuntimeAuthUser } from '../../support/auth-account';
 import { createPlaylistRuntimeTestWorkspace } from '../../support/create-playlist-runtime-test-workspace';
 
@@ -22,51 +23,58 @@ async function importPlaylistDetailRoute() {
 
 async function loginWithCredentials(username: string, password: string) {
   const { action } = await import('../../../app/routes/api.auth.login');
-  const response = await action({
-    request: new Request('http://localhost/api/auth/login', {
-      body: JSON.stringify({ password, username }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
+  const response = await action(
+    routeArgs({
+      request: new Request('http://localhost/api/auth/login', {
+        body: JSON.stringify({ password, username }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'http://localhost',
+        },
+        method: 'POST',
+      }),
     }),
-  } as never);
+  );
 
   return toRequestCookieHeader(response.headers.get('Set-Cookie'));
 }
 
 async function readPlaylistRows(databasePath: string) {
-  const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
+  const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
 
-  return database.prepare<{
-    description: string | null;
-    id: string;
-    name: string;
-    owner_id: string;
-  }>(`
+  return database
+    .prepare<{
+      description: string | null;
+      id: string;
+      name: string;
+      owner_id: string;
+    }>(`
     SELECT id, name, description, owner_id
     FROM playlists
     ORDER BY id ASC
-  `).all();
+  `)
+    .all();
 }
 
 async function readPlaylistItems(databasePath: string, playlistId: string) {
-  const database = await createMigratedPrimarySqliteDatabase({ dbPath: databasePath });
-  const rows = await database.prepare<{
-    episode_metadata_json: string | null;
-    playlist_id: string;
-    position: number;
-    video_id: string;
-  }>(`
+  const database = await createInitializedPrimarySqliteDatabase({ dbPath: databasePath });
+  const rows = await database
+    .prepare<{
+      episode_metadata_json: string | null;
+      playlist_id: string;
+      position: number;
+      video_id: string;
+    }>(`
     SELECT playlist_id, video_id, position, episode_metadata_json
     FROM playlist_items
     WHERE playlist_id = ?
     ORDER BY position ASC
-  `).all(playlistId);
+  `)
+    .all(playlistId);
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     episodeMetadata: row.episode_metadata_json
-      ? JSON.parse(row.episode_metadata_json) as unknown
+      ? (JSON.parse(row.episode_metadata_json) as unknown)
       : undefined,
     playlistId: row.playlist_id,
     position: row.position + 1,
@@ -74,7 +82,7 @@ async function readPlaylistItems(databasePath: string, playlistId: string) {
   }));
 }
 
-describe.sequential('playlist mutation contract', () => {
+describe('playlist mutation contract', { concurrent: false }, () => {
   afterEach(() => {
     vi.doUnmock('~/composition/server/auth');
     vi.doUnmock('~/composition/server/playlist');
@@ -102,51 +110,54 @@ describe.sequential('playlist mutation contract', () => {
       const cookie = await workspace.login();
       const { action } = await importPlaylistDetailRoute();
 
-      const updateResponse = await action({
-        params: { id: 'playlist-1' },
-        request: new Request('http://localhost/api/playlists/playlist-1', {
-          body: JSON.stringify({
-            description: 'Updated description',
-            name: 'Updated Playlist',
+      const updateResponse = await action(
+        routeArgs({
+          params: { id: 'playlist-1' },
+          request: new Request('http://localhost/api/playlists/playlist-1', {
+            body: JSON.stringify({
+              description: 'Updated description',
+              name: 'Updated Playlist',
+            }),
+            headers: new Headers([
+              ['Content-Type', 'application/json'],
+              ['Cookie', cookie],
+              ['Origin', 'http://localhost'],
+            ]),
+            method: 'PUT',
           }),
-          headers: new Headers([
-            ['Content-Type', 'application/json'],
-            ['Cookie', cookie],
-          ]),
-          method: 'PUT',
         }),
-      } as never);
+      );
 
       expect(updateResponse.status).toBe(200);
-      await expect(updateResponse.json()).resolves.toEqual(expect.objectContaining({
-        playlist: expect.objectContaining({
+      await expect(updateResponse.json()).resolves.toMatchObject({
+        playlist: {
           description: 'Updated description',
           id: 'playlist-1',
           name: 'Updated Playlist',
-        }),
+        },
         success: true,
-      }));
+      });
 
-      const deleteResponse = await action({
-        params: { id: 'playlist-1' },
-        request: new Request('http://localhost/api/playlists/playlist-1', {
-          headers: {
-            Cookie: cookie,
-          },
-          method: 'DELETE',
+      const deleteResponse = await action(
+        routeArgs({
+          params: { id: 'playlist-1' },
+          request: new Request('http://localhost/api/playlists/playlist-1', {
+            headers: {
+              Cookie: cookie,
+              Origin: 'http://localhost',
+            },
+            method: 'DELETE',
+          }),
         }),
-      } as never);
+      );
 
       expect(deleteResponse.status).toBe(200);
       await expect(deleteResponse.json()).resolves.toEqual({
         deletedPlaylistName: 'Updated Playlist',
         message: 'Playlist "Updated Playlist" deleted successfully',
-        relatedPlaylistsAffected: [],
         success: true,
-        videosAffected: 0,
       });
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -179,20 +190,23 @@ describe.sequential('playlist mutation contract', () => {
       vi.resetModules();
 
       const { action } = await importPlaylistDetailRoute();
-      const response = await action({
-        params: { id: 'playlist-1' },
-        request: new Request('http://localhost/api/playlists/playlist-1', {
-          body: JSON.stringify({
-            description: 'Should not persist',
-            name: 'Hijacked Playlist',
+      const response = await action(
+        routeArgs({
+          params: { id: 'playlist-1' },
+          request: new Request('http://localhost/api/playlists/playlist-1', {
+            body: JSON.stringify({
+              description: 'Should not persist',
+              name: 'Hijacked Playlist',
+            }),
+            headers: new Headers([
+              ['Content-Type', 'application/json'],
+              ['Cookie', cookie],
+              ['Origin', 'http://localhost'],
+            ]),
+            method: 'PUT',
           }),
-          headers: new Headers([
-            ['Content-Type', 'application/json'],
-            ['Cookie', cookie],
-          ]),
-          method: 'PUT',
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(403);
       await expect(response.json()).resolves.toEqual({
@@ -201,8 +215,7 @@ describe.sequential('playlist mutation contract', () => {
       });
 
       await expect(readPlaylistRows(workspace.databasePath)).resolves.toEqual(playlistsBefore);
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -261,43 +274,46 @@ describe.sequential('playlist mutation contract', () => {
       const { action: itemAction } = await importPlaylistItemRoute();
       const { loader: playlistDetailLoader } = await importPlaylistDetailLoaderRoute();
 
-      const addResponse = await itemsAction({
-        params: { id: 'playlist-1' },
-        request: new Request('http://localhost/api/playlists/playlist-1/items', {
-          body: JSON.stringify({
-            episodeMetadata: {
-              episodeNumber: 2,
-              episodeTitle: 'Vault Companion',
-            },
-            videoId: '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
+      const addResponse = await itemsAction(
+        routeArgs({
+          params: { id: 'playlist-1' },
+          request: new Request('http://localhost/api/playlists/playlist-1/items', {
+            body: JSON.stringify({
+              episodeMetadata: {
+                episodeNumber: 2,
+                episodeTitle: 'Vault Companion',
+              },
+              videoId: '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
+            }),
+            headers: new Headers([
+              ['Content-Type', 'application/json'],
+              ['Cookie', cookie],
+              ['Origin', 'http://localhost'],
+            ]),
+            method: 'POST',
           }),
-          headers: new Headers([
-            ['Content-Type', 'application/json'],
-            ['Cookie', cookie],
-          ]),
-          method: 'POST',
         }),
-      } as never);
+      );
 
       expect(addResponse.status).toBe(200);
-      await expect(addResponse.json()).resolves.toEqual(expect.objectContaining({
+      await expect(addResponse.json()).resolves.toMatchObject({
         finalPosition: 1,
         message: 'Video "vault companion" added to playlist "Owned Playlist" successfully',
         playlistName: 'Owned Playlist',
         success: true,
         totalVideosInPlaylist: 2,
         videoTitle: 'vault companion',
-      }));
+      });
 
       const playlistItemsAfterAdd = await readPlaylistItems(workspace.databasePath, 'playlist-1');
 
-      expect(playlistItemsAfterAdd).toEqual([
-        expect.objectContaining({
+      expect(playlistItemsAfterAdd).toMatchObject([
+        {
           playlistId: 'playlist-1',
           position: 1,
           videoId: '68e5f819-15e8-41ef-90ee-8a96769311b7',
-        }),
-        expect.objectContaining({
+        },
+        {
           episodeMetadata: {
             episodeNumber: 2,
             episodeTitle: 'Vault Companion',
@@ -305,113 +321,125 @@ describe.sequential('playlist mutation contract', () => {
           playlistId: 'playlist-1',
           position: 2,
           videoId: '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
-        }),
+        },
       ]);
 
-      const detailResponse = await playlistDetailLoader({
-        params: { id: 'playlist-1' },
-        request: new Request('http://localhost/api/playlists/playlist-1?includeVideos=true', {
-          headers: {
-            Cookie: cookie,
-          },
+      const detailResponse = await playlistDetailLoader(
+        routeArgs({
+          params: { id: 'playlist-1' },
+          request: new Request('http://localhost/api/playlists/playlist-1?includeVideos=true', {
+            headers: {
+              Cookie: cookie,
+              Origin: 'http://localhost',
+            },
+          }),
         }),
-      } as never);
+      );
 
       expect(detailResponse.status).toBe(200);
-      await expect(detailResponse.json()).resolves.toEqual(expect.objectContaining({
-        playlist: expect.objectContaining({
-          videos: expect.arrayContaining([
-            expect.objectContaining({
+      await expect(detailResponse.json()).resolves.toMatchObject({
+        playlist: {
+          videos: [
+            { id: '68e5f819-15e8-41ef-90ee-8a96769311b7' },
+            {
               episodeMetadata: {
                 episodeNumber: 2,
                 episodeTitle: 'Vault Companion',
               },
               id: '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
-            }),
-          ]),
-        }),
-      }));
+            },
+          ],
+        },
+      });
 
-      const reorderResponse = await itemsAction({
-        params: { id: 'playlist-1' },
-        request: new Request('http://localhost/api/playlists/playlist-1/items', {
-          body: JSON.stringify({
-            newOrder: [
-              '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
-              '68e5f819-15e8-41ef-90ee-8a96769311b7',
-            ],
+      const reorderResponse = await itemsAction(
+        routeArgs({
+          params: { id: 'playlist-1' },
+          request: new Request('http://localhost/api/playlists/playlist-1/items', {
+            body: JSON.stringify({
+              newOrder: [
+                '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
+                '68e5f819-15e8-41ef-90ee-8a96769311b7',
+              ],
+            }),
+            headers: new Headers([
+              ['Content-Type', 'application/json'],
+              ['Cookie', cookie],
+              ['Origin', 'http://localhost'],
+            ]),
+            method: 'PUT',
           }),
-          headers: new Headers([
-            ['Content-Type', 'application/json'],
-            ['Cookie', cookie],
-          ]),
-          method: 'PUT',
         }),
-      } as never);
+      );
 
       expect(reorderResponse.status).toBe(200);
-      await expect(reorderResponse.json()).resolves.toEqual(expect.objectContaining({
-        message: 'Playlist "Owned Playlist" reordered successfully',
-        newOrder: [
-          '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
-          '68e5f819-15e8-41ef-90ee-8a96769311b7',
-        ],
-        oldOrder: [
-          '68e5f819-15e8-41ef-90ee-8a96769311b7',
-          '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
-        ],
+      await expect(reorderResponse.json()).resolves.toMatchObject({
+        message: 'Playlist reordered successfully',
+        newOrder: ['01a5c843-7f3e-4af7-9f3d-8cb6a2691d55', '68e5f819-15e8-41ef-90ee-8a96769311b7'],
+        oldOrder: ['68e5f819-15e8-41ef-90ee-8a96769311b7', '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55'],
         success: true,
         videosReordered: 2,
-      }));
+      });
 
-      const playlistItemsAfterReorder = await readPlaylistItems(workspace.databasePath, 'playlist-1');
+      const playlistItemsAfterReorder = await readPlaylistItems(
+        workspace.databasePath,
+        'playlist-1',
+      );
 
-      expect(playlistItemsAfterReorder).toEqual([
-        expect.objectContaining({
+      expect(playlistItemsAfterReorder).toMatchObject([
+        {
           playlistId: 'playlist-1',
           position: 1,
           videoId: '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
-        }),
-        expect.objectContaining({
+        },
+        {
           playlistId: 'playlist-1',
           position: 2,
           videoId: '68e5f819-15e8-41ef-90ee-8a96769311b7',
-        }),
+        },
       ]);
 
-      const removeResponse = await itemAction({
-        params: {
-          id: 'playlist-1',
-          videoId: '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
-        },
-        request: new Request('http://localhost/api/playlists/playlist-1/items/01a5c843-7f3e-4af7-9f3d-8cb6a2691d55', {
-          headers: {
-            Cookie: cookie,
+      const removeResponse = await itemAction(
+        routeArgs({
+          params: {
+            id: 'playlist-1',
+            videoId: '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
           },
-          method: 'DELETE',
+          request: new Request(
+            'http://localhost/api/playlists/playlist-1/items/01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
+            {
+              headers: {
+                Cookie: cookie,
+                Origin: 'http://localhost',
+              },
+              method: 'DELETE',
+            },
+          ),
         }),
-      } as never);
+      );
 
       expect(removeResponse.status).toBe(200);
-      await expect(removeResponse.json()).resolves.toEqual(expect.objectContaining({
+      await expect(removeResponse.json()).resolves.toMatchObject({
         message: 'Video removed from playlist "Owned Playlist" successfully',
         playlistId: 'playlist-1',
         remainingVideos: 1,
         success: true,
         videoId: '01a5c843-7f3e-4af7-9f3d-8cb6a2691d55',
-      }));
+      });
 
-      const playlistItemsAfterRemove = await readPlaylistItems(workspace.databasePath, 'playlist-1');
+      const playlistItemsAfterRemove = await readPlaylistItems(
+        workspace.databasePath,
+        'playlist-1',
+      );
 
-      expect(playlistItemsAfterRemove).toEqual([
-        expect.objectContaining({
+      expect(playlistItemsAfterRemove).toMatchObject([
+        {
           playlistId: 'playlist-1',
           position: 1,
           videoId: '68e5f819-15e8-41ef-90ee-8a96769311b7',
-        }),
+        },
       ]);
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -446,27 +474,29 @@ describe.sequential('playlist mutation contract', () => {
       const cookie = await workspace.login();
       const { action } = await importPlaylistItemsRoute();
 
-      const response = await action({
-        params: { id: 'playlist-1' },
-        request: new Request('http://localhost/api/playlists/playlist-1/items', {
-          body: JSON.stringify({
-            newOrder: [],
+      const response = await action(
+        routeArgs({
+          params: { id: 'playlist-1' },
+          request: new Request('http://localhost/api/playlists/playlist-1/items', {
+            body: JSON.stringify({
+              newOrder: [],
+            }),
+            headers: new Headers([
+              ['Content-Type', 'application/json'],
+              ['Cookie', cookie],
+              ['Origin', 'http://localhost'],
+            ]),
+            method: 'PUT',
           }),
-          headers: new Headers([
-            ['Content-Type', 'application/json'],
-            ['Cookie', cookie],
-          ]),
-          method: 'PUT',
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toEqual({
         success: false,
-        error: 'New order cannot be empty',
+        error: 'Invalid playlist order',
       });
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -478,27 +508,29 @@ describe.sequential('playlist mutation contract', () => {
       const cookie = await workspace.login();
       const { action } = await importPlaylistDetailRoute();
 
-      const response = await action({
-        params: { id: 'missing-playlist' },
-        request: new Request('http://localhost/api/playlists/missing-playlist', {
-          body: JSON.stringify({
-            name: 'Missing Playlist',
+      const response = await action(
+        routeArgs({
+          params: { id: 'missing-playlist' },
+          request: new Request('http://localhost/api/playlists/missing-playlist', {
+            body: JSON.stringify({
+              name: 'Missing Playlist',
+            }),
+            headers: new Headers([
+              ['Content-Type', 'application/json'],
+              ['Cookie', cookie],
+              ['Origin', 'http://localhost'],
+            ]),
+            method: 'PUT',
           }),
-          headers: new Headers([
-            ['Content-Type', 'application/json'],
-            ['Cookie', cookie],
-          ]),
-          method: 'PUT',
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(404);
       await expect(response.json()).resolves.toEqual({
         success: false,
         error: 'Playlist with ID "missing-playlist" not found',
       });
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -533,26 +565,28 @@ describe.sequential('playlist mutation contract', () => {
       const cookie = await workspace.login();
       const { action } = await importPlaylistItemRoute();
 
-      const response = await action({
-        params: {
-          id: 'playlist-1',
-          videoId: 'missing-video',
-        },
-        request: new Request('http://localhost/api/playlists/playlist-1/items/missing-video', {
-          headers: {
-            Cookie: cookie,
+      const response = await action(
+        routeArgs({
+          params: {
+            id: 'playlist-1',
+            videoId: 'missing-video',
           },
-          method: 'DELETE',
+          request: new Request('http://localhost/api/playlists/playlist-1/items/missing-video', {
+            headers: {
+              Cookie: cookie,
+              Origin: 'http://localhost',
+            },
+            method: 'DELETE',
+          }),
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(404);
       await expect(response.json()).resolves.toEqual({
         success: false,
         error: 'Video "missing-video" not found in playlist "playlist-1"',
       });
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -564,26 +598,31 @@ describe.sequential('playlist mutation contract', () => {
       const cookie = await workspace.login();
       const { action } = await importPlaylistItemRoute();
 
-      const response = await action({
-        params: {
-          id: 'playlist-owned-private',
-          videoId: 'playlist-video-1',
-        },
-        request: new Request('http://localhost/api/playlists/playlist-owned-private/items/playlist-video-1', {
-          headers: {
-            Cookie: cookie,
+      const response = await action(
+        routeArgs({
+          params: {
+            id: 'playlist-owned-private',
+            videoId: 'playlist-video-1',
           },
-          method: 'PUT',
+          request: new Request(
+            'http://localhost/api/playlists/playlist-owned-private/items/playlist-video-1',
+            {
+              headers: {
+                Cookie: cookie,
+                Origin: 'http://localhost',
+              },
+              method: 'PUT',
+            },
+          ),
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(405);
       await expect(response.json()).resolves.toEqual({
         success: false,
         error: 'Method not allowed',
       });
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });
@@ -595,23 +634,25 @@ describe.sequential('playlist mutation contract', () => {
       const cookie = await workspace.login();
       const { action } = await importPlaylistItemsRoute();
 
-      const response = await action({
-        params: { id: 'playlist-owned-private' },
-        request: new Request('http://localhost/api/playlists/playlist-owned-private/items', {
-          headers: {
-            Cookie: cookie,
-          },
-          method: 'DELETE',
+      const response = await action(
+        routeArgs({
+          params: { id: 'playlist-owned-private' },
+          request: new Request('http://localhost/api/playlists/playlist-owned-private/items', {
+            headers: {
+              Cookie: cookie,
+              Origin: 'http://localhost',
+            },
+            method: 'DELETE',
+          }),
         }),
-      } as never);
+      );
 
       expect(response.status).toBe(405);
       await expect(response.json()).resolves.toEqual({
         success: false,
         error: 'Method DELETE not allowed',
       });
-    }
-    finally {
+    } finally {
       await workspace.cleanup();
     }
   });

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import type { LibraryVideoVisibilityMutationPort } from '../../../app/modules/library/application/ports/library-video-mutation.port';
 
 const SqliteLibraryVideoMutationAdapterMock = vi.fn();
 const FilesystemLibraryVideoArtifactRemovalAdapterMock = vi.fn();
@@ -7,9 +8,12 @@ vi.mock('~/modules/library/infrastructure/sqlite/sqlite-library-video-mutation.a
   SqliteLibraryVideoMutationAdapter: SqliteLibraryVideoMutationAdapterMock,
 }));
 
-vi.mock('~/modules/library/infrastructure/storage/filesystem-library-video-artifact-removal.adapter', () => ({
-  FilesystemLibraryVideoArtifactRemovalAdapter: FilesystemLibraryVideoArtifactRemovalAdapterMock,
-}));
+vi.mock(
+  '~/modules/library/infrastructure/storage/filesystem-library-video-artifact-removal.adapter',
+  () => ({
+    FilesystemLibraryVideoArtifactRemovalAdapter: FilesystemLibraryVideoArtifactRemovalAdapterMock,
+  }),
+);
 
 describe('server library mutation composition root', () => {
   afterEach(() => {
@@ -20,7 +24,9 @@ describe('server library mutation composition root', () => {
 
   test('creates prewired update and delete services from the injected mutation port', async () => {
     const { createServerLibraryServices } = await import('../../../app/composition/server/library');
-    const findOwnedLibraryVideoById = vi.fn(async videoId => ({
+    const findOwnedLibraryVideoById = vi.fn<
+      LibraryVideoVisibilityMutationPort['findOwnedLibraryVideoById']
+    >(async ({ videoId }) => ({
       createdAt: new Date('2026-03-11T00:00:00.000Z'),
       duration: 180,
       id: videoId,
@@ -30,17 +36,19 @@ describe('server library mutation composition root', () => {
       videoUrl: '/videos/video-1/manifest.mpd',
       visibility: 'private' as const,
     }));
-    const updateLibraryVideo = vi.fn(async input => ({
-      createdAt: new Date('2026-03-11T00:00:00.000Z'),
-      description: input.description,
-      duration: 180,
-      id: input.videoId,
-      ownerId: 'owner-1',
-      tags: input.tags,
-      title: input.title,
-      videoUrl: '/videos/video-1/manifest.mpd',
-      visibility: 'private' as const,
-    }));
+    const updateLibraryVideo = vi.fn<LibraryVideoVisibilityMutationPort['updateLibraryVideo']>(
+      async (input) => ({
+        createdAt: new Date('2026-03-11T00:00:00.000Z'),
+        description: input.description,
+        duration: 180,
+        id: input.videoId,
+        ownerId: 'owner-1',
+        tags: input.tags,
+        title: input.title,
+        videoUrl: '/videos/video-1/manifest.mpd',
+        visibility: 'private' as const,
+      }),
+    );
     const deleteLibraryVideo = vi.fn(async () => ({
       deleted: true,
       title: 'Fixture Video',
@@ -58,7 +66,9 @@ describe('server library mutation composition root', () => {
         visibility: 'private' as const,
       },
     }));
-    const updateLibraryVideoVisibility = vi.fn(async input => ({
+    const updateLibraryVideoVisibility = vi.fn<
+      LibraryVideoVisibilityMutationPort['updateLibraryVideoVisibility']
+    >(async (input) => ({
       createdAt: new Date('2026-03-11T00:00:00.000Z'),
       duration: 180,
       id: input.videoId,
@@ -88,32 +98,43 @@ describe('server library mutation composition root', () => {
       },
     });
 
-    await expect(services.updateLibraryVideo.execute({
-      description: ' Updated description ',
-      tags: [' Action ', 'Neo'],
-      title: ' Updated title ',
-      viewer: {
-        type: 'authenticated',
-        userId: 'owner-1',
-      },
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      services.updateLibraryVideo.execute({
+        description: ' Updated description ',
+        tags: [' Action ', 'Neo'],
+        title: ' Updated title ',
+        viewer: {
+          type: 'authenticated',
+          userId: 'owner-1',
+        },
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       data: {
         message: 'Video "Updated title" updated successfully',
-        video: expect.objectContaining({
+        video: {
+          createdAt: new Date('2026-03-11T00:00:00.000Z'),
+          description: 'Updated description',
+          duration: 180,
           id: 'video-1',
+          ownerId: 'owner-1',
+          tags: ['action', 'neo'],
           title: 'Updated title',
-        }),
+          videoUrl: '/videos/video-1/manifest.mpd',
+          visibility: 'private',
+        },
       },
       ok: true,
     });
-    await expect(services.deleteLibraryVideo.execute({
-      viewer: {
-        type: 'authenticated',
-        userId: 'owner-1',
-      },
-      videoId: 'video-1',
-    })).resolves.toEqual({
+    await expect(
+      services.deleteLibraryVideo.execute({
+        viewer: {
+          type: 'authenticated',
+          userId: 'owner-1',
+        },
+        videoId: 'video-1',
+      }),
+    ).resolves.toEqual({
       data: {
         message: 'Video deleted successfully',
         title: 'Fixture Video',
@@ -127,24 +148,15 @@ describe('server library mutation composition root', () => {
   });
 
   test('returns a cached default composition with update and delete services ready for route usage', async () => {
-    SqliteLibraryVideoMutationAdapterMock.mockImplementation(() => ({
-      deleteLibraryVideo: vi.fn(async () => ({
-        deleted: true,
-        title: 'Fixture Video',
-      })),
-      findOwnedLibraryVideoById: vi.fn(async videoId => ({
-        createdAt: new Date('2026-03-11T00:00:00.000Z'),
-        duration: 180,
-        id: videoId,
-        ownerId: 'owner-1',
-        tags: ['Action'],
-        title: 'Fixture Video',
-        videoUrl: '/videos/video-1/manifest.mpd',
-        visibility: 'private' as const,
-      })),
-      resolveVisibilityManagementTarget: vi.fn(async videoId => ({
-        type: 'owned' as const,
-        video: {
+    SqliteLibraryVideoMutationAdapterMock.mockImplementation(function () {
+      return {
+        deleteLibraryVideo: vi.fn(async () => ({
+          deleted: true,
+          title: 'Fixture Video',
+        })),
+        findOwnedLibraryVideoById: vi.fn<
+          LibraryVideoVisibilityMutationPort['findOwnedLibraryVideoById']
+        >(async ({ videoId }) => ({
           createdAt: new Date('2026-03-11T00:00:00.000Z'),
           duration: 180,
           id: videoId,
@@ -153,32 +165,51 @@ describe('server library mutation composition root', () => {
           title: 'Fixture Video',
           videoUrl: '/videos/video-1/manifest.mpd',
           visibility: 'private' as const,
-        },
-      })),
-      updateLibraryVideo: vi.fn(async input => ({
-        createdAt: new Date('2026-03-11T00:00:00.000Z'),
-        duration: 180,
-        id: input.videoId,
-        ownerId: 'owner-1',
-        tags: input.tags,
-        title: input.title,
-        videoUrl: '/videos/video-1/manifest.mpd',
-        visibility: 'private' as const,
-      })),
-      updateLibraryVideoVisibility: vi.fn(async input => ({
-        createdAt: new Date('2026-03-11T00:00:00.000Z'),
-        duration: 180,
-        id: input.videoId,
-        ownerId: 'owner-1',
-        tags: ['Action'],
-        title: 'Fixture Video',
-        videoUrl: '/videos/video-1/manifest.mpd',
-        visibility: input.visibility,
-      })),
-    }));
-    FilesystemLibraryVideoArtifactRemovalAdapterMock.mockImplementation(() => ({
-      cleanupVideoArtifacts: vi.fn(async () => ({})),
-    }));
+        })),
+        resolveVisibilityManagementTarget: vi.fn<
+          LibraryVideoVisibilityMutationPort['resolveVisibilityManagementTarget']
+        >(async ({ videoId }) => ({
+          type: 'owned' as const,
+          video: {
+            createdAt: new Date('2026-03-11T00:00:00.000Z'),
+            duration: 180,
+            id: videoId,
+            ownerId: 'owner-1',
+            tags: ['Action'],
+            title: 'Fixture Video',
+            videoUrl: '/videos/video-1/manifest.mpd',
+            visibility: 'private' as const,
+          },
+        })),
+        updateLibraryVideo: vi.fn<LibraryVideoVisibilityMutationPort['updateLibraryVideo']>(
+          async (input) => ({
+            createdAt: new Date('2026-03-11T00:00:00.000Z'),
+            duration: 180,
+            id: input.videoId,
+            ownerId: 'owner-1',
+            tags: input.tags,
+            title: input.title,
+            videoUrl: '/videos/video-1/manifest.mpd',
+            visibility: 'private' as const,
+          }),
+        ),
+        updateLibraryVideoVisibility: vi.fn<
+          LibraryVideoVisibilityMutationPort['updateLibraryVideoVisibility']
+        >(async (input) => ({
+          createdAt: new Date('2026-03-11T00:00:00.000Z'),
+          duration: 180,
+          id: input.videoId,
+          ownerId: 'owner-1',
+          tags: ['Action'],
+          title: 'Fixture Video',
+          videoUrl: '/videos/video-1/manifest.mpd',
+          visibility: input.visibility,
+        })),
+      };
+    });
+    FilesystemLibraryVideoArtifactRemovalAdapterMock.mockImplementation(function () {
+      return { cleanupVideoArtifacts: vi.fn(async () => ({})) };
+    });
     vi.resetModules();
 
     const { getServerLibraryServices } = await import('../../../app/composition/server/library');

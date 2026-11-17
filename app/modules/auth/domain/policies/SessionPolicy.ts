@@ -36,7 +36,8 @@ export class SessionPolicy {
       };
     }
 
-    if (input.session.expiresAt <= input.now) {
+    // An invalid persisted timestamp must not turn into an indefinitely active session.
+    if (!(input.session.expiresAt.getTime() > input.now.getTime())) {
       return {
         allowed: false,
         reason: 'AUTH_SESSION_EXPIRED',

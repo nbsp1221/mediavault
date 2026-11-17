@@ -1,9 +1,11 @@
 import type { LibraryVideo } from '../../domain/library-video';
 import type { VideoViewer } from '../../domain/policies/video-access.policy';
-import type { UpdateLibraryVideoInput as UpdateLibraryVideoMutationInput } from '../ports/library-video-mutation.port';
-import type { LibraryVideoMutationPort } from '../ports/library-video-mutation.port';
+import type {
+  LibraryVideoMutationPort,
+  UpdateLibraryVideoInput as UpdateLibraryVideoMutationInput,
+} from '../ports/library-video-mutation.port';
 import { VideoAccessPolicy } from '../../domain/policies/video-access.policy';
-import { normalizeVideoTags } from '../../domain/video-tag';
+import { videoTagsSchema } from '../../domain/video-tag';
 import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from '../../domain/video-taxonomy';
 
 export interface UpdateLibraryVideoInput {
@@ -30,20 +32,10 @@ interface UpdateLibraryVideoFailure {
   message: string;
 }
 
-export type UpdateLibraryVideoUseCaseResult =
-  | UpdateLibraryVideoSuccess
-  | UpdateLibraryVideoFailure;
+export type UpdateLibraryVideoUseCaseResult = UpdateLibraryVideoSuccess | UpdateLibraryVideoFailure;
 
 interface UpdateLibraryVideoUseCaseDependencies {
   videoMutation: LibraryVideoMutationPort;
-}
-
-function sanitizeTags(tags: unknown) {
-  if (!Array.isArray(tags)) {
-    return [];
-  }
-
-  return normalizeVideoTags(tags.filter(tag => typeof tag === 'string'));
 }
 
 function sanitizeGenreSlugs(genreSlugs: unknown) {
@@ -51,7 +43,7 @@ function sanitizeGenreSlugs(genreSlugs: unknown) {
     return undefined;
   }
 
-  return normalizeTaxonomySlugs(genreSlugs.filter(slug => typeof slug === 'string'));
+  return normalizeTaxonomySlugs(genreSlugs.filter((slug) => typeof slug === 'string'));
 }
 
 function sanitizeContentTypeSlug(contentTypeSlug: unknown) {
@@ -94,10 +86,7 @@ function copyPresentStructuredMetadataFields(
   }
 }
 
-function canUpdateVideo(input: {
-  existingVideo: LibraryVideo;
-  viewer: VideoViewer;
-}) {
+function canUpdateVideo(input: { existingVideo: LibraryVideo; viewer: VideoViewer }) {
   return VideoAccessPolicy.evaluate({
     operation: 'edit',
     ownerId: input.existingVideo.ownerId,
@@ -107,15 +96,11 @@ function canUpdateVideo(input: {
 }
 
 export class UpdateLibraryVideoUseCase {
-  constructor(
-    private readonly deps: UpdateLibraryVideoUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: UpdateLibraryVideoUseCaseDependencies) {}
 
   async execute(input: UpdateLibraryVideoInput): Promise<UpdateLibraryVideoUseCaseResult> {
     const videoId = input.videoId.trim();
-    const title = typeof input.title === 'string'
-      ? input.title.trim()
-      : '';
+    const title = typeof input.title === 'string' ? input.title.trim() : '';
 
     if (videoId.length === 0) {
       return {
@@ -130,6 +115,15 @@ export class UpdateLibraryVideoUseCase {
         message: 'Title is required',
         ok: false,
         reason: 'INVALID_INPUT',
+      };
+    }
+
+    const tags = videoTagsSchema.safeParse(input.tags === undefined ? [] : input.tags);
+    if (!tags.success) {
+      return {
+        ok: false,
+        reason: 'INVALID_INPUT',
+        message: tags.error.issues[0]?.message ?? 'Invalid tags.',
       };
     }
 
@@ -164,7 +158,7 @@ export class UpdateLibraryVideoUseCase {
 
     const mutationInput: UpdateLibraryVideoMutationInput = {
       description: sanitizeDescription(input.description),
-      tags: sanitizeTags(input.tags),
+      tags: tags.data,
       title,
       videoId,
     };

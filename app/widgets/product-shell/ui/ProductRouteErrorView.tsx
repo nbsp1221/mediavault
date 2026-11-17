@@ -23,11 +23,7 @@ export function ProductRouteErrorView({
       contentWidth={contentWidth}
       title={title ?? 'Something went wrong'}
     >
-      <RouteErrorView
-        {...props}
-        headingLevel={2}
-        title={title}
-      />
+      <RouteErrorView {...props} headingLevel={2} title={title} />
     </ProductShell>
   );
 }

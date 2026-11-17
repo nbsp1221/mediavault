@@ -1,0 +1,24 @@
+{
+  "watch": [
+    "server.mjs",
+    "app/server.ts",
+    "app/entry.server.tsx",
+    "app/root.tsx",
+    "app/routes.ts",
+    "app/routes",
+    "app/composition/server",
+    "app/modules",
+    "app/shared/config",
+    "app/shared/lib/server",
+    "app/shared/lib/http",
+    "vite.config.ts",
+    "react-router.config.ts",
+    "tsconfig.json",
+    "package.json",
+    "scripts/vite-env-files.ts"
+  ],
+  "ext": "js,mjs,ts,mts,tsx,json",
+  "signal": "SIGTERM",
+  "delay": "150ms",
+  "exec": "node"
+}

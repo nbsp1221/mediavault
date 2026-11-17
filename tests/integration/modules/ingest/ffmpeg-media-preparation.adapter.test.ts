@@ -3,7 +3,10 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { IngestMediaAnalysis, IngestMediaPreparationStrategy } from '../../../../app/modules/ingest/domain/media-preparation-policy';
+import type {
+  IngestMediaAnalysis,
+  IngestMediaPreparationStrategy,
+} from '../../../../app/modules/ingest/domain/media-preparation-policy';
 
 describe('FfmpegMediaPreparationAdapter', () => {
   let rootDir = '';
@@ -21,7 +24,8 @@ describe('FfmpegMediaPreparationAdapter', () => {
     const fixture = await createWorkspace('video-remux');
     const commandCalls: Array<{ args: string[]; command: string }> = [];
     const executeCommand = createSuccessfulCommandRecorder(commandCalls, fixture);
-    const { FfmpegMediaPreparationAdapter } = await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
     const adapter = new FfmpegMediaPreparationAdapter({
       executeCommand,
       getShakaPackagerPath: () => 'packager',
@@ -32,17 +36,19 @@ describe('FfmpegMediaPreparationAdapter', () => {
       segmentDuration: 6,
     });
 
-    await expect(adapter.prepareMedia({
-      analysis: createAnalysis({
-        audioCodec: 'aac',
-        videoCodec: 'h264',
+    await expect(
+      adapter.prepareMedia({
+        analysis: createAnalysis({
+          audioCodec: 'aac',
+          videoCodec: 'h264',
+        }),
+        sourcePath: fixture.sourcePath,
+        strategy: 'remux_then_package',
+        title: 'Fixture Video',
+        videoId: fixture.videoId,
+        workspaceRootDir: fixture.videoDir,
       }),
-      sourcePath: fixture.sourcePath,
-      strategy: 'remux_then_package',
-      title: 'Fixture Video',
-      videoId: fixture.videoId,
-      workspaceRootDir: fixture.videoDir,
-    })).resolves.toEqual({
+    ).resolves.toEqual({
       dashEnabled: true,
       message: 'Video added to library successfully with media preparation',
     });
@@ -77,7 +83,8 @@ describe('FfmpegMediaPreparationAdapter', () => {
     const fixture = await createWorkspace('video-audio-transcode');
     const commandCalls: Array<{ args: string[]; command: string }> = [];
     const executeCommand = createSuccessfulCommandRecorder(commandCalls, fixture);
-    const { FfmpegMediaPreparationAdapter } = await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
     const adapter = new FfmpegMediaPreparationAdapter({
       executeCommand,
       getShakaPackagerPath: () => 'packager',
@@ -107,7 +114,8 @@ describe('FfmpegMediaPreparationAdapter', () => {
     const fixture = await createWorkspace('video-silent-audio');
     const commandCalls: Array<{ args: string[]; command: string }> = [];
     const executeCommand = createSuccessfulCommandRecorder(commandCalls, fixture);
-    const { FfmpegMediaPreparationAdapter } = await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
     const adapter = new FfmpegMediaPreparationAdapter({
       executeCommand,
       getShakaPackagerPath: () => 'packager',
@@ -136,7 +144,10 @@ describe('FfmpegMediaPreparationAdapter', () => {
     const executeCommand = vi.fn(async (input: { args: string[]; command: string }) => {
       commandCalls.push(input);
 
-      if (input.command === 'packager' && commandCalls.filter(call => call.command === 'packager').length === 1) {
+      if (
+        input.command === 'packager' &&
+        commandCalls.filter((call) => call.command === 'packager').length === 1
+      ) {
         throw new Error('packager rejected remux');
       }
 
@@ -147,28 +158,33 @@ describe('FfmpegMediaPreparationAdapter', () => {
         stdout: '',
       };
     });
-    const { FfmpegMediaPreparationAdapter } = await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
     const adapter = new FfmpegMediaPreparationAdapter({
       executeCommand,
       getShakaPackagerPath: () => 'packager',
     });
 
-    await expect(adapter.prepareMedia({
-      analysis: createAnalysis({
-        audioCodec: 'aac',
-        videoCodec: 'hevc',
+    await expect(
+      adapter.prepareMedia({
+        analysis: createAnalysis({
+          audioCodec: 'aac',
+          videoCodec: 'hevc',
+        }),
+        sourcePath: fixture.sourcePath,
+        strategy: 'remux_then_package',
+        title: 'Fixture Video',
+        videoId: fixture.videoId,
+        workspaceRootDir: fixture.videoDir,
       }),
-      sourcePath: fixture.sourcePath,
-      strategy: 'remux_then_package',
-      title: 'Fixture Video',
-      videoId: fixture.videoId,
-      workspaceRootDir: fixture.videoDir,
-    })).resolves.toEqual({
+    ).resolves.toEqual({
       dashEnabled: true,
       message: 'Video added to library successfully with media preparation',
     });
 
-    const prepareCalls = commandCalls.filter(call => call.command === 'ffmpeg' && call.args.includes('-f'));
+    const prepareCalls = commandCalls.filter(
+      (call) => call.command === 'ffmpeg' && call.args.includes('-f'),
+    );
     expect(prepareCalls).toHaveLength(2);
     expect(prepareCalls[1].args).toContain('-c:v');
     expect(prepareCalls[1].args[prepareCalls[1].args.indexOf('-c:v') + 1]).toBe('libx264');
@@ -182,7 +198,10 @@ describe('FfmpegMediaPreparationAdapter', () => {
     const executeCommand = vi.fn(async (input: { args: string[]; command: string }) => {
       commandCalls.push(input);
 
-      if (input.command === 'ffmpeg' && commandCalls.filter(call => call.command === 'ffmpeg').length === 1) {
+      if (
+        input.command === 'ffmpeg' &&
+        commandCalls.filter((call) => call.command === 'ffmpeg').length === 1
+      ) {
         throw new Error('stream copy remux failed');
       }
 
@@ -193,28 +212,33 @@ describe('FfmpegMediaPreparationAdapter', () => {
         stdout: '',
       };
     });
-    const { FfmpegMediaPreparationAdapter } = await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
     const adapter = new FfmpegMediaPreparationAdapter({
       executeCommand,
       getShakaPackagerPath: () => 'packager',
     });
 
-    await expect(adapter.prepareMedia({
-      analysis: createAnalysis({
-        audioCodec: 'aac',
-        videoCodec: 'hevc',
+    await expect(
+      adapter.prepareMedia({
+        analysis: createAnalysis({
+          audioCodec: 'aac',
+          videoCodec: 'hevc',
+        }),
+        sourcePath: fixture.sourcePath,
+        strategy: 'remux_then_package',
+        title: 'Fixture Video',
+        videoId: fixture.videoId,
+        workspaceRootDir: fixture.videoDir,
       }),
-      sourcePath: fixture.sourcePath,
-      strategy: 'remux_then_package',
-      title: 'Fixture Video',
-      videoId: fixture.videoId,
-      workspaceRootDir: fixture.videoDir,
-    })).resolves.toEqual({
+    ).resolves.toEqual({
       dashEnabled: true,
       message: 'Video added to library successfully with media preparation',
     });
 
-    const prepareCalls = commandCalls.filter(call => call.command === 'ffmpeg' && call.args.includes('-f'));
+    const prepareCalls = commandCalls.filter(
+      (call) => call.command === 'ffmpeg' && call.args.includes('-f'),
+    );
     expect(prepareCalls).toHaveLength(2);
     expect(prepareCalls[1].args).toContain('-c:v');
     expect(prepareCalls[1].args[prepareCalls[1].args.indexOf('-c:v') + 1]).toBe('libx264');
@@ -227,23 +251,26 @@ describe('FfmpegMediaPreparationAdapter', () => {
     const executeCommand = vi.fn(async () => {
       throw new Error('ffmpeg unavailable');
     });
-    const { FfmpegMediaPreparationAdapter } = await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
     const adapter = new FfmpegMediaPreparationAdapter({
       executeCommand,
       getShakaPackagerPath: () => 'packager',
     });
 
-    await expect(adapter.prepareMedia({
-      analysis: createAnalysis({
-        audioCodec: 'aac',
-        videoCodec: 'vp9',
+    await expect(
+      adapter.prepareMedia({
+        analysis: createAnalysis({
+          audioCodec: 'aac',
+          videoCodec: 'vp9',
+        }),
+        sourcePath: fixture.sourcePath,
+        strategy: 'full_transcode',
+        title: 'Fixture Video',
+        videoId: fixture.videoId,
+        workspaceRootDir: fixture.videoDir,
       }),
-      sourcePath: fixture.sourcePath,
-      strategy: 'full_transcode',
-      title: 'Fixture Video',
-      videoId: fixture.videoId,
-      workspaceRootDir: fixture.videoDir,
-    })).resolves.toEqual({
+    ).resolves.toEqual({
       dashEnabled: false,
       message: 'Video added to library but media preparation failed',
     });
@@ -255,23 +282,26 @@ describe('FfmpegMediaPreparationAdapter', () => {
     const executeCommand = vi.fn(async () => {
       throw new Error('video transcode preparation failed');
     });
-    const { FfmpegMediaPreparationAdapter } = await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
     const adapter = new FfmpegMediaPreparationAdapter({
       executeCommand,
       getShakaPackagerPath: () => 'packager',
     });
 
-    await expect(adapter.prepareMedia({
-      analysis: createAnalysis({
-        audioCodec: 'aac',
-        videoCodec: 'vp9',
+    await expect(
+      adapter.prepareMedia({
+        analysis: createAnalysis({
+          audioCodec: 'aac',
+          videoCodec: 'vp9',
+        }),
+        sourcePath: fixture.sourcePath,
+        strategy: 'transcode_video_copy_audio',
+        title: 'Fixture Video',
+        videoId: fixture.videoId,
+        workspaceRootDir: fixture.videoDir,
       }),
-      sourcePath: fixture.sourcePath,
-      strategy: 'transcode_video_copy_audio',
-      title: 'Fixture Video',
-      videoId: fixture.videoId,
-      workspaceRootDir: fixture.videoDir,
-    })).resolves.toEqual({
+    ).resolves.toEqual({
       dashEnabled: false,
       message: 'Video added to library but media preparation failed',
     });
@@ -281,47 +311,76 @@ describe('FfmpegMediaPreparationAdapter', () => {
   test('does not fall back when a rejected strategy reaches the adapter', async () => {
     const fixture = await createWorkspace('video-rejected');
     const executeCommand = vi.fn();
-    const { FfmpegMediaPreparationAdapter } = await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
     const adapter = new FfmpegMediaPreparationAdapter({
       executeCommand,
       getShakaPackagerPath: () => 'packager',
     });
 
-    await expect(adapter.prepareMedia({
-      analysis: {
-        duration: 120,
-      },
-      sourcePath: fixture.sourcePath,
-      strategy: 'reject',
-      title: 'Rejected Fixture',
-      videoId: fixture.videoId,
-      workspaceRootDir: fixture.videoDir,
-    })).resolves.toEqual({
+    await expect(
+      adapter.prepareMedia({
+        analysis: {
+          duration: 120,
+        },
+        sourcePath: fixture.sourcePath,
+        strategy: 'reject',
+        title: 'Rejected Fixture',
+        videoId: fixture.videoId,
+        workspaceRootDir: fixture.videoDir,
+      }),
+    ).resolves.toEqual({
       dashEnabled: false,
       message: 'Video added to library but media preparation failed',
     });
     expect(executeCommand).not.toHaveBeenCalled();
   });
 
-  test('finalizes thumbnails without throwing', async () => {
-    const finalizeThumbnail = vi.fn(async () => {
-      throw new Error('thumbnail finalization failed');
-    });
-    const { FfmpegMediaPreparationAdapter } = await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+  test('cancellation propagates before any subprocess or fallback can start', async () => {
+    const executeCommand = vi.fn();
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
     const adapter = new FfmpegMediaPreparationAdapter({
-      thumbnailFinalizer: {
-        finalizeThumbnail,
-      },
+      executeCommand,
+      logger: { error: vi.fn(), info: vi.fn() },
     });
+    await expect(
+      adapter.prepareMedia({
+        analysis: { duration: 1 },
+        sourcePath: '/unused',
+        strategy: 'remux_then_package',
+        title: 'Cancelled',
+        videoId: 'cancelled',
+        signal: AbortSignal.abort(new Error('cancelled')),
+      }),
+    ).rejects.toThrow('cancelled');
+    expect(executeCommand).not.toHaveBeenCalled();
+  });
 
-    await expect(adapter.finalizeSuccessfulVideo({
-      title: 'Fixture Video',
-      videoId: 'video-123',
-    })).resolves.toBeUndefined();
-    expect(finalizeThumbnail).toHaveBeenCalledWith({
-      title: 'Fixture Video',
-      videoId: 'video-123',
+  test('deadline exhaustion does not trigger a second full transcode', async () => {
+    const fixture = await createWorkspace('deadline');
+    const { FfmpegMediaPreparationAdapter } =
+      await import('../../../../app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter');
+    const { MediaProcessError } =
+      await import('../../../../app/shared/lib/server/supervised-process.server');
+    const executeCommand = vi.fn(async () => {
+      throw new MediaProcessError('TIMED_OUT', 'Media deadline exceeded.');
     });
+    const adapter = new FfmpegMediaPreparationAdapter({
+      executeCommand,
+      logger: { error: vi.fn(), info: vi.fn() },
+    });
+    await expect(
+      adapter.prepareMedia({
+        analysis: { duration: 1 },
+        sourcePath: fixture.sourcePath,
+        strategy: 'remux_then_package',
+        title: 'Deadline',
+        videoId: fixture.videoId,
+        workspaceRootDir: fixture.videoDir,
+      }),
+    ).resolves.toMatchObject({ dashEnabled: false });
+    expect(executeCommand).toHaveBeenCalledOnce();
   });
 
   async function createWorkspace(videoId: string) {
@@ -347,7 +406,8 @@ describe('FfmpegMediaPreparationAdapter', () => {
     saltPrefix: string;
     videoId: string;
   }): Buffer {
-    const salt = crypto.createHash('sha256')
+    const salt = crypto
+      .createHash('sha256')
       .update(input.saltPrefix + input.videoId)
       .digest();
 

@@ -1,7 +1,10 @@
 import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
-import type { PlaybackTokenService } from '../ports/playback-token-service.port';
-import type { PlaybackTokenPayload } from '../ports/playback-token-service.port';
+import type { PlaybackSessionValidator } from '../ports/playback-session-validator.port';
+import type {
+  PlaybackTokenPayload,
+  PlaybackTokenService,
+} from '../ports/playback-token-service.port';
 import {
   type PlaybackResource,
   PlaybackResourcePolicy,
@@ -9,6 +12,7 @@ import {
 
 interface AuthorizePlaybackResourceReadInput<Resource extends PlaybackResource> {
   resource: Resource;
+  sessionValidator: PlaybackSessionValidator;
   token: string | null;
   tokenService: PlaybackTokenService;
   videoId: string;
@@ -18,33 +22,34 @@ interface AuthorizePlaybackResourceReadInput<Resource extends PlaybackResource> 
 export type PlaybackResourceReadAuthorizationResult<Resource extends PlaybackResource> =
   | { ok: true }
   | {
-    metadata: {
-      requestedVideoId: string;
-      resource: Resource;
-      tokenVideoId?: string;
-    };
-    ok: false;
-    reason: 'PLAYBACK_TOKEN_REQUIRED' | 'VIDEO_SCOPE_MISMATCH';
-  }
+      metadata: {
+        requestedVideoId: string;
+        resource: Resource;
+        tokenVideoId?: string;
+      };
+      ok: false;
+      reason: 'PLAYBACK_TOKEN_REQUIRED' | 'VIDEO_SCOPE_MISMATCH';
+    }
   | {
-    metadata: {
-      requestedVideoId: string;
-      resource: Resource;
+      metadata: {
+        requestedVideoId: string;
+        resource: Resource;
+      };
+      ok: false;
+      reason: 'VIDEO_NOT_FOUND';
     };
-    ok: false;
-    reason: 'VIDEO_NOT_FOUND';
-  };
 
 export async function authorizePlaybackResourceRead<Resource extends PlaybackResource>({
   resource,
+  sessionValidator,
   token,
   tokenService,
   videoId,
   videoRead,
-}: AuthorizePlaybackResourceReadInput<Resource>): Promise<PlaybackResourceReadAuthorizationResult<Resource>> {
-  const payload = token
-    ? await tokenService.validate(token)
-    : null;
+}: AuthorizePlaybackResourceReadInput<Resource>): Promise<
+  PlaybackResourceReadAuthorizationResult<Resource>
+> {
+  const payload = token ? await tokenService.validate(token) : null;
   const decision = PlaybackResourcePolicy.evaluate({
     requestedVideoId: videoId,
     resource,
@@ -73,7 +78,24 @@ export async function authorizePlaybackResourceRead<Resource extends PlaybackRes
     };
   }
 
-  const accessibleVideo = await videoRead.findLibraryVideoById(videoId, createVideoReadAccessScope(createTokenViewer(payload)));
+  if (
+    payload.viewerType === 'authenticated' &&
+    !(await sessionValidator.isSessionActive({
+      sessionId: payload.sessionId,
+      userId: payload.subjectUserId,
+    }))
+  ) {
+    return {
+      metadata: { requestedVideoId: videoId, resource },
+      ok: false,
+      reason: 'PLAYBACK_TOKEN_REQUIRED',
+    };
+  }
+
+  const accessibleVideo = await videoRead.findLibraryVideoById(
+    videoId,
+    createVideoReadAccessScope(createTokenViewer(payload)),
+  );
 
   if (!accessibleVideo) {
     return {

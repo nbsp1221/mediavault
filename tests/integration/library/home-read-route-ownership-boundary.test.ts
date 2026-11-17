@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
@@ -34,15 +34,17 @@ async function collectProductionSourceFiles(path: string): Promise<string[]> {
   }
 
   const entries = await readdir(path, { withFileTypes: true });
-  const files = await Promise.all(entries.map(async (entry) => {
-    const fullPath = join(path, entry.name);
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const fullPath = join(path, entry.name);
 
-    if (entry.isDirectory()) {
-      return collectProductionSourceFiles(fullPath);
-    }
+      if (entry.isDirectory()) {
+        return collectProductionSourceFiles(fullPath);
+      }
 
-    return /\.(ts|tsx)$/.test(entry.name) ? collectProductionSourceFiles(fullPath) : [];
-  }));
+      return /\.(ts|tsx)$/.test(entry.name) ? collectProductionSourceFiles(fullPath) : [];
+    }),
+  );
 
   return files.flat();
 }
@@ -58,7 +60,9 @@ describe('home read route ownership boundary', () => {
       /\.listLibraryVideos\(\s*\)/,
     ];
 
-    const sourceFiles = (await Promise.all(routeAndCompositionRoots.map(collectProductionSourceFiles))).flat();
+    const sourceFiles = (
+      await Promise.all(routeAndCompositionRoots.map(collectProductionSourceFiles))
+    ).flat();
 
     for (const filePath of sourceFiles) {
       const source = await readFile(filePath, 'utf8');

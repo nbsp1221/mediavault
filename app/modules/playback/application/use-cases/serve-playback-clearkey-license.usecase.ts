@@ -1,5 +1,6 @@
 import type { LibraryVideoReadPort } from '~/modules/library/application/ports/library-video-read.port';
 import type { PlaybackClearKeyService } from '../ports/playback-clearkey-service.port';
+import type { PlaybackSessionValidator } from '../ports/playback-session-validator.port';
 import type { PlaybackTokenService } from '../ports/playback-token-service.port';
 import {
   type PlaybackResourceReadAuthorizationResult,
@@ -8,6 +9,7 @@ import {
 
 interface ServePlaybackClearKeyLicenseUseCaseDependencies {
   clearKeyService: PlaybackClearKeyService;
+  sessionValidator: PlaybackSessionValidator;
   tokenService: PlaybackTokenService;
   videoRead: LibraryVideoReadPort;
 }
@@ -19,18 +21,21 @@ interface ServePlaybackClearKeyLicenseUseCaseInput {
 
 type ServePlaybackClearKeyLicenseUseCaseResult =
   | {
-    body: string;
-    headers: Record<string, string>;
-    ok: true;
-  }
+      body: string;
+      headers: Record<string, string>;
+      ok: true;
+    }
   | Exclude<PlaybackResourceReadAuthorizationResult<'clearkey-license'>, { ok: true }>;
 
 export class ServePlaybackClearKeyLicenseUseCase {
   constructor(private readonly deps: ServePlaybackClearKeyLicenseUseCaseDependencies) {}
 
-  async execute(input: ServePlaybackClearKeyLicenseUseCaseInput): Promise<ServePlaybackClearKeyLicenseUseCaseResult> {
+  async execute(
+    input: ServePlaybackClearKeyLicenseUseCaseInput,
+  ): Promise<ServePlaybackClearKeyLicenseUseCaseResult> {
     const authorization = await authorizePlaybackResourceRead({
       resource: 'clearkey-license',
+      sessionValidator: this.deps.sessionValidator,
       token: input.token,
       tokenService: this.deps.tokenService,
       videoId: input.videoId,

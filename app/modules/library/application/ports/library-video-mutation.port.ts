@@ -22,12 +22,18 @@ export type VisibilityManagementTarget =
 
 export interface LibraryVideoMutationPort {
   deleteLibraryVideo(input: { videoId: string }): Promise<DeleteLibraryVideoResult>;
-  findOwnedLibraryVideoById(input: { ownerId: string; videoId: string }): Promise<LibraryVideo | null>;
+  findOwnedLibraryVideoById(input: {
+    ownerId: string;
+    videoId: string;
+  }): Promise<LibraryVideo | null>;
   updateLibraryVideo(input: UpdateLibraryVideoInput): Promise<LibraryVideo | null>;
 }
 
 export interface LibraryVideoVisibilityMutationPort extends LibraryVideoMutationPort {
-  resolveVisibilityManagementTarget(input: { requesterId: string; videoId: string }): Promise<VisibilityManagementTarget>;
+  resolveVisibilityManagementTarget(input: {
+    requesterId: string;
+    videoId: string;
+  }): Promise<VisibilityManagementTarget>;
   updateLibraryVideoVisibility(input: {
     ownerId: string;
     videoId: string;

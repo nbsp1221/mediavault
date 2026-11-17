@@ -1,13 +1,11 @@
-import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
 import {
   changeLibraryVideoVisibility,
   deleteLibraryVideo,
+  libraryVideoActions,
   updateLibraryVideoMetadata,
-  useHomeLibraryVideoActions,
-} from '../../../app/features/home-library-video-actions/model/useHomeLibraryVideoActions';
+} from '../../../app/features/video-management/api/video-actions';
 
 function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVideo {
   return {
@@ -28,9 +26,10 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
   };
 }
 
-describe('useHomeLibraryVideoActions', () => {
+describe('Library video actions', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   test('deleteVideo sends DELETE to the expected endpoint', async () => {
@@ -39,9 +38,8 @@ describe('useHomeLibraryVideoActions', () => {
       ok: true,
     });
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderHook(() => useHomeLibraryVideoActions());
 
-    await expect(result.current.deleteVideo(createVideo())).resolves.toBeUndefined();
+    await expect(libraryVideoActions.deleteVideo(createVideo())).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledWith('/api/delete/video-1', {
       method: 'DELETE',
     });
@@ -71,14 +69,15 @@ describe('useHomeLibraryVideoActions', () => {
       ok: true,
     });
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderHook(() => useHomeLibraryVideoActions());
 
-    await expect(result.current.updateVideo(createVideo(), {
-      description: 'Updated description',
-      genreSlugs: [],
-      tags: ['Action', 'Neo'],
-      title: 'Updated title',
-    })).resolves.toEqual({
+    await expect(
+      libraryVideoActions.updateVideo(createVideo(), {
+        description: 'Updated description',
+        genreSlugs: [],
+        tags: ['Action', 'Neo'],
+        title: 'Updated title',
+      }),
+    ).resolves.toEqual({
       createdAt: new Date('2026-03-11T00:00:00.000Z'),
       description: 'Trimmed description',
       duration: 180,
@@ -131,9 +130,10 @@ describe('useHomeLibraryVideoActions', () => {
       ok: true,
     });
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderHook(() => useHomeLibraryVideoActions());
 
-    await expect(result.current.changeVisibility(createVideo({ isPrivate: true }), 'public')).resolves.toEqual({
+    await expect(
+      libraryVideoActions.changeVisibility(createVideo({ isPrivate: true }), 'public'),
+    ).resolves.toEqual({
       createdAt: new Date('2026-03-11T00:00:00.000Z'),
       duration: 180,
       id: 'video-1',
@@ -160,37 +160,49 @@ describe('useHomeLibraryVideoActions', () => {
   });
 
   test('rejects with the server error when delete fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: async () => ({ error: 'Failed to delete video', success: false }),
-      ok: false,
-    }));
-    const { result } = renderHook(() => useHomeLibraryVideoActions());
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: async () => ({ error: 'Failed to delete video', success: false }),
+        ok: false,
+      }),
+    );
 
-    await expect(result.current.deleteVideo(createVideo())).rejects.toThrow('Failed to delete video');
+    await expect(libraryVideoActions.deleteVideo(createVideo())).rejects.toThrow(
+      'Failed to delete video',
+    );
   });
 
   test('uses the fallback delete error when an error response is not JSON', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: async () => {
-        throw new Error('invalid json');
-      },
-      ok: false,
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: async () => {
+          throw new Error('invalid json');
+        },
+        ok: false,
+      }),
+    );
 
     await expect(deleteLibraryVideo(createVideo())).rejects.toThrow('Failed to delete video');
   });
 
   test('uses the fallback update error when a successful HTTP response reports failure without a message', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: async () => ({ success: false }),
-      ok: true,
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: async () => ({ success: false }),
+        ok: true,
+      }),
+    );
 
-    await expect(updateLibraryVideoMetadata(createVideo(), {
-      genreSlugs: [],
-      tags: ['Action'],
-      title: 'Updated title',
-    })).rejects.toThrow('Failed to update video');
+    await expect(
+      updateLibraryVideoMetadata(createVideo(), {
+        genreSlugs: [],
+        tags: ['Action'],
+        title: 'Updated title',
+      }),
+    ).rejects.toThrow('Failed to update video');
   });
 
   test('rejects incomplete update and visibility success responses', async () => {
@@ -200,29 +212,33 @@ describe('useHomeLibraryVideoActions', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(updateLibraryVideoMetadata(createVideo(), {
-      genreSlugs: [],
-      tags: ['Action'],
-      title: 'Updated title',
-    })).rejects.toThrow('Updated video response was incomplete');
-    await expect(changeLibraryVideoVisibility(createVideo(), 'private')).rejects.toThrow('Updated video response was incomplete');
+    await expect(
+      updateLibraryVideoMetadata(createVideo(), {
+        genreSlugs: [],
+        tags: ['Action'],
+        title: 'Updated title',
+      }),
+    ).rejects.toThrow('Updated video response was incomplete');
+    await expect(changeLibraryVideoVisibility(createVideo(), 'private')).rejects.toThrow(
+      'Updated video response was incomplete',
+    );
   });
 
   test('propagates network failures without swallowing them', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
-    const { result } = renderHook(() => useHomeLibraryVideoActions());
 
-    await expect(result.current.updateVideo(createVideo(), {
-      genreSlugs: [],
-      tags: ['Action'],
-      title: 'Updated title',
-    })).rejects.toThrow('network down');
+    await expect(
+      libraryVideoActions.updateVideo(createVideo(), {
+        genreSlugs: [],
+        tags: ['Action'],
+        title: 'Updated title',
+      }),
+    ).rejects.toThrow('network down');
   });
 
   test('rejects update, delete, and visibility changes before fetch when permissions are absent', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    const { result } = renderHook(() => useHomeLibraryVideoActions());
     const readOnlyVideo = createVideo({
       permissions: {
         canDelete: false,
@@ -231,13 +247,19 @@ describe('useHomeLibraryVideoActions', () => {
       },
     });
 
-    await expect(result.current.deleteVideo(readOnlyVideo)).rejects.toThrow('Video cannot be deleted by this viewer');
-    await expect(result.current.updateVideo(readOnlyVideo, {
-      genreSlugs: [],
-      tags: ['Action'],
-      title: 'Updated title',
-    })).rejects.toThrow('Video cannot be edited by this viewer');
-    await expect(result.current.changeVisibility(readOnlyVideo, 'public')).rejects.toThrow('Video visibility cannot be changed by this viewer');
+    await expect(libraryVideoActions.deleteVideo(readOnlyVideo)).rejects.toThrow(
+      'Video cannot be deleted by this viewer',
+    );
+    await expect(
+      libraryVideoActions.updateVideo(readOnlyVideo, {
+        genreSlugs: [],
+        tags: ['Action'],
+        title: 'Updated title',
+      }),
+    ).rejects.toThrow('Video cannot be edited by this viewer');
+    await expect(libraryVideoActions.changeVisibility(readOnlyVideo, 'public')).rejects.toThrow(
+      'Video visibility cannot be changed by this viewer',
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

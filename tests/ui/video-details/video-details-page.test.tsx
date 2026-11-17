@@ -1,9 +1,12 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createMemoryRouter, RouterProvider } from 'react-router';
+import { RouterProvider, createMemoryRouter } from 'react-router';
 import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
 import { VideoDetailsPage } from '../../../app/pages/video-details/ui/VideoDetailsPage';
+import { createDeferred } from '../../helpers/create-deferred';
+
+const logoutRequests: string[] = [];
 
 const mocks = vi.hoisted(() => ({
   changeLibraryVideoVisibility: vi.fn(),
@@ -13,7 +16,7 @@ const mocks = vi.hoisted(() => ({
   updateLibraryVideoMetadata: vi.fn(),
 }));
 
-vi.mock('~/features/home-library-video-actions/model/useHomeLibraryVideoActions', () => ({
+vi.mock('~/features/video-management/api/video-actions', () => ({
   changeLibraryVideoVisibility: mocks.changeLibraryVideoVisibility,
   deleteLibraryVideo: mocks.deleteLibraryVideo,
   updateLibraryVideoMetadata: mocks.updateLibraryVideoMetadata,
@@ -22,7 +25,6 @@ vi.mock('~/features/home-library-video-actions/model/useHomeLibraryVideoActions'
 vi.mock('~/shared/hooks/use-root-user', () => ({
   useRootUser: () => ({
     id: 'owner-1',
-    role: 'admin',
     username: 'owner',
   }),
 }));
@@ -56,60 +58,52 @@ function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVide
 }
 
 function renderDetailsPage(video = createVideo(), options: { redirectTo?: string } = {}) {
-  const router = createMemoryRouter([
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/videos/:videoId/edit',
+        element: (
+          <VideoDetailsPage
+            contentTypes={[{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }]}
+            genres={[{ active: true, label: 'Action', slug: 'action', sortOrder: 10 }]}
+            redirectTo={options.redirectTo ?? '/?q=Action&tag=Neo'}
+            video={video}
+          />
+        ),
+      },
+      {
+        path: '/',
+        element: <div>Library route</div>,
+      },
+      {
+        path: '/playlists',
+        element: <div>Playlists route</div>,
+      },
+      {
+        path: '/add-videos',
+        element: <div>Upload route</div>,
+      },
+      {
+        path: '/api/auth/logout',
+        element: <div>Logout route</div>,
+        action: ({ request }) => {
+          logoutRequests.push(request.method);
+          return null;
+        },
+      },
+      {
+        path: '/player/:videoId',
+        element: <div>Player route</div>,
+      },
+    ],
     {
-      path: '/videos/:videoId/edit',
-      element: (
-        <VideoDetailsPage
-          contentTypes={[{ active: true, label: 'Movie', slug: 'movie', sortOrder: 10 }]}
-          genres={[{ active: true, label: 'Action', slug: 'action', sortOrder: 10 }]}
-          redirectTo={options.redirectTo ?? '/?q=Action&tag=Neo'}
-          video={video}
-        />
-      ),
+      initialEntries: ['/videos/video-1/edit'],
     },
-    {
-      path: '/',
-      element: <div>Library route</div>,
-    },
-    {
-      path: '/playlists',
-      element: <div>Playlists route</div>,
-    },
-    {
-      path: '/add-videos',
-      element: <div>Upload route</div>,
-    },
-    {
-      path: '/api/auth/logout',
-      element: <div>Logout route</div>,
-    },
-    {
-      path: '/player/:videoId',
-      element: <div>Player route</div>,
-    },
-  ], {
-    initialEntries: ['/videos/video-1/edit'],
-  });
+  );
 
   render(<RouterProvider router={router} />);
 
   return router;
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve;
-    reject = promiseReject;
-  });
-
-  return {
-    promise,
-    reject,
-    resolve,
-  };
 }
 
 describe('VideoDetailsPage', () => {
@@ -135,6 +129,7 @@ describe('VideoDetailsPage', () => {
   });
 
   beforeEach(() => {
+    logoutRequests.length = 0;
     mocks.changeLibraryVideoVisibility.mockReset();
     mocks.deleteLibraryVideo.mockReset();
     mocks.toast.mockReset();
@@ -146,23 +141,42 @@ describe('VideoDetailsPage', () => {
     renderDetailsPage();
 
     expect(screen.getAllByRole('main')).toHaveLength(1);
-    expect(within(screen.getByRole('banner')).getByRole('heading', { level: 1, name: 'Video details' })).toBeInTheDocument();
-    expect(within(screen.getByRole('banner')).getByRole('button', { name: 'Back to library' })).toBeInTheDocument();
-    expect(within(screen.getByRole('banner')).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
-    expect(within(screen.getByRole('banner')).getByRole('button', { name: 'Save changes' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('banner')).getByRole('heading', { level: 1, name: 'Video details' }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Back to library' }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Cancel' }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Save changes' }),
+    ).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1, name: 'Video details' })).toHaveLength(1);
-    expect(screen.getByRole('link', { name: 'Watch video' })).toHaveAttribute('href', '/player/video-1');
+    expect(screen.getByRole('link', { name: 'Watch video' })).toHaveAttribute(
+      'href',
+      '/player/video-1',
+    );
 
     const basicInformation = screen.getByRole('region', { name: 'Basic information' });
     const classification = screen.getByRole('region', { name: 'Classification' });
     const visibility = screen.getByRole('region', { name: 'Visibility' });
     const dangerZone = screen.getByRole('region', { name: 'Danger zone' });
-    expect(basicInformation.compareDocumentPosition(classification) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(classification.compareDocumentPosition(visibility) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(visibility.compareDocumentPosition(dangerZone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      basicInformation.compareDocumentPosition(classification) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      classification.compareDocumentPosition(visibility) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      visibility.compareDocumentPosition(dangerZone) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(within(basicInformation).getByLabelText('Title')).toHaveValue('Catalog Fixture');
     expect(within(basicInformation).getByText('15 / 200')).toBeInTheDocument();
-    expect(within(basicInformation).getByLabelText('Description')).toHaveValue('A stored vault clip.');
+    expect(within(basicInformation).getByLabelText('Description')).toHaveValue(
+      'A stored vault clip.',
+    );
     expect(within(basicInformation).getByText('20 / 1000')).toBeInTheDocument();
     expect(within(basicInformation).getByLabelText('Tags')).toBeInTheDocument();
     expect(within(classification).getByLabelText('Content type')).toBeInTheDocument();
@@ -181,15 +195,18 @@ describe('VideoDetailsPage', () => {
   });
 
   test('renders public and read-only video details without owner-only controls', () => {
-    renderDetailsPage(createVideo({
-      isPrivate: false,
-      permissions: {
-        canDelete: false,
-        canEdit: false,
-        canManageVisibility: false,
-      },
-      thumbnailUrl: undefined,
-    }), { redirectTo: '/' });
+    renderDetailsPage(
+      createVideo({
+        isPrivate: false,
+        permissions: {
+          canDelete: false,
+          canEdit: false,
+          canManageVisibility: false,
+        },
+        thumbnailUrl: undefined,
+      }),
+      { redirectTo: '/' },
+    );
 
     expect(screen.queryByText('Private')).not.toBeInTheDocument();
     expect(screen.getAllByText('Public').length).toBeGreaterThanOrEqual(1);
@@ -211,19 +228,24 @@ describe('VideoDetailsPage', () => {
 
   test('saves metadata explicitly, keeps visibility out of the payload, and shows success feedback', async () => {
     const user = userEvent.setup();
-    mocks.updateLibraryVideoMetadata.mockResolvedValue(createVideo({
-      title: 'Updated Fixture',
-    }));
+    mocks.updateLibraryVideoMetadata.mockResolvedValue(
+      createVideo({
+        title: 'Updated Fixture',
+      }),
+    );
     renderDetailsPage();
 
     await user.clear(screen.getByLabelText('Title'));
     await user.type(screen.getByLabelText('Title'), 'Updated Fixture');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(expect.objectContaining({ id: 'video-1' }), expect.objectContaining({
-      description: 'A stored vault clip.',
-      title: 'Updated Fixture',
-    }));
+    expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'video-1' }),
+      expect.objectContaining({
+        description: 'A stored vault clip.',
+        title: 'Updated Fixture',
+      }),
+    );
     expect(mocks.updateLibraryVideoMetadata.mock.calls[0][1]).not.toHaveProperty('visibility');
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('Video details saved.'));
     expect(screen.getByLabelText('Title')).toHaveValue('Updated Fixture');
@@ -231,19 +253,24 @@ describe('VideoDetailsPage', () => {
 
   test('submits the same metadata form from the compact mobile save action', async () => {
     const user = userEvent.setup();
-    mocks.updateLibraryVideoMetadata.mockResolvedValue(createVideo({
-      title: 'Mobile Fixture',
-    }));
+    mocks.updateLibraryVideoMetadata.mockResolvedValue(
+      createVideo({
+        title: 'Mobile Fixture',
+      }),
+    );
     renderDetailsPage();
 
     await user.clear(screen.getByLabelText('Title'));
     await user.type(screen.getByLabelText('Title'), 'Mobile Fixture');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(expect.objectContaining({ id: 'video-1' }), expect.objectContaining({
-      description: 'A stored vault clip.',
-      title: 'Mobile Fixture',
-    }));
+    expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'video-1' }),
+      expect.objectContaining({
+        description: 'A stored vault clip.',
+        title: 'Mobile Fixture',
+      }),
+    );
     expect(mocks.updateLibraryVideoMetadata.mock.calls[0][1]).not.toHaveProperty('visibility');
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('Video details saved.'));
   });
@@ -283,11 +310,37 @@ describe('VideoDetailsPage', () => {
     expect(mocks.updateLibraryVideoMetadata).not.toHaveBeenCalled();
   });
 
+  test('preserves an invalid tag draft, prevents saving, and permits a corrected Unicode submission', async () => {
+    const user = userEvent.setup();
+    mocks.updateLibraryVideoMetadata.mockResolvedValue(
+      createVideo({ tags: ['action', 'neo', '가족 여행', 'c++'] }),
+    );
+    renderDetailsPage();
+    const input = screen.getByLabelText('Tags');
+    fireEvent.change(input, { target: { value: '가'.repeat(101) } });
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('100 characters');
+    expect(mocks.updateLibraryVideoMetadata).not.toHaveBeenCalled();
+    expect(input).toHaveValue('가'.repeat(101));
+    const unload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    await user.click(input);
+    fireEvent.change(input, { target: { value: '가족 여행, C++' } });
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalled());
+    expect(mocks.updateLibraryVideoMetadata.mock.lastCall?.[1]).toMatchObject({
+      tags: ['action', 'neo', '가족 여행', 'c++'],
+    });
+  });
+
   test('normalizes duplicate, empty, and whitespace-heavy metadata tags before saving', async () => {
     const user = userEvent.setup();
-    mocks.updateLibraryVideoMetadata.mockResolvedValue(createVideo({
-      tags: ['action', 'neo', 'new_tag'],
-    }));
+    mocks.updateLibraryVideoMetadata.mockResolvedValue(
+      createVideo({
+        tags: ['action', 'neo', 'new tag'],
+      }),
+    );
     renderDetailsPage();
 
     fireEvent.change(screen.getByLabelText('Tags'), {
@@ -296,18 +349,23 @@ describe('VideoDetailsPage', () => {
     fireEvent.blur(screen.getByLabelText('Tags'));
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(expect.objectContaining({ id: 'video-1' }), expect.objectContaining({
-      tags: ['action', 'neo', 'new_tag'],
-    }));
+    expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'video-1' }),
+      expect.objectContaining({
+        tags: ['action', 'neo', 'new tag'],
+      }),
+    );
   });
 
   test('saves removed tag and taxonomy chips from the compact inspector controls', async () => {
     const user = userEvent.setup();
-    mocks.updateLibraryVideoMetadata.mockResolvedValue(createVideo({
-      contentTypeSlug: undefined,
-      genreSlugs: [],
-      tags: ['Neo'],
-    }));
+    mocks.updateLibraryVideoMetadata.mockResolvedValue(
+      createVideo({
+        contentTypeSlug: undefined,
+        genreSlugs: [],
+        tags: ['neo'],
+      }),
+    );
     renderDetailsPage();
 
     await user.click(screen.getByRole('button', { name: 'Remove Action tag' }));
@@ -316,11 +374,14 @@ describe('VideoDetailsPage', () => {
     await user.click(await screen.findByText('No selection'));
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(expect.objectContaining({ id: 'video-1' }), expect.objectContaining({
-      contentTypeSlug: null,
-      genreSlugs: [],
-      tags: ['Neo'],
-    }));
+    expect(mocks.updateLibraryVideoMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'video-1' }),
+      expect.objectContaining({
+        contentTypeSlug: null,
+        genreSlugs: [],
+        tags: ['neo'],
+      }),
+    );
   });
 
   test('disables metadata actions while save is pending and re-enables them after save finishes', async () => {
@@ -333,7 +394,8 @@ describe('VideoDetailsPage', () => {
     await user.type(screen.getByLabelText('Title'), 'Pending Fixture');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    expect(screen.getAllByRole('button', { name: 'Saving...' }).every(button => button.hasAttribute('disabled'))).toBe(true);
+    const savingButtons = await screen.findAllByRole('button', { name: 'Saving...' });
+    expect(savingButtons.every((button) => button.hasAttribute('disabled'))).toBe(true);
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
 
     deferred.resolve(createVideo({ title: 'Pending Fixture' }));
@@ -342,31 +404,46 @@ describe('VideoDetailsPage', () => {
 
   test('confirms private to public visibility separately from metadata save', async () => {
     const user = userEvent.setup();
-    mocks.changeLibraryVideoVisibility.mockResolvedValue(createVideo({
-      isPrivate: false,
-    }));
+    mocks.changeLibraryVideoVisibility.mockResolvedValue(
+      createVideo({
+        isPrivate: false,
+      }),
+    );
     renderDetailsPage();
 
     await user.click(screen.getByRole('button', { name: 'Make Public' }));
     expect(screen.getByRole('alertdialog', { name: 'Make video public?' })).toBeInTheDocument();
-    await user.click(screen.getAllByRole('button', { name: 'Make Public' }).at(-1)!);
+    await user.click(
+      within(screen.getByRole('alertdialog', { name: 'Make video public?' })).getByRole('button', {
+        name: 'Make Public',
+      }),
+    );
 
-    expect(mocks.changeLibraryVideoVisibility).toHaveBeenCalledWith(expect.objectContaining({ id: 'video-1' }), 'public');
+    expect(mocks.changeLibraryVideoVisibility).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'video-1' }),
+      'public',
+    );
     expect(await screen.findByRole('status')).toHaveTextContent('Visibility updated to Public.');
     expect(screen.getByText('Current visibility: Public')).toBeInTheDocument();
   });
 
   test('preserves unsaved metadata drafts when visibility changes', async () => {
     const user = userEvent.setup();
-    mocks.changeLibraryVideoVisibility.mockResolvedValue(createVideo({
-      isPrivate: false,
-    }));
+    mocks.changeLibraryVideoVisibility.mockResolvedValue(
+      createVideo({
+        isPrivate: false,
+      }),
+    );
     renderDetailsPage();
 
     await user.clear(screen.getByLabelText('Title'));
     await user.type(screen.getByLabelText('Title'), 'Unsaved draft title');
     await user.click(screen.getByRole('button', { name: 'Make Public' }));
-    await user.click(screen.getAllByRole('button', { name: 'Make Public' }).at(-1)!);
+    await user.click(
+      within(screen.getByRole('alertdialog', { name: 'Make video public?' })).getByRole('button', {
+        name: 'Make Public',
+      }),
+    );
 
     expect(await screen.findByRole('status')).toHaveTextContent('Visibility updated to Public.');
     expect(screen.getByLabelText('Title')).toHaveValue('Unsaved draft title');
@@ -379,19 +456,27 @@ describe('VideoDetailsPage', () => {
     const user = userEvent.setup();
     mocks.changeLibraryVideoVisibility
       .mockRejectedValueOnce(new Error('visibility failed'))
-      .mockResolvedValueOnce(createVideo({
-        isPrivate: true,
-      }));
-    renderDetailsPage(createVideo({
-      isPrivate: false,
-    }));
+      .mockResolvedValueOnce(
+        createVideo({
+          isPrivate: true,
+        }),
+      );
+    renderDetailsPage(
+      createVideo({
+        isPrivate: false,
+      }),
+    );
 
     await user.click(screen.getByRole('button', { name: 'Make Private' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Visibility could not be updated. Try again.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Visibility could not be updated. Try again.',
+    );
     expect(screen.getByText('Current visibility: Public')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Make Private' }));
-    expect(screen.queryByRole('alertdialog', { name: 'Make video public?' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('alertdialog', { name: 'Make video public?' }),
+    ).not.toBeInTheDocument();
     expect(await screen.findByRole('status')).toHaveTextContent('Visibility updated to Private.');
     expect(screen.getByText('Current visibility: Private')).toBeInTheDocument();
   });
@@ -400,16 +485,20 @@ describe('VideoDetailsPage', () => {
     const user = userEvent.setup();
     const deferred = createDeferred<HomeLibraryVideo>();
     mocks.changeLibraryVideoVisibility.mockReturnValue(deferred.promise);
-    renderDetailsPage(createVideo({
-      isPrivate: false,
-    }));
+    renderDetailsPage(
+      createVideo({
+        isPrivate: false,
+      }),
+    );
 
     await user.click(screen.getByRole('button', { name: 'Make Private' }));
 
     expect(screen.getByRole('button', { name: 'Updating...' })).toBeDisabled();
-    deferred.resolve(createVideo({
-      isPrivate: true,
-    }));
+    deferred.resolve(
+      createVideo({
+        isPrivate: true,
+      }),
+    );
     expect(await screen.findByRole('status')).toHaveTextContent('Visibility updated to Private.');
   });
 
@@ -469,15 +558,21 @@ describe('VideoDetailsPage', () => {
 
     await user.clear(screen.getByLabelText('Title'));
     await user.type(screen.getByLabelText('Title'), 'Draft Fixture');
-    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Back to library' }));
+    await user.click(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Back to library' }),
+    );
 
     expect(screen.getByRole('dialog', { name: 'Discard unsaved changes?' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/videos/video-1/edit');
     await user.click(screen.getByRole('button', { name: 'Stay' }));
-    expect(screen.queryByRole('dialog', { name: 'Discard unsaved changes?' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: 'Discard unsaved changes?' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText('Title')).toHaveValue('Draft Fixture');
 
-    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Back to library' }));
+    await user.click(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Back to library' }),
+    );
     await user.click(screen.getByRole('button', { name: 'Discard changes' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'), { timeout: 5_000 });
@@ -491,14 +586,18 @@ describe('VideoDetailsPage', () => {
     await user.clear(screen.getByLabelText('Title'));
     await user.type(screen.getByLabelText('Title'), 'Shell Navigation Draft');
     await user.click(
-      within(screen.getByRole('navigation', { name: 'Product navigation' })).getByRole('link', { name: 'Playlists' }),
+      within(screen.getByRole('navigation', { name: 'Product navigation' })).getByRole('link', {
+        name: 'Playlists',
+      }),
     );
 
     expect(screen.getByRole('dialog', { name: 'Discard unsaved changes?' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/videos/video-1/edit');
     await user.click(screen.getByRole('button', { name: 'Discard changes' }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/playlists'), { timeout: 5_000 });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/playlists'), {
+      timeout: 5_000,
+    });
   });
 
   test('guards unsaved metadata changes before brand navigation links', async () => {
@@ -516,17 +615,31 @@ describe('VideoDetailsPage', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/'), { timeout: 5_000 });
   });
 
-  test('does not guard unsaved metadata changes for coming-soon product actions', async () => {
+  test('preserves the unsaved metadata draft while opening the real playlist chooser', async () => {
     const user = userEvent.setup();
-    const router = renderDetailsPage();
-
-    await user.clear(screen.getByLabelText('Title'));
-    await user.type(screen.getByLabelText('Title'), 'Soon Action Draft');
-    await user.click(screen.getByRole('button', { name: 'Favorites, Soon' }));
-
-    expect(mocks.toast).toHaveBeenCalledWith('Favorites is coming soon.', { id: 'product-nav-favorites' });
-    expect(screen.queryByRole('dialog', { name: 'Discard unsaved changes?' })).not.toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/videos/video-1/edit');
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        Response.json({ success: true, playlists: [], totalCount: 0, hasMore: false }),
+      );
+    try {
+      const router = renderDetailsPage();
+      await user.clear(screen.getByLabelText('Title'));
+      await user.type(screen.getByLabelText('Title'), 'Playlist Draft');
+      await user.click(screen.getByRole('button', { name: 'Add to playlist' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Add to playlist' });
+      expect(
+        screen.queryByRole('dialog', { name: 'Discard unsaved changes?' }),
+      ).not.toBeInTheDocument();
+      expect(router.state.location.pathname).toBe('/videos/video-1/edit');
+      await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+      expect(screen.getByLabelText('Title')).toHaveValue('Playlist Draft');
+      const unload = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(unload);
+      expect(unload.defaultPrevented).toBe(true);
+    } finally {
+      fetchMock.mockRestore();
+    }
   });
 
   test('guards unsaved metadata changes before account logout navigation', async () => {
@@ -542,12 +655,17 @@ describe('VideoDetailsPage', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Logout' }));
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
-    expect(await screen.findByRole('dialog', { name: 'Discard unsaved changes?' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('dialog', { name: 'Discard unsaved changes?' }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/videos/video-1/edit');
     await user.click(screen.getByRole('button', { name: 'Discard changes' }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/api/auth/logout'), { timeout: 5_000 });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/api/auth/logout'), {
+      timeout: 5_000,
+    });
     expect(await screen.findByText('Logout route')).toBeInTheDocument();
+    expect(logoutRequests).toEqual(['POST']);
   });
 
   test('guards unsaved metadata changes before watch navigation and browser unload', async () => {
@@ -568,23 +686,31 @@ describe('VideoDetailsPage', () => {
     expect(router.state.location.pathname).toBe('/videos/video-1/edit');
 
     await user.click(screen.getByRole('button', { name: 'Discard changes' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/player/video-1'), { timeout: 5_000 });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/player/video-1'), {
+      timeout: 5_000,
+    });
   });
 
   test('allows navigation without an unsaved prompt after successful save', async () => {
     const user = userEvent.setup();
     const router = renderDetailsPage();
-    mocks.updateLibraryVideoMetadata.mockResolvedValue(createVideo({
-      title: 'Saved Fixture',
-    }));
+    mocks.updateLibraryVideoMetadata.mockResolvedValue(
+      createVideo({
+        title: 'Saved Fixture',
+      }),
+    );
 
     await user.clear(screen.getByLabelText('Title'));
     await user.type(screen.getByLabelText('Title'), 'Saved Fixture');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('Video details saved.'));
-    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Back to library' }));
+    await user.click(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Back to library' }),
+    );
 
-    expect(screen.queryByRole('dialog', { name: 'Discard unsaved changes?' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: 'Discard unsaved changes?' }),
+    ).not.toBeInTheDocument();
     await waitFor(() => expect(router.state.location.pathname).toBe('/'), { timeout: 5_000 });
   });
 

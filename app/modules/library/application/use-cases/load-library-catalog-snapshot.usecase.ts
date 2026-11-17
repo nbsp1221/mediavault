@@ -41,11 +41,10 @@ interface LoadLibraryCatalogSnapshotUseCaseDependencies {
 }
 
 export class LoadLibraryCatalogSnapshotUseCase {
-  constructor(
-    private readonly deps: LoadLibraryCatalogSnapshotUseCaseDependencies,
-  ) {}
+  constructor(private readonly deps: LoadLibraryCatalogSnapshotUseCaseDependencies) {}
 
   async execute(input: LoadLibraryCatalogSnapshotInput): Promise<LoadLibraryCatalogSnapshotResult> {
+    const filters = createLibraryHomeFilters(input);
     try {
       const readScope = createVideoReadAccessScope(input.viewer);
       const [videos, contentTypes, genres] = await Promise.all([
@@ -58,15 +57,14 @@ export class LoadLibraryCatalogSnapshotUseCase {
         ok: true,
         data: {
           videos,
-          filters: createLibraryHomeFilters(input),
+          filters,
           vocabulary: {
             contentTypes: filterContentTypesByVideos(contentTypes, videos),
             genres: filterGenresByVideos(genres, videos),
           },
         },
       };
-    }
-    catch {
+    } catch {
       return {
         ok: false,
         reason: 'CATALOG_SOURCE_UNAVAILABLE',
@@ -79,18 +77,18 @@ function filterContentTypesByVideos(
   contentTypes: VideoTaxonomyItem[],
   videos: LibraryVideo[],
 ): VideoTaxonomyItem[] {
-  const visibleSlugs = new Set(videos
-    .map(video => video.contentTypeSlug)
-    .filter((slug): slug is string => Boolean(slug)));
+  const visibleSlugs = new Set(
+    videos.map((video) => video.contentTypeSlug).filter((slug): slug is string => Boolean(slug)),
+  );
 
-  return contentTypes.filter(contentType => visibleSlugs.has(contentType.slug));
+  return contentTypes.filter((contentType) => visibleSlugs.has(contentType.slug));
 }
 
 function filterGenresByVideos(
   genres: VideoTaxonomyItem[],
   videos: LibraryVideo[],
 ): VideoTaxonomyItem[] {
-  const visibleSlugs = new Set(videos.flatMap(video => video.genreSlugs ?? []));
+  const visibleSlugs = new Set(videos.flatMap((video) => video.genreSlugs ?? []));
 
-  return genres.filter(genre => visibleSlugs.has(genre.slug));
+  return genres.filter((genre) => visibleSlugs.has(genre.slug));
 }

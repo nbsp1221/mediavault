@@ -1,9 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  createVideoVisibility,
-  isPrivateVisibility,
-  isPublicVisibility,
-} from './video-visibility';
+import { createVideoVisibility, isPrivateVisibility, isPublicVisibility } from './video-visibility';
 
 describe('VideoVisibility', () => {
   test('accepts only public and private', () => {

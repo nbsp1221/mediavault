@@ -3,7 +3,10 @@ import {
   toAuthenticatedVideoPolicyViewer,
   toVideoPolicyViewer,
 } from '../../../app/composition/server/video-access-viewer';
-import { type RequestViewer, ANONYMOUS_VIEWER } from '../../../app/modules/auth/domain/request-viewer';
+import {
+  ANONYMOUS_VIEWER,
+  type RequestViewer,
+} from '../../../app/modules/auth/domain/request-viewer';
 
 describe('request viewer to video policy viewer adapter', () => {
   test('maps anonymous request viewers to anonymous video policy viewers', () => {
@@ -28,9 +31,11 @@ describe('request viewer to video policy viewer adapter', () => {
   });
 
   test('maps authenticated sessions to authenticated video policy viewers without session fields', () => {
-    expect(toAuthenticatedVideoPolicyViewer({
-      userId: 'owner-1',
-    })).toEqual({
+    expect(
+      toAuthenticatedVideoPolicyViewer({
+        userId: 'owner-1',
+      }),
+    ).toEqual({
       type: 'authenticated',
       userId: 'owner-1',
     });

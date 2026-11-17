@@ -21,7 +21,5 @@ export function isSupportedBrowserUploadFilename(filename: string): boolean {
     ? filename.slice(filename.lastIndexOf('.')).toLowerCase()
     : '';
 
-  return BROWSER_UPLOAD_SUPPORTED_EXTENSIONS.includes(
-    extension as typeof BROWSER_UPLOAD_SUPPORTED_EXTENSIONS[number],
-  );
+  return BROWSER_UPLOAD_SUPPORTED_EXTENSIONS.some((supported) => supported === extension);
 }
