@@ -1,8 +1,9 @@
 import type { HeadersFunction, LoaderFunctionArgs, MetaFunction } from 'react-router';
 import { data, isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
-import { resolvePublicVideoAccess } from '~/composition/server/auth';
-import { getServerPlaylistServices } from '~/composition/server/playlist';
+import { getServerPlaylistServices } from '~/composition/server/playlist.server';
 import { PlaylistDetailPage } from '~/pages/playlist-detail/ui/PlaylistDetailPage';
+import { resolvePublicVideoAccess } from '~/routes/.server/auth-session-http';
+import { getPlaylistFailureStatus } from '~/routes/.server/playlist-http';
 import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -18,10 +19,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     videoLimit: 50,
     videoOffset: 0,
   });
-  if (!result.success) {
-    throw new Response(result.status === 404 ? 'Playlist not found' : 'Unable to load playlist', {
+  if (!result.ok) {
+    const status = getPlaylistFailureStatus(result.reason);
+    throw new Response(status === 404 ? 'Playlist not found' : 'Unable to load playlist', {
       headers: access.headers,
-      status: result.status,
+      status,
     });
   }
   return data(result.data, { headers: access.headers });

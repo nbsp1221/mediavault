@@ -188,7 +188,7 @@ describe('user/auth/library architecture boundary', () => {
 
   test('request viewer to video policy viewer adapter stays in composition', async () => {
     const adapterSource = await readFile(
-      resolve(PROJECT_ROOT, 'app/composition/server/video-access-viewer.ts'),
+      resolve(PROJECT_ROOT, 'app/composition/server/video-access-viewer.server.ts'),
       'utf8',
     );
 
@@ -236,7 +236,7 @@ describe('user/auth/library architecture boundary', () => {
 
   test('playlist composition does not default authenticated mutation ownership', async () => {
     const source = await readFile(
-      resolve(PROJECT_ROOT, 'app/composition/server/playlist.ts'),
+      resolve(PROJECT_ROOT, 'app/composition/server/playlist.server.ts'),
       'utf8',
     );
 

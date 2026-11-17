@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from 'react-router';
 import { z } from 'zod';
-import { getServerAdminAuthServices } from '~/composition/server/auth';
+import { getServerAdminAuthServices } from '~/composition/server/auth.server';
 
 const createAdminUserSchema = z.object({ password: z.string(), username: z.string() });
 

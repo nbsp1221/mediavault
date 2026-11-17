@@ -1,54 +1,29 @@
-import type { HeadersFunction, LoaderFunctionArgs, MetaFunction } from 'react-router';
 import { AlertTriangle, ShieldAlert, VideoOff } from 'lucide-react';
-import { isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
-import { z } from 'zod';
+import { data, isRouteErrorResponse, useRouteError } from 'react-router';
 import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
-import { resolvePublicVideoAccess } from '~/composition/server/auth';
-import { getServerPlaybackServices } from '~/composition/server/playback';
-import { loadPlaylistPlaybackQueue } from '~/composition/server/playlist';
+import type { PlayerVideo } from '~/pages/player/model/player-video';
+import { getServerPlaybackServices } from '~/composition/server/playback.server';
+import { loadPlaylistPlaybackQueue } from '~/composition/server/playlist.server';
 import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import { PlayerPage } from '~/pages/player/ui/PlayerPage';
+import { resolvePublicVideoAccess } from '~/routes/.server/auth-session-http';
 import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
+import type { Route } from './+types/player.$id';
 
-interface SerializedVideo extends Omit<PlaybackCatalogVideo, 'createdAt'> {
-  createdAt: string;
-}
-
-const serializedVideoSchema = z.object({
-  createdAt: z.string(),
-  description: z.string().optional(),
-  duration: z.number(),
-  id: z.string(),
-  tags: z.array(z.string()),
-  thumbnailUrl: z.string().optional(),
-  title: z.string(),
-  videoUrl: z.string(),
-});
-const loaderDataSchema = z.object({
-  video: serializedVideoSchema,
-  relatedVideos: z.array(serializedVideoSchema),
-  playlist: z
-    .object({ id: z.string(), name: z.string(), videoIds: z.array(z.string()) })
-    .nullable()
-    .optional(),
-});
-const metaDataSchema = z.object({ video: z.object({ title: z.string() }) });
-
-function serializeVideo(video: PlaybackCatalogVideo): SerializedVideo {
+function toPlayerVideo(video: PlaybackCatalogVideo): PlayerVideo {
   return {
-    ...video,
-    createdAt: video.createdAt.toISOString(),
+    createdAt: video.createdAt,
+    description: video.description,
+    duration: video.duration,
+    id: video.id,
+    tags: video.tags,
+    thumbnailUrl: video.thumbnailUrl,
+    title: video.title,
+    videoUrl: video.videoUrl,
   };
 }
 
-function deserializeVideo(serialized: SerializedVideo): PlaybackCatalogVideo {
-  return {
-    ...serialized,
-    createdAt: new Date(serialized.createdAt),
-  };
-}
-
-export async function loader({ request, params }: LoaderFunctionArgs) {
+export async function loader({ request, params }: Route.LoaderArgs) {
   const publicRouteViewer = await resolvePublicVideoAccess(request);
   publicRouteViewer.headers.set('Referrer-Policy', 'no-referrer');
 
@@ -77,13 +52,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const queue = playlistId
     ? await loadPlaylistPlaybackQueue({ playlistId, viewer: publicRouteViewer.viewer })
     : null;
-  const playlist = queue?.success && queue.data.videoIds.includes(videoId) ? queue.data : null;
+  const playlist = queue?.ok && queue.data.videoIds.includes(videoId) ? queue.data : null;
 
-  return Response.json(
+  return data(
     {
       playlist,
-      relatedVideos: result.relatedVideos.map(serializeVideo),
-      video: serializeVideo(result.video),
+      relatedVideos: result.relatedVideos.map(toPlayerVideo),
+      video: toPlayerVideo(result.video),
     },
     {
       headers: publicRouteViewer.headers,
@@ -91,12 +66,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   );
 }
 
-export const headers: HeadersFunction = ({ loaderHeaders, errorHeaders }) =>
+export const headers: Route.HeadersFunction = ({ loaderHeaders, errorHeaders }) =>
   errorHeaders ?? loaderHeaders;
 
-export const meta: MetaFunction = ({ loaderData }) => {
-  const routeData = metaDataSchema.safeParse(loaderData);
-  if (!routeData.success) {
+export function meta({ loaderData }: Route.MetaArgs) {
+  if (!loaderData) {
     return [
       { title: 'Video Player - Mediavault' },
       { name: 'description', content: 'Local video streaming' },
@@ -104,17 +78,13 @@ export const meta: MetaFunction = ({ loaderData }) => {
   }
 
   return [
-    { title: `${routeData.data.video.title} - Mediavault` },
-    { name: 'description', content: `Watch ${routeData.data.video.title} on Mediavault` },
+    { title: `${loaderData.video.title} - Mediavault` },
+    { name: 'description', content: `Watch ${loaderData.video.title} on Mediavault` },
   ];
-};
+}
 
-export default function PlayerRoute() {
-  const data = loaderDataSchema.parse(useLoaderData<unknown>());
-  const video = deserializeVideo(data.video);
-  const relatedVideos = data.relatedVideos.map(deserializeVideo);
-
-  return <PlayerPage playlist={data.playlist} relatedVideos={relatedVideos} video={video} />;
+export default function PlayerRoute({ loaderData }: Route.ComponentProps) {
+  return <PlayerPage {...loaderData} />;
 }
 
 export function ErrorBoundary() {

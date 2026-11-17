@@ -13,8 +13,8 @@ describe('Public playlist page adapters', () => {
       viewer: { type: 'anonymous' },
       headers: new Headers({ 'Cache-Control': 'private, no-store', 'Vary': 'Cookie' }),
     });
-    vi.doMock('~/composition/server/auth', () => ({ resolvePublicVideoAccess: access }));
-    vi.doMock('~/composition/server/playlist', () => ({
+    vi.doMock('~/routes/.server/auth-session-http', () => ({ resolvePublicVideoAccess: access }));
+    vi.doMock('~/composition/server/playlist.server', () => ({
       getServerPlaylistServices: () => ({
         findPlaylists: { execute: find },
         getPlaylistDetails: { execute: details },
@@ -22,13 +22,13 @@ describe('Public playlist page adapters', () => {
     }));
   });
   afterEach(() => {
-    vi.doUnmock('~/composition/server/auth');
-    vi.doUnmock('~/composition/server/playlist');
+    vi.doUnmock('~/routes/.server/auth-session-http');
+    vi.doUnmock('~/composition/server/playlist.server');
     vi.resetModules();
   });
   test('list adapter resolves an optional viewer and preserves URL search and pagination state', async () => {
     find.mockResolvedValue({
-      success: true,
+      ok: true,
       data: { playlists: [], totalCount: 42, hasMore: true },
     });
     const { loader } = await import('../../../app/routes/playlists._index');
@@ -48,9 +48,8 @@ describe('Public playlist page adapters', () => {
   });
   test('list failures become non-cacheable responses without exposing internal details', async () => {
     find.mockResolvedValue({
-      success: false,
-      status: 503,
-      error: 'Sensitive database location',
+      ok: false,
+      message: 'Sensitive database location',
       reason: 'PLAYLIST_QUERY_UNAVAILABLE',
     });
     const { loader } = await import('../../../app/routes/playlists._index');
@@ -70,7 +69,7 @@ describe('Public playlist page adapters', () => {
       viewer: { type: 'authenticated', userId: 'owner-1' },
       headers: new Headers({ 'Cache-Control': 'private, no-store' }),
     });
-    details.mockResolvedValue({ success: true, data: { playlist: { id: 'playlist-1' } } });
+    details.mockResolvedValue({ ok: true, data: { playlist: { id: 'playlist-1' } } });
     const { loader } = await import('../../../app/routes/playlists.$id');
     const result = await loader(
       routeArgs({
@@ -97,9 +96,8 @@ describe('Public playlist page adapters', () => {
   });
   test('missing and inaccessible playlists use the same neutral HTTP result', async () => {
     details.mockResolvedValue({
-      success: false,
-      status: 404,
-      error: 'Private collection identity',
+      ok: false,
+      message: 'Private collection identity',
       reason: 'PLAYLIST_NOT_FOUND',
     });
     const { loader } = await import('../../../app/routes/playlists.$id');

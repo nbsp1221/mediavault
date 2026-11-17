@@ -552,7 +552,7 @@ describe('admin user API', () => {
     });
 
     const { createAuthClientCookieHeader } =
-      await import('../../../app/composition/server/auth-client-identity');
+      await import('../../../app/routes/.server/auth-client-identity');
     const authClientCookie = createAuthClientCookieHeader('admin-delete-test-client').split(';')[0];
     const { cookieHeader, response: liveLoginResponse } = await loginOwner({
       headers: {

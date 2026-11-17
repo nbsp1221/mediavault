@@ -1,4 +1,4 @@
-import type { checkProductionReadiness } from '~/composition/server/runtime-readiness';
+import type { checkProductionReadiness } from '~/composition/server/runtime-readiness.server';
 
 interface HealthReadyLoaderDependencies {
   checkProductionReadiness: typeof checkProductionReadiness;

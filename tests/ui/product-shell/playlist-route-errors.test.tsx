@@ -5,6 +5,12 @@ import { describe, expect, test, vi } from 'vitest';
 import { ErrorBoundary as DetailBoundary } from '../../../app/routes/playlists.$id';
 import { ErrorBoundary as IndexBoundary } from '../../../app/routes/playlists._index';
 
+vi.mock('~/routes/.server/auth-session-http', () => ({
+  resolvePublicVideoAccess: vi.fn(),
+}));
+vi.mock('~/routes/.server/playlist-http', () => ({
+  getPlaylistFailureStatus: vi.fn(),
+}));
 vi.mock('~/shared/hooks/use-root-user', () => ({ useRootUser: () => null }));
 const cases: Array<{
   name: string;

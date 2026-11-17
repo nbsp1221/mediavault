@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type * as AuthComposition from '~/composition/server/auth';
+import type * as AuthSessionHttp from '~/routes/.server/auth-session-http';
 import { routeArgs } from '../../helpers/route-args';
 import {
   PLAYLIST_OWNER_ID,
@@ -50,8 +50,10 @@ describe('playlist composition ownership boundary', () => {
 
     vi.resetModules();
     vi.clearAllMocks();
-    vi.doMock('~/composition/server/auth', async () => {
-      const actual = await vi.importActual<typeof AuthComposition>('~/composition/server/auth');
+    vi.doMock('~/routes/.server/auth-session-http', async () => {
+      const actual = await vi.importActual<typeof AuthSessionHttp>(
+        '~/routes/.server/auth-session-http',
+      );
 
       return {
         ...actual,
@@ -70,7 +72,7 @@ describe('playlist composition ownership boundary', () => {
 
   afterEach(async () => {
     delete process.env.MEDIAVAULT_STORAGE_DIR;
-    vi.doUnmock('~/composition/server/auth');
+    vi.doUnmock('~/routes/.server/auth-session-http');
     vi.resetModules();
     if (cleanup) {
       await cleanup();

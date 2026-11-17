@@ -1,10 +1,10 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
 import { redirect } from 'react-router';
+import { getServerSessionServices } from '~/composition/server/auth.server';
 import {
   createClearedSessionCookieHeader,
-  getServerSessionServices,
   getSiteSessionId,
-} from '~/composition/server/auth';
+} from '~/routes/.server/auth-session-http';
 import { rejectCrossOriginMutation } from '~/shared/lib/http/csrf.server';
 import { getSafeRedirectTarget } from '~/shared/lib/http/redirects.server';
 

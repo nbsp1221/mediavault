@@ -7,6 +7,7 @@ export default retn0(
   eslintConfigOxlint(oxlintConfig),
   {
     ignores: [
+      '.work/**',
       '.react-router/**',
       'build/**',
       'coverage/**',

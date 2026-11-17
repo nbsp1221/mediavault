@@ -19,11 +19,19 @@ Business modules use domain/application/infrastructure boundaries where they hel
 
 Generated shadcn primitives belong in `app/shared/ui/`; application UI consumes them rather than importing Radix directly or patching generated internals. [DESIGN.md](../DESIGN.md) owns visual tokens and composition guidance.
 
+## Routes and naming
+
+Register public URLs and parameters in `app/routes.ts`. New route files can group by feature, such as `routes/videos/edit.tsx` or `routes/api/videos/update.ts`. Use kebab-case for these files and directories. Use `prefix()` for a shared URL segment and a layout route when child screens share rendered UI, data, or a route boundary. Keep existing route IDs stable when moving code out of registered routes.
+
+Use the generated `./+types/…` types for loaders, actions, and route component props. Use `data()` for typed page DTOs that need response headers and keep resource routes on their defined HTTP contracts. Page-owned code can use `ui`, `model`, and `lib` when those folders clarify ownership. Name components in PascalCase, hooks with `use`, and other modules in kebab-case. Use `~/` for app imports.
+
 ## Server and browser boundary
 
 The [Node entrypoint](../server.mjs) owns Express, the HTTP listener, and process lifecycle. Development uses Vite middleware and the framework SSR module runner. Production serves the framework build and immutable versioned assets. Routes do not assemble database connections or media-tool processes.
 
-Server-only route factories live behind `.server` module boundaries. Database, filesystem, process execution, and secret configuration must never enter browser imports. The Vite development boundary denies direct sensitive source and storage access; every production build audits client artifacts for server implementation markers. These checks complement, rather than replace, framework server-export stripping.
+Routes call composition to obtain assembled application services. Application code uses domain rules and declares its I/O ports. Infrastructure implements those ports and composition connects them. Keep cookies, redirects, and HTTP status mapping in routes or their server-only adapters. Browser UI consumes page DTOs and browser-safe domain rules.
+
+Use `.server.ts` for server-only entry points such as `composition/server/auth.server.ts`, or group HTTP adapters under `routes/.server/`. Database, filesystem, process execution, and secret configuration must never enter browser imports. Vite denies direct access to sensitive source and local artifacts in development. Production builds audit the client artifacts as well as applying React Router's server-only module rules.
 
 ## Authentication and access
 

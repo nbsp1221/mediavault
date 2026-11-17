@@ -4,6 +4,9 @@ import { RouterProvider, createMemoryRouter } from 'react-router';
 import { describe, expect, test, vi } from 'vitest';
 import App, { ErrorBoundary, Layout, links } from '../../app/root';
 
+vi.mock('~/routes/.server/auth-session-http', () => ({
+  getOptionalSiteViewer: vi.fn(),
+}));
 vi.mock('~/shared/ui/sonner', () => ({
   Toaster: () => <div data-testid="toaster" />,
 }));

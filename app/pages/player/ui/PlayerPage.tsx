@@ -1,4 +1,4 @@
-import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
+import type { PlayerVideo } from '~/pages/player/model/player-video';
 import type { PlayerPlaylistContext } from '~/pages/player/model/usePlaylistPlayback';
 import { PlayerSurface } from '~/pages/player/ui/PlayerSurface';
 import { formatDisplayDate } from '~/shared/lib/format-display-date';
@@ -7,8 +7,8 @@ import { ProductShell } from '~/widgets/product-shell/ui/ProductShell';
 
 interface PlayerPageProps {
   playlist?: PlayerPlaylistContext | null;
-  relatedVideos: PlaybackCatalogVideo[];
-  video: PlaybackCatalogVideo;
+  relatedVideos: PlayerVideo[];
+  video: PlayerVideo;
 }
 
 export function PlayerPage({ playlist, video, relatedVideos }: PlayerPageProps) {

@@ -9,6 +9,7 @@ playwright-report/
 test-results/
 .playwright-mcp/
 .claude/
+/.work/
 
 # Never send operator secrets or local data to the Docker builder.
 .env

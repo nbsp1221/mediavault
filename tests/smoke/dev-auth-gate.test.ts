@@ -208,7 +208,7 @@ describe('Dev auth gate smoke', () => {
   test('does not anonymously serve repo-local server source in dev', async () => {
     const sensitivePaths: Array<[string, string]> = [
       ['/app/shared/config/app-config.server.ts', 'DEFAULT_FAILED_LOGIN_BLOCK_DURATION_MS'],
-      ['/app/composition/server/playback.ts', 'getServerPlaybackServices'],
+      ['/app/composition/server/playback.server.ts', 'getServerPlaybackServices'],
       ['/app/routes/.server/update-video-action.ts?import', 'createUpdateVideoAction'],
       ['/app/routes/.server/health-ready-loader.ts?import', 'createHealthReadyLoader'],
       ['/app/routes/.server/ingest-job-http-handlers.ts?import', 'createIngestJobHttpHandlers'],

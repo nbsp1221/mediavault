@@ -33,6 +33,8 @@ export function isSensitiveDirectDevPath(pathname: string, search = ''): boolean
     pathname.endsWith('/.server') ||
     pathname === '/.env' ||
     pathname.startsWith('/.env.') ||
+    pathname === '/.work' ||
+    pathname.startsWith('/.work/') ||
     pathname.startsWith('/storage/') ||
     pathname.startsWith('/binaries/') ||
     pathname.startsWith('/build/') ||
@@ -95,6 +97,8 @@ export default defineConfig(() => {
           '*.{crt,pem}',
           '**/.git/**',
           '**/.server/**',
+          '.work/**',
+          `${projectRoot}/.work/**`,
           'storage/**',
           `${projectRoot}/storage/**`,
           'binaries/**',

@@ -15,12 +15,12 @@ const fakePlaybackServices = {
   },
 };
 
-vi.mock('~/composition/server/auth', () => ({
+vi.mock('~/routes/.server/auth-session-http', () => ({
   requireProtectedMediaSession: requireProtectedMediaSessionMock,
   requireProtectedMediaSessionValue: requireProtectedMediaSessionValueMock,
 }));
 
-vi.mock('~/composition/server/playback', () => ({
+vi.mock('~/composition/server/playback.server', () => ({
   getServerPlaybackServices: () => fakePlaybackServices,
 }));
 

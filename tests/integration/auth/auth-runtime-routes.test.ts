@@ -61,8 +61,8 @@ async function importThumbnailRoute() {
   return import('../../../app/routes/api.thumbnail.$id');
 }
 
-async function importServerAuthComposition() {
-  return import('../../../app/composition/server/auth');
+async function importAuthSessionHttp() {
+  return import('../../../app/routes/.server/auth-session-http');
 }
 
 async function importPlaylistsRoute() {
@@ -279,7 +279,7 @@ describe('auth gate routes', () => {
     );
     expect(loggedOut.status).toBe(302);
     expect(loggedOut.headers.get('Location')).toBe('/login');
-    const { requireProtectedPageSession } = await importServerAuthComposition();
+    const { requireProtectedPageSession } = await importAuthSessionHttp();
     const denied: unknown = await requireProtectedPageSession(
       new Request('http://mediavault:3000/videos/private/edit'),
     ).catch((error: unknown) => error);
@@ -434,10 +434,11 @@ describe('auth gate routes', () => {
 
     const response = await loader(routeArgs({ request }));
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
-    expect(response.headers.get('Vary')).toBe('Cookie');
-    await expect(readJsonObject(response)).resolves.toEqual({
+    expect(response.init?.status ?? 200).toBe(200);
+    const headers = new Headers(response.init?.headers);
+    expect(headers.get('Cache-Control')).toBe('private, no-store');
+    expect(headers.get('Vary')).toBe('Cookie');
+    expect(response.data).toEqual({
       contentTypes: [],
       genres: [],
       videos: [],
@@ -522,7 +523,7 @@ describe('auth gate routes', () => {
   });
 
   test('request viewer resolves no, unknown, expired, revoked, and dangling sessions as anonymous', async () => {
-    const { resolveRequestViewer } = await importServerAuthComposition();
+    const { resolveRequestViewer } = await importAuthSessionHttp();
 
     await expect(resolveRequestViewer(new Request('http://localhost/'))).resolves.toEqual({
       type: 'anonymous',
@@ -600,7 +601,7 @@ describe('auth gate routes', () => {
 
   test('request viewer resolves an active user-backed session without role authority', async () => {
     const cookie = await loginAndGetCookieHeader();
-    const { resolveRequestViewer } = await importServerAuthComposition();
+    const { resolveRequestViewer } = await importAuthSessionHttp();
 
     const viewer = await resolveRequestViewer(
       new Request('http://localhost/', {
@@ -664,7 +665,7 @@ describe('auth gate routes', () => {
       requireProtectedApiSessionValue,
       requireProtectedMediaSession,
       requireProtectedPageSession,
-    } = await importServerAuthComposition();
+    } = await importAuthSessionHttp();
 
     const pageCookie = await loginAndGetCookieHeader();
     await pointSessionAtMissingUser(databasePath, pageCookie);
@@ -1468,7 +1469,7 @@ describe('auth gate routes', () => {
       }),
     );
     expect(mutationDenied.status).toBe(403);
-    const { resolveRequestViewer } = await importServerAuthComposition();
+    const { resolveRequestViewer } = await importAuthSessionHttp();
     await expect(
       resolveRequestViewer(new Request('http://localhost/', { headers: { cookie } })),
     ).resolves.toMatchObject({ type: 'authenticated', userId: SEEDED_OWNER_ID });
@@ -1488,7 +1489,7 @@ describe('auth gate routes', () => {
     expect(response.headers.get('Allow')).toBe('POST');
     expect(response.headers.get('Location')).toBeNull();
     expect(response.headers.get('Set-Cookie')).toBeNull();
-    const { resolveRequestViewer } = await importServerAuthComposition();
+    const { resolveRequestViewer } = await importAuthSessionHttp();
     await expect(
       resolveRequestViewer(new Request('http://localhost/', { headers: { cookie } })),
     ).resolves.toMatchObject({ type: 'authenticated', userId: SEEDED_OWNER_ID });

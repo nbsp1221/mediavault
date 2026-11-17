@@ -16,7 +16,7 @@ import { PlaybackClearKeyService } from '~/modules/playback/infrastructure/licen
 import { PlaybackManifestService } from '~/modules/playback/infrastructure/media/playback-manifest.service';
 import { PlaybackMediaSegmentService } from '~/modules/playback/infrastructure/media/playback-media-segment.service';
 import { JsonWebTokenPlaybackTokenService } from '~/modules/playback/infrastructure/token/jsonwebtoken-playback-token.service';
-import { getServerSessionServices } from './auth';
+import { getServerSessionServices } from './auth.server';
 
 interface ServerPlaybackServices {
   issuePlaybackToken: IssuePlaybackTokenUseCase;

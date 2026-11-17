@@ -18,6 +18,10 @@ describe('Vite dev security middleware contract', () => {
     expect(isSensitiveDirectDevPath(requestUrl.pathname, requestUrl.search)).toBe(false);
   });
 
+  it.each(['/.work', '/.work/qa/result.json'])('denies local work records: %s', (pathname) => {
+    expect(isSensitiveDirectDevPath(pathname, '?import')).toBe(true);
+  });
+
   it('keeps direct access to video server/resource route modules blocked', () => {
     expect(isSensitiveDirectDevPath('/app/routes/videos.$videoId.token.ts', '?import')).toBe(true);
     expect(

@@ -1,10 +1,10 @@
-import { requireProtectedApiSessionValue } from '~/composition/server/auth';
-import { getServerIngestServices } from '~/composition/server/ingest';
+import { getServerIngestServices } from '~/composition/server/ingest.server';
+import { requireProtectedApiSessionValue } from '~/routes/.server/auth-session-http';
 import {
   createUploadReadLoader,
   createUploadRemoveAction,
   createUploadsAction,
-} from '~/routes/.server/staged-upload-handlers';
+} from './staged-upload-handlers';
 
 const dependencies = { getServerIngestServices, requireProtectedApiSessionValue };
 export const stagedUploadHttpHandlers = {

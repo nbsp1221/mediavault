@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
-import { stagedUploadHttpHandlers } from '~/composition/server/staged-upload-http';
+import { stagedUploadHttpHandlers } from '~/routes/.server/staged-upload-http';
 
 export async function action(args: ActionFunctionArgs) {
   return stagedUploadHttpHandlers.remove(args);

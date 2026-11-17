@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
   toAuthenticatedVideoPolicyViewer,
   toVideoPolicyViewer,
-} from '../../../app/composition/server/video-access-viewer';
+} from '../../../app/composition/server/video-access-viewer.server';
 import {
   ANONYMOUS_VIEWER,
   type RequestViewer,

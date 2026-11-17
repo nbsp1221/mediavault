@@ -2,8 +2,8 @@ import type { HomeLibraryVideo } from '~/entities/library-video/model/library-vi
 import type { LoadLibraryCatalogSnapshotResult } from '~/modules/library/application/use-cases/load-library-catalog-snapshot.usecase';
 import type { VideoViewer } from '~/modules/library/domain/policies/video-access.policy';
 import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
-import { toHomeLibraryVideoDto } from './home-library-video-dto';
-import { getServerLibraryServices } from './library';
+import { toHomeLibraryVideoDto } from './home-library-video-dto.server';
+import { getServerLibraryServices } from './library.server';
 
 interface LoadHomeLibraryPageDataInput {
   rawContentTypeSlug?: string | null;

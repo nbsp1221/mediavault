@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
-import { getServerPlaybackServices } from '~/composition/server/playback';
+import { getServerPlaybackServices } from '~/composition/server/playback.server';
 import {
   createPlaybackDeniedResponse,
   createPlaybackUnexpectedRouteResponse,

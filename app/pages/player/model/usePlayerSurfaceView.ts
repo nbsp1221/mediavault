@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
+import type { PlayerVideo } from '~/pages/player/model/player-video';
 import { formatDisplayDate } from '~/shared/lib/format-display-date';
 import { formatDuration } from '~/shared/lib/format-duration';
 
@@ -8,14 +8,14 @@ export interface PlayerSurfaceTagItem {
   value: string;
 }
 
-export interface PlayerSurfaceRelatedVideoItem extends PlaybackCatalogVideo {
+export interface PlayerSurfaceRelatedVideoItem extends PlayerVideo {
   durationLabel: string;
   visibleTags: string[];
 }
 
 interface UsePlayerSurfaceViewInput {
-  relatedVideos: PlaybackCatalogVideo[];
-  video: PlaybackCatalogVideo;
+  relatedVideos: PlayerVideo[];
+  video: PlayerVideo;
 }
 
 interface ActiveTagState {

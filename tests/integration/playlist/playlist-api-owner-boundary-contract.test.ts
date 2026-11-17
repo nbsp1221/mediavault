@@ -33,18 +33,18 @@ describe('playlist API owner boundary contract', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.doMock('~/composition/server/auth', () => ({
+    vi.doMock('~/routes/.server/auth-session-http', () => ({
       requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
     }));
-    vi.doMock('~/composition/server/playlist', () => ({
+    vi.doMock('~/composition/server/playlist.server', () => ({
       getServerPlaylistServices: () => fakePlaylistServices,
     }));
     requireProtectedApiSessionValueMock.mockResolvedValue({ id: 'session-1', userId: 'owner-1' });
   });
 
   afterEach(() => {
-    vi.doUnmock('~/composition/server/auth');
-    vi.doUnmock('~/composition/server/playlist');
+    vi.doUnmock('~/routes/.server/auth-session-http');
+    vi.doUnmock('~/composition/server/playlist.server');
     vi.resetModules();
   });
 
@@ -55,7 +55,7 @@ describe('playlist API owner boundary contract', () => {
         message: 'updated',
         playlist: { id: 'playlist-1', name: 'Vault', ownerId: 'owner-1' },
       },
-      success: true,
+      ok: true,
     });
     const { action } = await importPlaylistDetailApiRoute();
 
@@ -89,7 +89,7 @@ describe('playlist API owner boundary contract', () => {
   test('mutation routes pass authenticated owner identity to playlist services', async () => {
     fakePlaylistServices.createPlaylist.execute.mockResolvedValue({
       data: { message: 'created', playlistId: 'playlist-1' },
-      success: true,
+      ok: true,
     });
     fakePlaylistServices.deletePlaylist.execute.mockResolvedValue({
       data: {
@@ -97,7 +97,7 @@ describe('playlist API owner boundary contract', () => {
         message: 'deleted',
         success: true,
       },
-      success: true,
+      ok: true,
     });
     fakePlaylistServices.addVideoToPlaylist.execute.mockResolvedValue({
       data: {
@@ -108,7 +108,7 @@ describe('playlist API owner boundary contract', () => {
         totalVideosInPlaylist: 1,
         videoTitle: 'Video',
       },
-      success: true,
+      ok: true,
     });
     fakePlaylistServices.reorderPlaylistItems.execute.mockResolvedValue({
       data: {
@@ -119,7 +119,7 @@ describe('playlist API owner boundary contract', () => {
         success: true,
         videosReordered: 2,
       },
-      success: true,
+      ok: true,
     });
     fakePlaylistServices.removeVideoFromPlaylist.execute.mockResolvedValue({
       data: {
@@ -129,7 +129,7 @@ describe('playlist API owner boundary contract', () => {
         success: true,
         videoId: 'video-1',
       },
-      success: true,
+      ok: true,
     });
 
     const { action: createAction } = await importPlaylistsApiRoute();

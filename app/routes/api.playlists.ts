@@ -1,10 +1,11 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
 import { z } from 'zod';
+import { getServerPlaylistServices } from '~/composition/server/playlist.server';
 import {
   requireProtectedApiSessionValue,
   resolvePublicVideoAccess,
-} from '~/composition/server/auth';
-import { getServerPlaylistServices } from '~/composition/server/playlist';
+} from '~/routes/.server/auth-session-http';
+import { playlistFailureResponse } from '~/routes/.server/playlist-http';
 
 const querySchema = z
   .object({
@@ -78,12 +79,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     sortBy: query.data.sortBy,
     sortOrder: query.data.sortOrder,
   });
-  return result.success
+  return result.ok
     ? Response.json({ success: true, ...result.data }, { headers: access.headers })
-    : Response.json(
-        { success: false, error: result.error },
-        { headers: access.headers, status: result.status },
-      );
+    : playlistFailureResponse(result, access.headers);
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -106,7 +104,7 @@ export async function action({ request }: ActionFunctionArgs) {
     ...parsed.data,
     ownerId: session.userId,
   });
-  return result.success
+  return result.ok
     ? Response.json({ success: true, ...result.data }, { status: 201 })
-    : Response.json({ success: false, error: result.error }, { status: result.status });
+    : playlistFailureResponse(result);
 }

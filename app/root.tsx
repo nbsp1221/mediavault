@@ -7,7 +7,7 @@ import {
   ScrollRestoration,
   isRouteErrorResponse,
 } from 'react-router';
-import { getOptionalSiteViewer } from '~/composition/server/auth';
+import { getOptionalSiteViewer } from '~/routes/.server/auth-session-http';
 import { Toaster } from '~/shared/ui/sonner';
 import type { Route } from './+types/root';
 import './app.css';
