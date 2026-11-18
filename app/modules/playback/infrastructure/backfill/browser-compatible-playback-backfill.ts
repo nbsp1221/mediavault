@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path, { basename } from 'node:path';
-import { normalizeClearKeyManifest } from '~/modules/ingest/infrastructure/processing/normalize-clearkey-manifest';
+import { derivePlaybackEncryptionKey } from '~/modules/media-assets/infrastructure/crypto/derive-playback-encryption-key.server';
+import { generatePlaybackKeyId } from '~/modules/media-assets/infrastructure/crypto/generate-playback-key-id.server';
 import {
   decryptThumbnailEnvelope,
   encryptThumbnailEnvelope,
   looksLikeJpeg,
   validateEncryptedFormat,
-} from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
+} from '~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server';
+import { normalizeClearKeyManifest } from '~/modules/media-assets/infrastructure/dash/normalize-clearkey-manifest.server';
 import {
   type MediaKeyDerivationConfig,
   getMediaKeyDerivationConfig,
@@ -16,8 +18,6 @@ import {
 } from '~/shared/config/app-config.server';
 import { getShakaPackagerPath } from '~/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '~/shared/lib/server/ffmpeg-process-manager.server';
-import { derivePlaybackEncryptionKey } from '../license/derive-playback-encryption-key';
-import { generatePlaybackKeyId } from '../license/generate-playback-key-id';
 
 const HEVC_ONLY_PATTERN = /<Representation\b[^>]*codecs="(?:hev1|hvc1)[^"]*"/i;
 const AVC_PATTERN = /<Representation\b[^>]*codecs="avc1[^"]*"/i;

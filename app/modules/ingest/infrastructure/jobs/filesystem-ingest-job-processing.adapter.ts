@@ -10,7 +10,7 @@ import {
   decryptThumbnailEnvelope,
   encryptThumbnailEnvelope,
   looksLikeJpeg,
-} from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
+} from '~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server';
 
 interface Dependencies {
   analysis: IngestVideoAnalysisPort;

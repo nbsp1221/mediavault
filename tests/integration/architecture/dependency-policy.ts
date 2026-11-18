@@ -10,30 +10,6 @@ const storageContracts = new Set([
   'app/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database.ts',
 ]);
 
-// Removed with unit 4: producers and consumers will share media-assets formats.
-export const pendingMediaDependencies = [
-  [
-    'app/modules/ingest/infrastructure/jobs/filesystem-ingest-job-processing.adapter.ts',
-    'app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils.ts',
-  ],
-  [
-    'app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter.ts',
-    'app/modules/playback/infrastructure/license/derive-playback-encryption-key.ts',
-  ],
-  [
-    'app/modules/ingest/infrastructure/processing/ffmpeg-media-preparation.adapter.ts',
-    'app/modules/playback/infrastructure/license/generate-playback-key-id.ts',
-  ],
-  [
-    'app/modules/playback/infrastructure/backfill/browser-compatible-playback-backfill.ts',
-    'app/modules/ingest/infrastructure/processing/normalize-clearkey-manifest.ts',
-  ],
-  [
-    'app/modules/playback/infrastructure/backfill/browser-compatible-playback-backfill.ts',
-    'app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils.ts',
-  ],
-] as const;
-
 export function dependencyViolation({ from, to }: SourceDependency): string | null {
   const sourceModule = /^app\/modules\/([^/]+)\/(domain|application|infrastructure)\//.exec(from);
   const targetModule = /^app\/modules\/([^/]+)\/(domain|application|infrastructure)\//.exec(to);
@@ -89,9 +65,6 @@ export function dependencyViolation({ from, to }: SourceDependency): string | nu
       targetModule[1] === 'media-assets' &&
       ['ingest', 'playback', 'thumbnail'].includes(sourceModule[1])
     ) {
-      return null;
-    }
-    if (pendingMediaDependencies.some(([source, target]) => source === from && target === to)) {
       return null;
     }
     return 'Use a public contract or composition adapter instead of another business module infrastructure';

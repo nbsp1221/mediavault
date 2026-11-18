@@ -5,8 +5,9 @@ import type {
   PrepareIngestMediaCommand,
 } from '~/modules/ingest/application/ports/ingest-media-preparation.port';
 import type { MediaKeyDerivationConfig, RuntimeEnvInput } from '~/shared/config/app-config.server';
-import { derivePlaybackEncryptionKey } from '~/modules/playback/infrastructure/license/derive-playback-encryption-key';
-import { generatePlaybackKeyId } from '~/modules/playback/infrastructure/license/generate-playback-key-id';
+import { derivePlaybackEncryptionKey } from '~/modules/media-assets/infrastructure/crypto/derive-playback-encryption-key.server';
+import { generatePlaybackKeyId } from '~/modules/media-assets/infrastructure/crypto/generate-playback-key-id.server';
+import { normalizeClearKeyManifest } from '~/modules/media-assets/infrastructure/dash/normalize-clearkey-manifest.server';
 import {
   getMediaKeyDerivationConfig,
   getMediaPackagingConfig,
@@ -14,7 +15,6 @@ import {
 import { getShakaPackagerPath } from '~/shared/config/video-tools.server';
 import { executeFFmpegCommand } from '~/shared/lib/server/ffmpeg-process-manager.server';
 import { MediaProcessError } from '~/shared/lib/server/supervised-process.server';
-import { normalizeClearKeyManifest } from './normalize-clearkey-manifest';
 
 interface LoggerLike {
   info(message: string, data?: unknown): void;

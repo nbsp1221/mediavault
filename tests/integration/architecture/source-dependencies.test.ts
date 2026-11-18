@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { dependencyViolation, pendingMediaDependencies } from './dependency-policy';
+import { dependencyViolation } from './dependency-policy';
 import {
   readAppDependencies,
   readCompilerOptions,
@@ -90,6 +90,11 @@ describe('resolved application dependencies', () => {
       'app/modules/playlist/infrastructure/fixture.ts',
       "import '~/composition/server/playlist.server'",
     ],
+    [
+      'app/modules/ingest/infrastructure/fixture.ts',
+      "import '~/modules/playback/infrastructure/license/playback-clearkey.service'",
+    ],
+    [sourceFile, "import '~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server'"],
   ])('rejects forbidden dependencies from %s', (from, source) => {
     const [dependency] = readSourceDependencies(root, from, source, options);
     expect(dependencyViolation(dependency)).toBeTruthy();
@@ -102,12 +107,5 @@ describe('resolved application dependencies', () => {
       return reason ? [`${dependency.from} -> ${dependency.to}: ${reason}`] : [];
     });
     expect(violations).toEqual([]);
-    // A stale exception must be removed, not retained as permission for future code.
-    for (const [from, to] of pendingMediaDependencies) {
-      expect(
-        dependencies.some((dependency) => dependency.from === from && dependency.to === to),
-        `${from} -> ${to}`,
-      ).toBe(true);
-    }
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { derivePlaybackEncryptionKey } from './derive-playback-encryption-key';
+import { derivePlaybackEncryptionKey } from '~/modules/media-assets/infrastructure/crypto/derive-playback-encryption-key.server';
 
 describe('derivePlaybackEncryptionKey', () => {
   test('derives a stable 16-byte playback key', () => {

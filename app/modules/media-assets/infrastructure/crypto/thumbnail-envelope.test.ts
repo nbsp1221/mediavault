@@ -5,13 +5,35 @@ import { describe, expect, test } from 'vitest';
 const VALID_JPEG_FIXTURE_PATH = join(process.cwd(), 'public', 'images', 'video-placeholder.jpg');
 
 describe('thumbnail crypto utils', () => {
+  test('rejects invalid key lengths and unsupported envelope headers before decryption', async () => {
+    const { decryptThumbnailEnvelope, encryptThumbnailEnvelope, validateEncryptedFormat } =
+      await import('./thumbnail-envelope.server');
+    const imageData = await readFile(VALID_JPEG_FIXTURE_PATH);
+    const key = Buffer.alloc(16);
+    const videoId = 'fixture-video';
+    expect(() => encryptThumbnailEnvelope({ imageData, key: Buffer.alloc(15), videoId })).toThrow(
+      'Invalid thumbnail encryption key length',
+    );
+    const encrypted = encryptThumbnailEnvelope({ imageData, key, videoId });
+    expect(() =>
+      decryptThumbnailEnvelope({ encryptedBuffer: encrypted, key: Buffer.alloc(17), videoId }),
+    ).toThrow('Invalid thumbnail encryption key length');
+    const unsupported = Buffer.from(encrypted);
+    unsupported[4] = 2;
+    expect(validateEncryptedFormat(unsupported)).toBe(false);
+    expect(validateEncryptedFormat(Buffer.alloc(0))).toBe(false);
+    expect(() => decryptThumbnailEnvelope({ encryptedBuffer: unsupported, key, videoId })).toThrow(
+      'Unsupported thumbnail envelope format',
+    );
+  });
+
   test('encryptThumbnailEnvelope writes a versioned AES-GCM envelope and round-trips jpeg bytes', async () => {
     const {
       decryptThumbnailEnvelope,
       encryptThumbnailEnvelope,
       looksLikeJpeg,
       validateEncryptedFormat,
-    } = await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+    } = await import('~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
     const key = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
     const videoId = '00000000-0000-4000-8000-000000000123';
@@ -31,7 +53,7 @@ describe('thumbnail crypto utils', () => {
 
   test('validateEncryptedFormat rejects plaintext jpeg input', async () => {
     const { validateEncryptedFormat } =
-      await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+      await import('~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
 
     expect(validateEncryptedFormat(payload)).toBe(false);
@@ -39,7 +61,7 @@ describe('thumbnail crypto utils', () => {
 
   test('decryptThumbnailEnvelope rejects envelopes bound to a different video id', async () => {
     const { decryptThumbnailEnvelope, encryptThumbnailEnvelope } =
-      await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+      await import('~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
     const key = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
     const encrypted = encryptThumbnailEnvelope({
@@ -59,7 +81,7 @@ describe('thumbnail crypto utils', () => {
 
   test('decryptThumbnailEnvelope rejects tampered ciphertext or auth tag bytes', async () => {
     const { decryptThumbnailEnvelope, encryptThumbnailEnvelope } =
-      await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+      await import('~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
     const key = Buffer.from('00112233445566778899aabbccddeeff', 'hex');
     const videoId = '00000000-0000-4000-8000-000000000123';
@@ -88,7 +110,7 @@ describe('thumbnail crypto utils', () => {
 
   test('looksLikeJpeg accepts the tracked fixture and rejects malformed data', async () => {
     const { looksLikeJpeg } =
-      await import('../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils');
+      await import('~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server');
     const payload = Buffer.from(await readFile(VALID_JPEG_FIXTURE_PATH));
 
     expect(looksLikeJpeg(payload)).toBe(true);

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { assertValidPlaybackVideoId } from '~/modules/playback/domain/playback-video-id';
 import { routeArgs } from '../../helpers/route-args';
 
 const requireProtectedMediaSessionMock = vi.fn();
@@ -53,12 +54,9 @@ describe('playback resource route error mapping', () => {
   });
 
   test('manifest route maps validation errors back to a 400 response', async () => {
-    fakePlaybackServices.servePlaybackManifest.execute.mockRejectedValue(
-      Object.assign(new Error('Invalid video ID format'), {
-        name: 'ValidationError',
-        statusCode: 400,
-      }),
-    );
+    fakePlaybackServices.servePlaybackManifest.execute.mockImplementation(() => {
+      assertValidPlaybackVideoId('../escape');
+    });
     const { loader } = await importManifestRoute();
 
     const response = await loader(
