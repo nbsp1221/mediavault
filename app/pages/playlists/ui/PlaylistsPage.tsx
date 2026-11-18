@@ -2,12 +2,12 @@ import { Plus, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Form, useNavigate } from 'react-router';
 import type { Playlist } from '~/entities/playlist/model/playlist';
-import { PlaylistCard } from '~/entities/playlist/ui/PlaylistCard';
 import {
   playlistPageSchema,
   playlistRequest,
 } from '~/features/playlist-management/api/playlist-api';
 import { PlaylistEditorDialog } from '~/features/playlist-management/ui/PlaylistEditorDialog';
+import { PlaylistCard } from '~/pages/playlists/ui/PlaylistCard';
 import { useRootUser } from '~/shared/hooks/use-root-user';
 import { Alert, AlertDescription } from '~/shared/ui/alert';
 import { Button } from '~/shared/ui/button';

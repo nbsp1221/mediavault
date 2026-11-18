@@ -15,8 +15,8 @@ import {
 import {
   VideoMetadataForm,
   type VideoMetadataFormValues,
-} from '~/features/video-metadata/ui/VideoMetadataForm';
-import { VideoVisibilitySection } from '~/features/video-visibility/ui/VideoVisibilitySection';
+} from '~/pages/video-details/ui/VideoMetadataForm';
+import { VideoVisibilitySection } from '~/pages/video-details/ui/VideoVisibilitySection';
 import { useRootUser } from '~/shared/hooks/use-root-user';
 import { formatDisplayDate } from '~/shared/lib/format-display-date';
 import { formatDuration } from '~/shared/lib/format-duration';
