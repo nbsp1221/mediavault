@@ -8,6 +8,20 @@ import { createPlaylistThroughUi } from './support/playlists';
 
 const consoleErrorsByPage = new WeakMap<Page, string[]>();
 
+function describeBrowserError(text: string, url: string, pageUrl: string): string {
+  const kind = /react\.dev\/errors\/418|hydration/i.test(text) ? 'hydration' : 'console';
+  const code = text.match(/\bERR_[A-Z_]+\b|status of [45]\d\d/)?.[0] ?? 'unknown code';
+  const source = URL.parse(url);
+  const pageOrigin = URL.parse(pageUrl)?.origin;
+  const origin =
+    source?.protocol === 'http:' || source?.protocol === 'https:'
+      ? source.origin === pageOrigin
+        ? 'application'
+        : source.hostname
+      : 'unknown origin';
+  return `Unexpected browser ${kind} error (${origin}, ${code})`;
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   await expect
     .poll(async () =>
@@ -59,14 +73,30 @@ test.describe('product shell smoke', () => {
         ) {
           return;
         }
-        errors.push('Unexpected browser console error');
+        errors.push(describeBrowserError(message.text(), message.location().url, page.url()));
       }
     });
-    page.on('pageerror', () => errors.push('Uncaught browser page error'));
+    page.on('pageerror', (error) =>
+      errors.push(describeBrowserError(error.message, '', page.url())),
+    );
   });
 
   test.afterEach(({ page }) => {
     expect(consoleErrorsByPage.get(page) ?? []).toEqual([]);
+  });
+
+  test('renders the shell during a font CDN outage', async ({ page }) => {
+    let fontRequests = 0;
+    await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, async (route) => {
+      fontRequests++;
+      await route.abort('namenotresolved');
+    });
+
+    const response = await page.goto('/');
+
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Videos', level: 1 })).toBeVisible();
+    expect(fontRequests).toBe(0);
   });
 
   test('keeps anonymous visitors in the public library shell only', async ({ page }) => {
@@ -145,12 +175,18 @@ test.describe('product shell smoke', () => {
     await expect(drawer.getByRole('button', { name: /Soon/ })).toHaveCount(0);
   });
 
-  test('keeps shell-backed routes overflow-safe at required viewport widths', async ({ page }) => {
+  test('keeps shell-backed routes overflow-safe at required viewport widths', async ({
+    page,
+  }, testInfo) => {
     await loginToPath(page, {
       expectedUrl: /\/$/,
       redirectTo: '/',
     });
-    const playlistPath = await createPlaylistThroughUi(page, 'Shell Matrix Playlist');
+    // Repeats and retries share the suite's SQLite workspace.
+    const playlistPath = await createPlaylistThroughUi(
+      page,
+      `Shell Matrix Playlist ${testInfo.repeatEachIndex}-${testInfo.retry}`,
+    );
 
     const shellRoutes = [
       '/',

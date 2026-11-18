@@ -17,8 +17,8 @@ import {
   type VideoMetadataFormValues,
 } from '~/pages/video-details/ui/VideoMetadataForm';
 import { VideoVisibilitySection } from '~/pages/video-details/ui/VideoVisibilitySection';
+import { useDisplayDate } from '~/shared/hooks/use-display-date';
 import { useRootUser } from '~/shared/hooks/use-root-user';
-import { formatDisplayDate } from '~/shared/lib/format-display-date';
 import { formatDuration } from '~/shared/lib/format-duration';
 import { AspectRatio } from '~/shared/ui/aspect-ratio';
 import { Badge } from '~/shared/ui/badge';
@@ -66,6 +66,7 @@ export function VideoDetailsView({
   const [isNavigationConfirmed, setIsNavigationConfirmed] = useState(false);
   const [pendingConfirmedNavigation, setPendingConfirmedNavigation] = useState<string | null>(null);
   const lastConfirmedNavigationTargetRef = useRef<string | null>(null);
+  const displayDate = useDisplayDate(video.createdAt);
   const unsavedGuard = useUnsavedChangesGuard(isMetadataDirty && !isNavigationConfirmed);
   const canEditMetadata = video.permissions.canEdit;
   const canManageVisibility = video.permissions.canManageVisibility;
@@ -196,7 +197,7 @@ export function VideoDetailsView({
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <CalendarDays className="size-3.5" aria-hidden />
-                {formatDisplayDate(video.createdAt)}
+                {displayDate}
               </span>
               {canEditMetadata && contentTypeLabel ? <span>{contentTypeLabel}</span> : null}
               {canEditMetadata &&

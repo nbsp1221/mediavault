@@ -2,7 +2,7 @@ import { Clock, Edit, ListPlus, Lock, MoreVertical, Play, Trash2 } from 'lucide-
 import { Link } from 'react-router';
 import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
 import { formatVideoTagLabel } from '~/modules/library/domain/video-tag';
-import { formatDisplayDate } from '~/shared/lib/format-display-date';
+import { useDisplayDate } from '~/shared/hooks/use-display-date';
 import { formatDuration } from '~/shared/lib/format-duration';
 import { AspectRatio } from '~/shared/ui/aspect-ratio';
 import { Badge } from '~/shared/ui/badge';
@@ -30,6 +30,8 @@ export function LibraryVideoCard({
   video,
   onTagClick,
 }: LibraryVideoCardProps) {
+  const displayDate = useDisplayDate(video.createdAt);
+
   const handleTagClick = (tag: string, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -81,7 +83,7 @@ export function LibraryVideoCard({
               {video.title}
             </h3>
 
-            <p className="text-xs text-muted-foreground">{formatDisplayDate(video.createdAt)}</p>
+            <p className="text-xs text-muted-foreground">{displayDate}</p>
           </div>
         </div>
       </Link>
