@@ -25,15 +25,6 @@ const USER_DOMAIN_APPLICATION_FILES = [
   'app/modules/user/application/use-cases/delete-user.usecase.ts',
 ] as const;
 
-const LIBRARY_DOMAIN_APPLICATION_FILES = [
-  'app/modules/library/domain/entities/video.entity.ts',
-  'app/modules/library/domain/policies/video-access.policy.ts',
-  'app/modules/library/domain/value-objects/video-id.ts',
-  'app/modules/library/domain/value-objects/video-title.ts',
-  'app/modules/library/domain/value-objects/video-visibility.ts',
-  'app/modules/library/application/ports/video-repository.port.ts',
-] as const;
-
 const LIBRARY_DOMAIN_APPLICATION_ROOTS = [
   'app/modules/library/domain',
   'app/modules/library/application',
@@ -195,7 +186,7 @@ describe('user/auth/library architecture boundary', () => {
     expect(adapterSource).toContain('~/modules/auth/domain/request-viewer');
     expect(adapterSource).toContain('~/modules/library/domain/policies/video-access.policy');
 
-    for (const file of LIBRARY_DOMAIN_APPLICATION_FILES) {
+    for (const file of await listSourceFilesFromRoots(LIBRARY_DOMAIN_APPLICATION_ROOTS)) {
       const source = await readFile(resolve(PROJECT_ROOT, file), 'utf8');
       expect(source, file).not.toContain('request-viewer');
       expect(source, file).not.toContain('RequestViewer');
