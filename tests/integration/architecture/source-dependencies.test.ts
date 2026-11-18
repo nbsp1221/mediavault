@@ -86,6 +86,10 @@ describe('resolved application dependencies', () => {
       'app/modules/user/infrastructure/fixture.ts',
       "import '~/modules/playlist/infrastructure/sqlite/sqlite-playlist.repository'",
     ],
+    [
+      'app/modules/playlist/infrastructure/fixture.ts',
+      "import '~/composition/server/playlist.server'",
+    ],
   ])('rejects forbidden dependencies from %s', (from, source) => {
     const [dependency] = readSourceDependencies(root, from, source, options);
     expect(dependencyViolation(dependency)).toBeTruthy();

@@ -13,6 +13,7 @@ import {
 } from '../../domain/value-objects/video-visibility';
 import { normalizeVideoTags } from '../../domain/video-tag';
 import { normalizeTaxonomySlug, normalizeTaxonomySlugs } from '../../domain/video-taxonomy';
+import { videoReadScopeSql } from './video-read-scope.sql';
 
 interface SqliteLibraryVideoMetadataRepositoryOptions {
   createDatabase?: CreateInitializedPrimarySqliteDatabase;
@@ -216,42 +217,16 @@ export class SqliteLibraryVideoMetadataRepository {
 
   async findAllByReadAccessScope(scope: VideoReadAccessScope): Promise<LibraryVideo[]> {
     const database = await this.getDatabase();
-    const rows =
-      scope.type === 'public_only'
-        ? await database
-            .prepare<LibraryVideoRow>(`
-          SELECT
-            id,
-            title,
-            description,
-            duration_seconds,
-            content_type_slug,
-            owner_id,
-            visibility,
-            created_at,
-            sort_index
-          FROM videos
-          WHERE (visibility = 'public')
-          ORDER BY sort_index DESC
-        `)
-            .all()
-        : await database
-            .prepare<LibraryVideoRow>(`
-          SELECT
-            id,
-            title,
-            description,
-            duration_seconds,
-            content_type_slug,
-            owner_id,
-            visibility,
-            created_at,
-            sort_index
-          FROM videos
-          WHERE (visibility = 'public' OR owner_id = ?)
-          ORDER BY sort_index DESC
-        `)
-            .all(scope.ownerId);
+    const access = videoReadScopeSql(scope);
+    const rows = await database
+      .prepare<LibraryVideoRow>(`
+      SELECT id, title, description, duration_seconds, content_type_slug,
+        owner_id, visibility, created_at, sort_index
+      FROM videos
+      WHERE ${access.sql}
+      ORDER BY sort_index DESC
+    `)
+      .all(...access.params);
 
     return Promise.all(rows.map((row) => mapRowToLibraryVideo(database, row)));
   }
@@ -328,40 +303,15 @@ export class SqliteLibraryVideoMetadataRepository {
     scope: VideoReadAccessScope,
   ): Promise<LibraryVideo | null> {
     const database = await this.getDatabase();
-    const row =
-      scope.type === 'public_only'
-        ? await database
-            .prepare<LibraryVideoRow>(`
-          SELECT
-            id,
-            title,
-            description,
-            duration_seconds,
-            content_type_slug,
-            owner_id,
-            visibility,
-            created_at,
-            sort_index
-          FROM videos
-          WHERE id = ? AND (visibility = 'public')
-        `)
-            .get(id)
-        : await database
-            .prepare<LibraryVideoRow>(`
-          SELECT
-            id,
-            title,
-            description,
-            duration_seconds,
-            content_type_slug,
-            owner_id,
-            visibility,
-            created_at,
-            sort_index
-          FROM videos
-          WHERE id = ? AND (visibility = 'public' OR owner_id = ?)
-        `)
-            .get(id, scope.ownerId);
+    const access = videoReadScopeSql(scope);
+    const row = await database
+      .prepare<LibraryVideoRow>(`
+      SELECT id, title, description, duration_seconds, content_type_slug,
+        owner_id, visibility, created_at, sort_index
+      FROM videos
+      WHERE id = ? AND ${access.sql}
+    `)
+      .get(id, ...access.params);
 
     return row ? mapRowToLibraryVideo(database, row) : null;
   }

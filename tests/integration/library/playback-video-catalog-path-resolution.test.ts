@@ -53,24 +53,35 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
     process.env.MEDIAVAULT_STORAGE_DIR = storageOne;
     vi.resetModules();
 
-    const { PlaybackVideoCatalogAdapter: FirstPlaybackVideoCatalogAdapter } =
-      await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
-    const firstAdapter = new FirstPlaybackVideoCatalogAdapter();
+    const { createServerPlaybackServices } = await import('~/composition/server/playback.server');
+    const firstAdapter = createServerPlaybackServices().resolvePlayerVideo;
 
-    const firstResult = await firstAdapter.getPlayerVideo('workspace-one-video', ownerReadScope);
-    expect(firstResult?.relatedVideos).toEqual([]);
-    expect(firstResult?.video).toMatchObject({ id: 'workspace-one-video' });
+    const firstResult = await firstAdapter.execute({
+      videoId: 'workspace-one-video',
+      readScope: ownerReadScope,
+    });
+    expect(firstResult).toMatchObject({
+      ok: true,
+      relatedVideos: [],
+      video: { id: 'workspace-one-video' },
+    });
 
     process.env.MEDIAVAULT_STORAGE_DIR = storageTwo;
     vi.resetModules();
 
-    const { PlaybackVideoCatalogAdapter: SecondPlaybackVideoCatalogAdapter } =
-      await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
-    const secondAdapter = new SecondPlaybackVideoCatalogAdapter();
+    const { createServerPlaybackServices: createSecondServices } =
+      await import('~/composition/server/playback.server');
+    const secondAdapter = createSecondServices().resolvePlayerVideo;
 
-    const secondResult = await secondAdapter.getPlayerVideo('workspace-two-video', ownerReadScope);
-    expect(secondResult?.relatedVideos).toEqual([]);
-    expect(secondResult?.video).toMatchObject({ id: 'workspace-two-video' });
+    const secondResult = await secondAdapter.execute({
+      videoId: 'workspace-two-video',
+      readScope: ownerReadScope,
+    });
+    expect(secondResult).toMatchObject({
+      ok: true,
+      relatedVideos: [],
+      video: { id: 'workspace-two-video' },
+    });
   });
 
   test('does not read player metadata from videos.json when SQLite is empty', async () => {
@@ -101,12 +112,11 @@ describe('PlaybackVideoCatalogAdapter path resolution', () => {
     process.env.MEDIAVAULT_STORAGE_DIR = storageDir;
     vi.resetModules();
 
-    const { PlaybackVideoCatalogAdapter } =
-      await import('../../../app/modules/playback/infrastructure/catalog/playback-video-catalog.adapter');
-    const adapter = new PlaybackVideoCatalogAdapter();
+    const { createServerPlaybackServices } = await import('~/composition/server/playback.server');
+    const adapter = createServerPlaybackServices().resolvePlayerVideo;
 
     await expect(
-      adapter.getPlayerVideo('previous-catalog-video', ownerReadScope),
-    ).resolves.toBeNull();
+      adapter.execute({ videoId: 'previous-catalog-video', readScope: ownerReadScope }),
+    ).resolves.toEqual({ ok: false, reason: 'VIDEO_NOT_FOUND' });
   });
 });

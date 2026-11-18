@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { SqliteLibraryVideoMetadataRepository } from '~/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
+import { SqliteReadyVideoCatalogAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-ready-video-catalog.adapter';
 import { createInitializedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
 
 const ORIGINAL_STORAGE_DIR = process.env.MEDIAVAULT_STORAGE_DIR;
@@ -23,10 +24,11 @@ afterEach(() => {
 
 describe('PlaybackVideoCatalogAdapter', () => {
   test('returns the current video and related videos without exposing repository details upward', async () => {
-    const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
+    const { PlaybackVideoCatalogAdapter } =
+      await import('~/composition/server/playback-video-catalog.adapter.server');
     const adapter = new PlaybackVideoCatalogAdapter({
-      repository: {
-        findAll: async () => [
+      catalog: {
+        listReadyVideos: async () => [
           {
             createdAt: new Date('2026-03-02T00:00:00.000Z'),
             duration: 120,
@@ -90,10 +92,11 @@ describe('PlaybackVideoCatalogAdapter', () => {
   });
 
   test('returns null when the playback repository cannot resolve the requested video', async () => {
-    const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
+    const { PlaybackVideoCatalogAdapter } =
+      await import('~/composition/server/playback-video-catalog.adapter.server');
     const adapter = new PlaybackVideoCatalogAdapter({
-      repository: {
-        findAll: async () => [],
+      catalog: {
+        listReadyVideos: async () => [],
       },
     });
 
@@ -176,8 +179,11 @@ describe('PlaybackVideoCatalogAdapter', () => {
     });
 
     try {
-      const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
-      const adapter = new PlaybackVideoCatalogAdapter({ dbPath: sqlitePath });
+      const { PlaybackVideoCatalogAdapter } =
+        await import('~/composition/server/playback-video-catalog.adapter.server');
+      const adapter = new PlaybackVideoCatalogAdapter({
+        catalog: new SqliteReadyVideoCatalogAdapter({ dbPath: sqlitePath }),
+      });
 
       await expect(adapter.getPlayerVideo('video-1', ownerReadScope)).resolves.toMatchObject({
         relatedVideos: [],
@@ -211,8 +217,11 @@ describe('PlaybackVideoCatalogAdapter', () => {
     });
 
     try {
-      const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
-      const adapter = new PlaybackVideoCatalogAdapter({ dbPath: sqlitePath });
+      const { PlaybackVideoCatalogAdapter } =
+        await import('~/composition/server/playback-video-catalog.adapter.server');
+      const adapter = new PlaybackVideoCatalogAdapter({
+        catalog: new SqliteReadyVideoCatalogAdapter({ dbPath: sqlitePath }),
+      });
 
       await expect(adapter.getPlayerVideo('video-1', ownerReadScope)).resolves.toBeNull();
     } finally {
@@ -251,8 +260,11 @@ describe('PlaybackVideoCatalogAdapter', () => {
     });
 
     try {
-      const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
-      const adapter = new PlaybackVideoCatalogAdapter({ dbPath: sqlitePath });
+      const { PlaybackVideoCatalogAdapter } =
+        await import('~/composition/server/playback-video-catalog.adapter.server');
+      const adapter = new PlaybackVideoCatalogAdapter({
+        catalog: new SqliteReadyVideoCatalogAdapter({ dbPath: sqlitePath }),
+      });
 
       await expect(adapter.getPlayerVideo('other-private', ownerReadScope)).resolves.toBeNull();
       await expect(adapter.getPlayerVideo('owner-private', ownerReadScope)).resolves.toMatchObject({
@@ -277,8 +289,11 @@ describe('PlaybackVideoCatalogAdapter', () => {
     });
 
     try {
-      const { PlaybackVideoCatalogAdapter } = await import('./playback-video-catalog.adapter');
-      const adapter = new PlaybackVideoCatalogAdapter({ dbPath: sqlitePath });
+      const { PlaybackVideoCatalogAdapter } =
+        await import('~/composition/server/playback-video-catalog.adapter.server');
+      const adapter = new PlaybackVideoCatalogAdapter({
+        catalog: new SqliteReadyVideoCatalogAdapter({ dbPath: sqlitePath }),
+      });
 
       await expect(adapter.getPlayerVideo('video-1', ownerReadScope)).resolves.toMatchObject({
         relatedVideos: [],

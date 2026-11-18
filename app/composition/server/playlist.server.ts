@@ -2,6 +2,7 @@ import type { VideoViewer } from '~/modules/library/domain/policies/video-access
 import type { PlaylistRepositoryPort } from '~/modules/playlist/application/ports/playlist-repository.port';
 import type { PlaylistVideoCatalogPort } from '~/modules/playlist/application/ports/playlist-video-catalog.port';
 import type { GetPlaylistDetailsUseCaseResult } from '~/modules/playlist/application/use-cases/get-playlist-details.usecase';
+import { SqliteReadyVideoCatalogAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-ready-video-catalog.adapter';
 import { AddVideoToPlaylistUseCase } from '~/modules/playlist/application/use-cases/add-video-to-playlist.usecase';
 import { CreatePlaylistUseCase } from '~/modules/playlist/application/use-cases/create-playlist.usecase';
 import { DeletePlaylistUseCase } from '~/modules/playlist/application/use-cases/delete-playlist.usecase';
@@ -11,7 +12,7 @@ import { RemoveVideoFromPlaylistUseCase } from '~/modules/playlist/application/u
 import { ReorderPlaylistItemsUseCase } from '~/modules/playlist/application/use-cases/reorder-playlist-items.usecase';
 import { UpdatePlaylistUseCase } from '~/modules/playlist/application/use-cases/update-playlist.usecase';
 import { SqlitePlaylistRepository } from '~/modules/playlist/infrastructure/sqlite/sqlite-playlist.repository';
-import { SqlitePlaylistVideoCatalog } from '~/modules/playlist/infrastructure/video/sqlite-playlist-video-catalog.adapter';
+import { PlaylistVideoCatalogAdapter } from './playlist-video-catalog.adapter.server';
 
 export interface PlaylistPlaybackQueue {
   id: string;
@@ -27,7 +28,9 @@ interface Dependencies {
 /** Assemble playlist use cases without duplicating their application contracts. */
 export function createServerPlaylistServices(overrides: Partial<Dependencies> = {}) {
   const playlistRepository = overrides.playlistRepository ?? new SqlitePlaylistRepository();
-  const videoCatalog = overrides.videoCatalog ?? new SqlitePlaylistVideoCatalog();
+  const videoCatalog =
+    overrides.videoCatalog ??
+    new PlaylistVideoCatalogAdapter({ catalog: new SqliteReadyVideoCatalogAdapter() });
   return {
     addVideoToPlaylist: new AddVideoToPlaylistUseCase({ playlistRepository, videoCatalog }),
     createPlaylist: new CreatePlaylistUseCase({ playlistRepository, videoCatalog }),

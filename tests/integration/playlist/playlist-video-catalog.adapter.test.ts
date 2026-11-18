@@ -2,12 +2,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { PlaylistVideoCatalogAdapter } from '~/composition/server/playlist-video-catalog.adapter.server';
 import { createVideoReadAccessScope } from '~/modules/library/application/policies/video-read-access-scope';
 import { SqliteLibraryVideoMetadataRepository } from '~/modules/library/infrastructure/sqlite/sqlite-library-video-metadata.repository';
+import { SqliteReadyVideoCatalogAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-ready-video-catalog.adapter';
 import { createInitializedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
-import { SqlitePlaylistVideoCatalog } from './sqlite-playlist-video-catalog.adapter';
 
-describe('SqlitePlaylistVideoCatalog', () => {
+describe('PlaylistVideoCatalogAdapter', () => {
   let dbPath: string;
   let tempDir: string;
 
@@ -27,7 +28,9 @@ describe('SqlitePlaylistVideoCatalog', () => {
       title: 'Public video',
       visibility: 'public',
     });
-    const catalog = new SqlitePlaylistVideoCatalog({ dbPath });
+    const catalog = new PlaylistVideoCatalogAdapter({
+      catalog: new SqliteReadyVideoCatalogAdapter({ dbPath }),
+    });
 
     await expect(
       catalog.findById(
@@ -51,7 +54,9 @@ describe('SqlitePlaylistVideoCatalog', () => {
       title: 'Private video',
       visibility: 'private',
     });
-    const catalog = new SqlitePlaylistVideoCatalog({ dbPath });
+    const catalog = new PlaylistVideoCatalogAdapter({
+      catalog: new SqliteReadyVideoCatalogAdapter({ dbPath }),
+    });
 
     await expect(
       catalog.findById(
@@ -86,7 +91,9 @@ describe('SqlitePlaylistVideoCatalog', () => {
       title: 'Processing video',
       visibility: 'public',
     });
-    const catalog = new SqlitePlaylistVideoCatalog({ dbPath });
+    const catalog = new PlaylistVideoCatalogAdapter({
+      catalog: new SqliteReadyVideoCatalogAdapter({ dbPath }),
+    });
 
     await expect(
       catalog.findById(
@@ -96,6 +103,32 @@ describe('SqlitePlaylistVideoCatalog', () => {
         }),
       ),
     ).resolves.toBeNull();
+  });
+
+  test('preserves item order, position and episode metadata while hiding inaccessible videos', async () => {
+    await seedVideo({ id: 'public', ownerId: 'owner-1', title: 'Public', visibility: 'public' });
+    await seedVideo({ id: 'hidden', ownerId: 'owner-1', title: 'Hidden', visibility: 'private' });
+    const catalog = new PlaylistVideoCatalogAdapter({
+      catalog: new SqliteReadyVideoCatalogAdapter({ dbPath }),
+    });
+    const items = ['hidden', 'public'].map((videoId, position) => ({
+      videoId,
+      position,
+      addedAt: new Date(0),
+      addedBy: 'owner-1',
+      episodeMetadata: { episodeTitle: 'Episode fixture', episodeNumber: position + 1 },
+    }));
+    const videos = await catalog.getPlaylistVideos(items, { type: 'public_only' });
+    expect(videos).toEqual([
+      {
+        duration: 60,
+        id: 'public',
+        thumbnailUrl: '/api/thumbnail/public',
+        title: 'Public',
+        position: 1,
+        episodeMetadata: { episodeTitle: 'Episode fixture', episodeNumber: 2 },
+      },
+    ]);
   });
 
   async function seedVideo(input: {
@@ -117,7 +150,7 @@ describe('SqlitePlaylistVideoCatalog', () => {
       genreSlugs: [],
       id: input.id,
       ownerId: input.ownerId,
-      sortIndex: 1,
+      sortIndex: (await repository.count()) + 1,
       tags: ['playlist'],
       thumbnailUrl: `/api/thumbnail/${input.id}`,
       title: input.title,

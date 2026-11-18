@@ -6,17 +6,18 @@ import type { PlaybackSessionValidator } from '~/modules/playback/application/po
 import type { PlaybackTokenService as PlaybackTokenServicePort } from '~/modules/playback/application/ports/playback-token-service.port';
 import type { VideoCatalogPort } from '~/modules/playback/application/ports/video-catalog.port';
 import { SqliteCanonicalVideoMetadataAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-canonical-video-metadata.adapter';
+import { SqliteReadyVideoCatalogAdapter } from '~/modules/library/infrastructure/sqlite/sqlite-ready-video-catalog.adapter';
 import { IssuePlaybackTokenUseCase } from '~/modules/playback/application/use-cases/issue-playback-token.usecase';
 import { ResolvePlayerVideoUseCase } from '~/modules/playback/application/use-cases/resolve-player-video.usecase';
 import { ServePlaybackClearKeyLicenseUseCase } from '~/modules/playback/application/use-cases/serve-playback-clearkey-license.usecase';
 import { ServePlaybackManifestUseCase } from '~/modules/playback/application/use-cases/serve-playback-manifest.usecase';
 import { ServePlaybackMediaSegmentUseCase } from '~/modules/playback/application/use-cases/serve-playback-media-segment.usecase';
-import { PlaybackVideoCatalogAdapter } from '~/modules/playback/infrastructure/catalog/playback-video-catalog.adapter';
 import { PlaybackClearKeyService } from '~/modules/playback/infrastructure/license/playback-clearkey.service';
 import { PlaybackManifestService } from '~/modules/playback/infrastructure/media/playback-manifest.service';
 import { PlaybackMediaSegmentService } from '~/modules/playback/infrastructure/media/playback-media-segment.service';
 import { JsonWebTokenPlaybackTokenService } from '~/modules/playback/infrastructure/token/jsonwebtoken-playback-token.service';
 import { getServerSessionServices } from './auth.server';
+import { PlaybackVideoCatalogAdapter } from './playback-video-catalog.adapter.server';
 
 interface ServerPlaybackServices {
   issuePlaybackToken: IssuePlaybackTokenUseCase;
@@ -78,7 +79,9 @@ export function createServerPlaybackServices(
     validate: (token) => getTokenService().validate(token),
   };
   const getVideoCatalog = createLazyValue(
-    () => overrides.videoCatalog ?? new PlaybackVideoCatalogAdapter(),
+    () =>
+      overrides.videoCatalog ??
+      new PlaybackVideoCatalogAdapter({ catalog: new SqliteReadyVideoCatalogAdapter() }),
   );
   const getVideoRead = createLazyValue(
     () => overrides.videoRead ?? new SqliteCanonicalVideoMetadataAdapter(),

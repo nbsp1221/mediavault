@@ -39,8 +39,15 @@ export function dependencyViolation({ from, to }: SourceDependency): string | nu
   const targetModule = /^app\/modules\/([^/]+)\/(domain|application|infrastructure)\//.exec(to);
   const core = sourceModule?.[2] === 'domain' || sourceModule?.[2] === 'application';
 
-  if (core && (/^app\/(routes|composition)\//.test(to) || targetModule?.[2] === 'infrastructure')) {
-    return 'Application core must not depend on HTTP, composition or infrastructure';
+  if (
+    sourceModule &&
+    /^app\/(routes|composition|pages|features|entities|widgets|shared\/ui)\//.test(to)
+  ) {
+    return 'Backend modules must not depend on HTTP, composition or UI';
+  }
+
+  if (core && targetModule?.[2] === 'infrastructure') {
+    return 'Application core must not depend on infrastructure';
   }
   if (sourceModule?.[2] === 'domain' && targetModule?.[2] === 'application') {
     return 'Domain must not depend on application orchestration';
