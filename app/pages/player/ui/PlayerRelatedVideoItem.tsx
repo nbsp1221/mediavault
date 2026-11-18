@@ -2,7 +2,7 @@ import type { MouseEvent } from 'react';
 import { Clock3, Play } from 'lucide-react';
 import { Link } from 'react-router';
 import type { PlayerSurfaceRelatedVideoItem } from '~/pages/player/model/usePlayerSurfaceView';
-import { formatDisplayDate } from '~/shared/lib/format-display-date';
+import { useDisplayDate } from '~/shared/hooks/use-display-date';
 import { AspectRatio } from '~/shared/ui/aspect-ratio';
 import { Badge } from '~/shared/ui/badge';
 
@@ -17,6 +17,8 @@ export function PlayerRelatedVideoItem({
   onTagClick,
   video,
 }: PlayerRelatedVideoItemProps) {
+  const displayDate = useDisplayDate(video.createdAt);
+
   const handleTagClick = (tag: string, event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -61,7 +63,7 @@ export function PlayerRelatedVideoItem({
             <h3 className="line-clamp-2 text-xs font-medium leading-tight transition-colors group-hover:text-primary lg:text-sm">
               {video.title}
             </h3>
-            <p className="text-xs text-muted-foreground">{formatDisplayDate(video.createdAt)}</p>
+            <p className="text-xs text-muted-foreground">{displayDate}</p>
           </div>
         </div>
       </Link>

@@ -1,10 +1,11 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
 import { z } from 'zod';
+import { getServerPlaylistServices } from '~/composition/server/playlist.server';
 import {
   requireProtectedApiSessionValue,
   resolvePublicVideoAccess,
-} from '~/composition/server/auth';
-import { getServerPlaylistServices } from '~/composition/server/playlist';
+} from '~/routes/.server/auth-session-http';
+import { playlistFailureResponse } from '~/routes/.server/playlist-http';
 
 const pageSchema = z
   .object({
@@ -61,12 +62,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     videoLimit: page.data.videoLimit,
     videoOffset: page.data.videoOffset,
   });
-  return result.success
+  return result.ok
     ? Response.json({ success: true, ...result.data }, { headers: access.headers })
-    : Response.json(
-        { success: false, error: result.error },
-        { headers: access.headers, status: result.status },
-      );
+    : playlistFailureResponse(result, access.headers);
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -89,9 +87,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
       ownerId: session.userId,
       playlistId: params.id,
     });
-    return result.success
+    return result.ok
       ? Response.json({ ...result.data, success: true })
-      : Response.json({ success: false, error: result.error }, { status: result.status });
+      : playlistFailureResponse(result);
   }
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -102,7 +100,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     ownerId: session.userId,
     playlistId: params.id,
   });
-  return result.success
+  return result.ok
     ? Response.json({ ...result.data, success: true })
-    : Response.json({ success: false, error: result.error }, { status: result.status });
+    : playlistFailureResponse(result);
 }

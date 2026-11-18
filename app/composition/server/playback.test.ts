@@ -20,7 +20,7 @@ describe('server playback composition root', () => {
   });
 
   test('creates prewired playback use cases from injected playback adapters', async () => {
-    const { createServerPlaybackServices } = await import('./playback');
+    const { createServerPlaybackServices } = await import('./playback.server');
     const issue = vi.fn(async () => 'signed-token');
     const stream = new ReadableStream<Uint8Array>();
     const validate = vi.fn(async (token: string) =>
@@ -143,7 +143,7 @@ describe('server playback composition root', () => {
 
   test('returns a cached default playback composition that stays ready for route usage', async () => {
     process.env.MEDIAVAULT_PLAYBACK_JWT_SECRET = 'phase-2-secret';
-    const { getServerPlaybackServices } = await import('./playback');
+    const { getServerPlaybackServices } = await import('./playback.server');
 
     const first = getServerPlaybackServices();
     const second = getServerPlaybackServices();
@@ -157,7 +157,7 @@ describe('server playback composition root', () => {
   });
 
   test('does not construct unrelated playback defaults when only token issuance is exercised', async () => {
-    const { createServerPlaybackServices } = await import('./playback');
+    const { createServerPlaybackServices } = await import('./playback.server');
     const issue = vi.fn(async () => 'signed-token');
     const services = createServerPlaybackServices({
       sessionValidator: { isSessionActive: vi.fn(async () => true) },
@@ -196,7 +196,7 @@ describe('server playback composition root', () => {
   });
 
   test('does not require playback encryption env when only player catalog resolution is used', async () => {
-    const { createServerPlaybackServices } = await import('./playback');
+    const { createServerPlaybackServices } = await import('./playback.server');
     const services = createServerPlaybackServices({
       videoCatalog: {
         getPlayerVideo: async () => null,

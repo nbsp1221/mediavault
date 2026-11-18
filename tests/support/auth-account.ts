@@ -1,4 +1,4 @@
-import { createServerAdminAuthServices } from '../../app/composition/server/auth';
+import { createServerAdminAuthServices } from '../../app/composition/server/auth.server';
 import { installTestDatabaseEncryptionKey } from './database-encryption-key';
 
 export const E2E_AUTH_USERNAME = 'owner';

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { MemoryRouter } from 'react-router';
 import { vi } from 'vitest';
-import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
+import type { PlayerVideo } from '~/pages/player/model/player-video';
 import type { PlayerPlaylistContext } from '~/pages/player/model/usePlaylistPlayback';
 import type { ProtectedPlaybackSession } from '~/pages/player/model/useProtectedPlaybackSession';
 import { PlayerSurface } from '~/pages/player/ui/PlayerSurface';
@@ -49,7 +49,7 @@ vi.mock('~/pages/player/ui/SecureVideo', () => ({
   },
 }));
 
-export function createVideo(overrides: Partial<PlaybackCatalogVideo> = {}): PlaybackCatalogVideo {
+export function createVideo(overrides: Partial<PlayerVideo> = {}): PlayerVideo {
   return {
     createdAt: new Date('2026-03-09T00:00:00.000Z'),
     description: 'A playback regression fixture.',
@@ -65,8 +65,8 @@ export function createVideo(overrides: Partial<PlaybackCatalogVideo> = {}): Play
 
 interface SurfaceProps {
   playlist?: PlayerPlaylistContext;
-  relatedVideos?: PlaybackCatalogVideo[];
-  video?: PlaybackCatalogVideo;
+  relatedVideos?: PlayerVideo[];
+  video?: PlayerVideo;
 }
 
 export function renderPlayerSurface(props?: SurfaceProps) {

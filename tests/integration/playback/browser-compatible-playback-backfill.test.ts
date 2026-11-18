@@ -6,7 +6,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   decryptThumbnailEnvelope,
   encryptThumbnailEnvelope,
-} from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
+} from '~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server';
 
 describe('browser-compatible playback backfill module', () => {
   let rootDir = '';

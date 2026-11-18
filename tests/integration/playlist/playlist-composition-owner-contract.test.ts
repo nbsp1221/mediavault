@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import type { PlaylistResult } from '../../../app/composition/server/playlist';
+import { getPlaylistFailureStatus } from '~/routes/.server/playlist-http';
 import type { PlaylistRepositoryPort } from '../../../app/modules/playlist/application/ports/playlist-repository.port';
 import type { PlaylistVideoCatalogPort } from '../../../app/modules/playlist/application/ports/playlist-video-catalog.port';
 import type { Playlist } from '../../../app/modules/playlist/domain/playlist';
-import { createServerPlaylistServices } from '../../../app/composition/server/playlist';
+import { createServerPlaylistServices } from '../../../app/composition/server/playlist.server';
 
 function buildPlaylist(overrides: Partial<Playlist> = {}): Playlist {
   return {
@@ -84,16 +84,16 @@ function createVideoCatalog(
 }
 
 function expectFailure(
-  result: PlaylistResult<unknown>,
+  result: { ok: false; reason: string } | { ok: true },
   expected: { reason: string; status: number },
 ) {
-  expect(result.success).toBe(false);
-  if (result.success) {
+  expect(result.ok).toBe(false);
+  if (result.ok) {
     throw new Error('Expected playlist service failure');
   }
 
   expect(result.reason).toBe(expected.reason);
-  expect(result.status).toBe(expected.status);
+  expect(getPlaylistFailureStatus(result.reason)).toBe(expected.status);
 }
 
 describe('playlist composition owner contract', () => {
@@ -121,7 +121,7 @@ describe('playlist composition owner contract', () => {
       type: 'user_created',
     });
 
-    expect(result.success).toBe(true);
+    expect(result.ok).toBe(true);
     expect(capturedOwnerId).toBe('owner-1');
   });
 

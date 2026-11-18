@@ -1,3 +1,3 @@
-import { ingestJobHttpHandlers } from '~/composition/server/ingest-job-http';
+import { ingestJobHttpHandlers } from '~/routes/.server/ingest-job-http';
 
 export const loader = ingestJobHttpHandlers.list;

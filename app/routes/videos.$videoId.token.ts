@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from 'react-router';
-import { resolvePublicVideoAccess } from '~/composition/server/auth';
-import { getServerPlaybackServices } from '~/composition/server/playback';
+import { getServerPlaybackServices } from '~/composition/server/playback.server';
 import { assertValidPlaybackVideoId } from '~/modules/playback/domain/playback-video-id';
+import { resolvePublicVideoAccess } from '~/routes/.server/auth-session-http';
 import { getPlaybackRequestIp } from '~/routes/.server/playback-route-utils';
 
 /**

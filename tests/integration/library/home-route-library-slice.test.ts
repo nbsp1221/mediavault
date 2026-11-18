@@ -9,11 +9,11 @@ const getHomeLibraryPageServicesMock = vi.fn(() => ({
   },
 }));
 
-vi.mock('~/composition/server/auth', () => ({
+vi.mock('~/routes/.server/auth-session-http', () => ({
   resolvePublicVideoAccess: resolvePublicVideoAccessMock,
 }));
 
-vi.mock('~/composition/server/home-library-page', () => ({
+vi.mock('~/composition/server/home-library-page.server', () => ({
   getHomeLibraryPageServices: getHomeLibraryPageServicesMock,
 }));
 
@@ -74,12 +74,12 @@ describe('home route library slice adapter', () => {
         userId: 'owner-1',
       },
     });
-    await expect(result.json()).resolves.toEqual({
+    expect(result.data).toEqual({
       contentTypes: [],
       genres: [],
       videos: [
         expect.objectContaining({
-          createdAt: '2026-03-11T00:00:00.000Z',
+          createdAt: new Date('2026-03-11T00:00:00.000Z'),
           id: 'video-1',
           isPrivate: false,
           permissions: {
@@ -91,8 +91,8 @@ describe('home route library slice adapter', () => {
         }),
       ],
     });
-    expect(result.headers.get('Cache-Control')).toBe('private, no-store');
-    expect(result.headers.get('Vary')).toBe('Cookie');
+    expect(new Headers(result.init?.headers).get('Cache-Control')).toBe('private, no-store');
+    expect(new Headers(result.init?.headers).get('Vary')).toBe('Cookie');
   });
 
   test('returns trimmed bootstrap tags so the current HomePage tag matcher keeps working for direct-navigation URLs', async () => {
@@ -133,12 +133,12 @@ describe('home route library slice adapter', () => {
         userId: 'owner-1',
       },
     });
-    await expect(result.json()).resolves.toEqual({
+    expect(result.data).toEqual({
       contentTypes: [],
       genres: [],
       videos: [
         expect.objectContaining({
-          createdAt: '2026-03-11T00:00:00.000Z',
+          createdAt: new Date('2026-03-11T00:00:00.000Z'),
           id: 'video-1',
         }),
       ],
@@ -201,7 +201,7 @@ describe('home route library slice adapter', () => {
     expect(loadHomeLibraryPageDataExecuteMock).toHaveBeenCalledWith({
       viewer: { type: 'anonymous' },
     });
-    expect(result.status).toBe(200);
+    expect(result.init?.status ?? 200).toBe(200);
   });
 
   test('does not revalidate the protected home loader for q/tag-only URL sync updates', async () => {

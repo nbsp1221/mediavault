@@ -1,19 +1,13 @@
-import type { HeadersFunction, LoaderFunctionArgs } from 'react-router';
 import { AlertTriangle, VideoOff } from 'lucide-react';
-import { data, isRouteErrorResponse, useLoaderData, useRouteError } from 'react-router';
-import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
-import { resolveRequestViewer } from '~/composition/server/auth';
-import { toHomeLibraryVideoDto } from '~/composition/server/home-library-video-dto';
-import { getServerLibraryServices } from '~/composition/server/library';
-import { toVideoPolicyViewer } from '~/composition/server/video-access-viewer';
+import { data, isRouteErrorResponse, useRouteError } from 'react-router';
+import { toHomeLibraryVideoDto } from '~/composition/server/home-library-video-dto.server';
+import { getServerLibraryServices } from '~/composition/server/library.server';
+import { toVideoPolicyViewer } from '~/composition/server/video-access-viewer.server';
 import { VideoDetailsPage } from '~/pages/video-details/ui/VideoDetailsPage';
+import { resolveRequestViewer } from '~/routes/.server/auth-session-http';
 import { getSafeRedirectTarget } from '~/shared/lib/http/redirects.server';
 import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 import type { Route } from './+types/videos.$videoId.edit';
-
-interface SerializedHomeLibraryVideo extends Omit<HomeLibraryVideo, 'createdAt'> {
-  createdAt: string;
-}
 
 function createPrivateHeaders() {
   return new Headers({
@@ -23,21 +17,7 @@ function createPrivateHeaders() {
   });
 }
 
-function serializeHomeLibraryVideo(video: HomeLibraryVideo): SerializedHomeLibraryVideo {
-  return {
-    ...video,
-    createdAt: video.createdAt.toISOString(),
-  };
-}
-
-function deserializeHomeLibraryVideo(video: SerializedHomeLibraryVideo): HomeLibraryVideo {
-  return {
-    ...video,
-    createdAt: new Date(video.createdAt),
-  };
-}
-
-export async function loader({ params, request }: LoaderFunctionArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const headers = createPrivateHeaders();
   const videoId = params.videoId;
 
@@ -81,7 +61,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       contentTypes: result.data.contentTypes,
       genres: result.data.genres,
       redirectTo: getSafeRedirectTarget(request, '/'),
-      video: serializeHomeLibraryVideo(toHomeLibraryVideoDto(result.data.video, viewer)),
+      video: toHomeLibraryVideoDto(result.data.video, viewer),
     },
     {
       headers,
@@ -89,7 +69,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   );
 }
 
-export const headers: HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
+export const headers: Route.HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   return [
@@ -98,17 +78,8 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   ];
 };
 
-export default function VideoDetailsRoute() {
-  const data = useLoaderData<typeof loader>();
-
-  return (
-    <VideoDetailsPage
-      contentTypes={data.contentTypes}
-      genres={data.genres}
-      redirectTo={data.redirectTo}
-      video={deserializeHomeLibraryVideo(data.video)}
-    />
-  );
+export default function VideoDetailsRoute({ loaderData }: Route.ComponentProps) {
+  return <VideoDetailsPage {...loaderData} />;
 }
 
 export function ErrorBoundary() {

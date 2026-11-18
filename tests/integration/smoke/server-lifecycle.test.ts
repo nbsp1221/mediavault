@@ -5,10 +5,10 @@ const hooks = vi.hoisted(() => ({
   startJobs: vi.fn<() => Promise<void>>(),
   stopJobs: vi.fn<() => Promise<void>>(),
 }));
-vi.mock('../../../app/composition/server/runtime-readiness', () => ({
+vi.mock('../../../app/composition/server/runtime-readiness.server', () => ({
   assertProductionStartupPreflight: hooks.preflight,
 }));
-vi.mock('../../../app/composition/server/ingest-jobs', () => ({
+vi.mock('../../../app/composition/server/ingest-jobs.server', () => ({
   startServerIngestJobs: hooks.startJobs,
   stopServerIngestJobs: hooks.stopJobs,
 }));

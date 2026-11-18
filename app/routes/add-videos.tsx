@@ -1,9 +1,9 @@
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
 import { AlertTriangle } from 'lucide-react';
 import { useLoaderData, useRouteError } from 'react-router';
-import { requireProtectedPageSession } from '~/composition/server/auth';
-import { getServerLibraryServices } from '~/composition/server/library';
+import { getServerLibraryServices } from '~/composition/server/library.server';
 import { AddVideosPage } from '~/pages/add-videos/ui/AddVideosPage';
+import { requireProtectedPageSession } from '~/routes/.server/auth-session-http';
 import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 
 export async function loader({ request }: LoaderFunctionArgs) {

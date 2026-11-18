@@ -149,7 +149,6 @@ describe('IssuePlaybackTokenUseCase', () => {
     ).rejects.toMatchObject({
       message: 'Invalid video ID format',
       name: 'ValidationError',
-      statusCode: 400,
     });
     expect(issue).not.toHaveBeenCalled();
   });

@@ -1,11 +1,12 @@
 import type { ActionFunctionArgs } from 'react-router';
 import { z } from 'zod';
-import { createSessionCookieHeader, getServerAuthServices } from '~/composition/server/auth';
+import { getServerAuthServices } from '~/composition/server/auth.server';
 import {
   getAuthClientCookieHeaderForRequest,
   getLoginAttemptKeys,
   getTrustedClientIP,
-} from '~/composition/server/auth-client-identity';
+} from '~/routes/.server/auth-client-identity';
+import { createSessionCookieHeader } from '~/routes/.server/auth-session-http';
 import { rejectCrossOriginMutation } from '~/shared/lib/http/csrf.server';
 
 const credentialsSchema = z.object({ password: z.string(), username: z.string() });

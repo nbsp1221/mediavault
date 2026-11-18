@@ -7,7 +7,7 @@ import {
   ScrollRestoration,
   isRouteErrorResponse,
 } from 'react-router';
-import { getOptionalSiteViewer } from '~/composition/server/auth';
+import { getOptionalSiteViewer } from '~/routes/.server/auth-session-http';
 import { Toaster } from '~/shared/ui/sonner';
 import type { Route } from './+types/root';
 import './app.css';
@@ -18,19 +18,6 @@ export async function loader({ request }: Route.LoaderArgs) {
     user,
   };
 }
-
-export const links: Route.LinksFunction = () => [
-  { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-  {
-    rel: 'preconnect',
-    href: 'https://fonts.gstatic.com',
-    crossOrigin: 'anonymous',
-  },
-  {
-    rel: 'stylesheet',
-    href: 'https://fonts.googleapis.com/css2?family=Outfit:wght@100;200;300;400;500;600;700;800;900&display=swap',
-  },
-];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (

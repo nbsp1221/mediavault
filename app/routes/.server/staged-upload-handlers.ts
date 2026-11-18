@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
-import type { ServerIngestServices } from '~/composition/server/ingest';
+import type { ServerIngestServices } from '~/composition/server/ingest.server';
 
 interface CommonDependencies {
   createErrorResponse?: (error: unknown) => Response;

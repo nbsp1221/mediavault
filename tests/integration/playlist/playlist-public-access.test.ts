@@ -163,14 +163,14 @@ describe('Public playlist and independent video access', { concurrent: false }, 
     const workspace = await fixture();
     try {
       const { loadPlaylistPlaybackQueue } =
-        await import('../../../app/composition/server/playlist');
+        await import('../../../app/composition/server/playlist.server');
       expect(
         await loadPlaylistPlaybackQueue({
           playlistId: 'public-list',
           viewer: { type: 'anonymous' },
         }),
       ).toEqual({
-        success: true,
+        ok: true,
         data: { id: 'public-list', name: 'Public collection', videoIds: ['public-video'] },
       });
       expect(
@@ -178,7 +178,7 @@ describe('Public playlist and independent video access', { concurrent: false }, 
           playlistId: 'private-list',
           viewer: { type: 'anonymous' },
         }),
-      ).toMatchObject({ success: false, status: 404 });
+      ).toMatchObject({ ok: false, reason: 'PLAYLIST_NOT_FOUND' });
       const database = await createInitializedPrimarySqliteDatabase({
         dbPath: workspace.databasePath,
       });
@@ -190,13 +190,13 @@ describe('Public playlist and independent video access', { concurrent: false }, 
           playlistId: 'public-list',
           viewer: { type: 'anonymous' },
         }),
-      ).toMatchObject({ success: true, data: { videoIds: [] } });
+      ).toMatchObject({ ok: true, data: { videoIds: [] } });
       expect(
         await loadPlaylistPlaybackQueue({
           playlistId: 'public-list',
           viewer: { type: 'authenticated', userId: PLAYLIST_OWNER_ID },
         }),
-      ).toMatchObject({ success: true, data: { videoIds: ['public-video', 'owner-private'] } });
+      ).toMatchObject({ ok: true, data: { videoIds: ['public-video', 'owner-private'] } });
     } finally {
       await workspace.cleanup();
     }
@@ -242,10 +242,10 @@ describe('Public playlist and independent video access', { concurrent: false }, 
         videoPagination: { total: 105, hasMore: true, offset: 25, limit: 25 },
       });
       const { loadPlaylistPlaybackQueue } =
-        await import('../../../app/composition/server/playlist');
+        await import('../../../app/composition/server/playlist.server');
       expect(
         await loadPlaylistPlaybackQueue({ playlistId: 'long-list', viewer: { type: 'anonymous' } }),
-      ).toMatchObject({ success: true, data: { videoIds: ids } });
+      ).toMatchObject({ ok: true, data: { videoIds: ids } });
     } finally {
       await workspace.cleanup();
     }

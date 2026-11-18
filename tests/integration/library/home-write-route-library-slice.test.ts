@@ -22,11 +22,11 @@ const getServerLibraryServicesMock = vi.fn(() => ({
   },
 }));
 
-vi.mock('~/composition/server/auth', () => ({
+vi.mock('~/routes/.server/auth-session-http', () => ({
   requireProtectedApiSessionValue: requireProtectedApiSessionValueMock,
 }));
 
-vi.mock('~/composition/server/library', () => ({
+vi.mock('~/composition/server/library.server', () => ({
   getServerLibraryServices: getServerLibraryServicesMock,
 }));
 

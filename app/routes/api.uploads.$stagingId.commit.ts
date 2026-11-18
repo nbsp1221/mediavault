@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
-import { ingestJobHttpHandlers } from '~/composition/server/ingest-job-http';
+import { ingestJobHttpHandlers } from '~/routes/.server/ingest-job-http';
 
 export async function action(args: ActionFunctionArgs) {
   return ingestJobHttpHandlers.commit(args);

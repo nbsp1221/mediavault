@@ -4,8 +4,8 @@ import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { IngestVideoAnalysisPort } from '~/modules/ingest/application/ports/ingest-video-analysis.port';
 import type { ClaimedIngestJob } from '~/modules/ingest/domain/ingest-job';
+import { decryptThumbnailEnvelope } from '~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server';
 import { createInitializedPrimarySqliteDatabase } from '~/modules/storage/infrastructure/sqlite/initialized-primary-sqlite.database';
-import { decryptThumbnailEnvelope } from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
 import { FilesystemIngestJobProcessingAdapter } from './filesystem-ingest-job-processing.adapter';
 import { SqliteIngestJobRepository } from './sqlite-ingest-job.repository';
 

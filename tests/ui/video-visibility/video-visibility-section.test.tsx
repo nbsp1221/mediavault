@@ -1,8 +1,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, test, vi } from 'vitest';
+import { VideoVisibilitySection } from '~/pages/video-details/ui/VideoVisibilitySection';
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
-import { VideoVisibilitySection } from '../../../app/features/video-visibility/ui/VideoVisibilitySection';
 
 function createVideo(overrides: Partial<HomeLibraryVideo> = {}): HomeLibraryVideo {
   return {

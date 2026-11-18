@@ -23,7 +23,8 @@ describe('server library mutation composition root', () => {
   });
 
   test('creates prewired update and delete services from the injected mutation port', async () => {
-    const { createServerLibraryServices } = await import('../../../app/composition/server/library');
+    const { createServerLibraryServices } =
+      await import('../../../app/composition/server/library.server');
     const findOwnedLibraryVideoById = vi.fn<
       LibraryVideoVisibilityMutationPort['findOwnedLibraryVideoById']
     >(async ({ videoId }) => ({
@@ -212,7 +213,8 @@ describe('server library mutation composition root', () => {
     });
     vi.resetModules();
 
-    const { getServerLibraryServices } = await import('../../../app/composition/server/library');
+    const { getServerLibraryServices } =
+      await import('../../../app/composition/server/library.server');
     const first = getServerLibraryServices();
     const second = getServerLibraryServices();
 

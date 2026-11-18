@@ -1,10 +1,10 @@
 import type { ActionFunctionArgs } from 'react-router';
-import type { requireProtectedApiSessionValue } from '~/composition/server/auth';
 import type {
   DeleteLibraryVideoInput,
   DeleteLibraryVideoUseCaseResult,
 } from '~/modules/library/application/use-cases/delete-library-video.usecase';
-import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer';
+import type { requireProtectedApiSessionValue } from '~/routes/.server/auth-session-http';
+import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer.server';
 
 type DeleteVideoRouteServices = {
   deleteLibraryVideo: {

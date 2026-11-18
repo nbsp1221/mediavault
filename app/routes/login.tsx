@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
-import { getAuthClientCookieHeaderForRequest } from '~/composition/server/auth-client-identity';
 import { LoginPage } from '~/pages/login/ui/LoginPage';
+import { getAuthClientCookieHeaderForRequest } from '~/routes/.server/auth-client-identity';
 
 export function loader({ request }: LoaderFunctionArgs) {
   const authClientCookie = getAuthClientCookieHeaderForRequest(request);

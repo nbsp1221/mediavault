@@ -84,8 +84,8 @@ async function readPlaylistItems(databasePath: string, playlistId: string) {
 
 describe('playlist mutation contract', { concurrent: false }, () => {
   afterEach(() => {
-    vi.doUnmock('~/composition/server/auth');
-    vi.doUnmock('~/composition/server/playlist');
+    vi.doUnmock('~/composition/server/auth.server');
+    vi.doUnmock('~/composition/server/playlist.server');
     vi.resetModules();
   });
 

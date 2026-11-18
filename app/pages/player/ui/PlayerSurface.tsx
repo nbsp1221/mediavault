@@ -1,7 +1,7 @@
 import { SkipForward } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { Link, useLocation } from 'react-router';
-import type { PlaybackCatalogVideo } from '~/modules/playback/application/ports/video-catalog.port';
+import type { PlayerVideo } from '~/pages/player/model/player-video';
 import { usePlayerSurfaceView } from '~/pages/player/model/usePlayerSurfaceView';
 import {
   type PlayerPlaylistContext,
@@ -16,8 +16,8 @@ import { Button } from '~/shared/ui/button';
 
 interface PlayerSurfaceProps {
   playlist?: PlayerPlaylistContext | null;
-  relatedVideos: PlaybackCatalogVideo[];
-  video: PlaybackCatalogVideo;
+  relatedVideos: PlayerVideo[];
+  video: PlayerVideo;
 }
 
 export function PlayerSurface({ playlist, video, relatedVideos }: PlayerSurfaceProps) {
@@ -114,7 +114,7 @@ function PlaybackViewport({
 }: {
   autoPlay: boolean;
   onEnded: () => void;
-  video: PlaybackCatalogVideo;
+  video: PlayerVideo;
 }) {
   const hydrated = useSyncExternalStore(
     subscribeToHydration,

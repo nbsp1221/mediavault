@@ -1,12 +1,12 @@
 import type { ActionFunctionArgs } from 'react-router';
 import { z } from 'zod';
-import type { requireProtectedApiSessionValue } from '~/composition/server/auth';
 import type {
   UpdateLibraryVideoInput,
   UpdateLibraryVideoUseCaseResult,
 } from '~/modules/library/application/use-cases/update-library-video.usecase';
-import { toHomeLibraryVideoDto } from '~/composition/server/home-library-video-dto';
-import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer';
+import type { requireProtectedApiSessionValue } from '~/routes/.server/auth-session-http';
+import { toHomeLibraryVideoDto } from '~/composition/server/home-library-video-dto.server';
+import { toAuthenticatedVideoPolicyViewer } from '~/composition/server/video-access-viewer.server';
 
 type UpdateVideoRouteServices = {
   updateLibraryVideo: {

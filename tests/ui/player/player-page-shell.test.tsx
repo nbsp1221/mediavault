@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { PlaybackCatalogVideo } from '../../../app/modules/playback/application/ports/video-catalog.port';
+import type { PlayerVideo } from '~/pages/player/model/player-video';
 
 const rootUserMock = vi.fn<() => { id: string; role: string; username: string } | null>();
 
@@ -19,7 +19,7 @@ vi.mock('~/pages/player/ui/PlayerSurface', () => ({
   ),
 }));
 
-function createVideo(overrides: Partial<PlaybackCatalogVideo> = {}): PlaybackCatalogVideo {
+function createVideo(overrides: Partial<PlayerVideo> = {}): PlayerVideo {
   return {
     createdAt: new Date('2026-03-09T00:00:00.000Z'),
     description: 'A shell-backed player page fixture.',

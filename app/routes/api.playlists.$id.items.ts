@@ -1,7 +1,8 @@
 import type { ActionFunctionArgs } from 'react-router';
 import { z } from 'zod';
-import { requireProtectedApiSessionValue } from '~/composition/server/auth';
-import { getServerPlaylistServices } from '~/composition/server/playlist';
+import { getServerPlaylistServices } from '~/composition/server/playlist.server';
+import { requireProtectedApiSessionValue } from '~/routes/.server/auth-session-http';
+import { playlistFailureResponse } from '~/routes/.server/playlist-http';
 
 const addSchema = z
   .object({
@@ -49,9 +50,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
       ownerId: session.userId,
       playlistId: params.id,
     });
-    return result.success
+    return result.ok
       ? Response.json({ ...result.data, success: true })
-      : Response.json({ success: false, error: result.error }, { status: result.status });
+      : playlistFailureResponse(result);
   }
   const parsed = reorderSchema.safeParse(body);
   if (!parsed.success) {
@@ -62,7 +63,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     ownerId: session.userId,
     playlistId: params.id,
   });
-  return result.success
+  return result.ok
     ? Response.json({ ...result.data, success: true })
-    : Response.json({ success: false, error: result.error }, { status: result.status });
+    : playlistFailureResponse(result);
 }

@@ -39,7 +39,8 @@ beforeEach(() => {
 
 describe('source upload composition', () => {
   test('assembles injected staging services without a second synchronous commit pipeline', async () => {
-    const { createServerIngestServices } = await import('../../../app/composition/server/ingest');
+    const { createServerIngestServices } =
+      await import('../../../app/composition/server/ingest.server');
     const f = adapters();
     const services = createServerIngestServices({
       stagedUploadRepository: f.repository,
@@ -75,7 +76,8 @@ describe('source upload composition', () => {
     mocks.upload.mockImplementation(function () {
       return f.upload;
     });
-    const { getServerIngestServices } = await import('../../../app/composition/server/ingest');
+    const { getServerIngestServices } =
+      await import('../../../app/composition/server/ingest.server');
     const first = getServerIngestServices();
     expect(getServerIngestServices()).toBe(first);
     expect(mocks.repository).not.toHaveBeenCalled();
