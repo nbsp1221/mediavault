@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs } from 'react-router';
-import { getServerAdminAuthServices } from '~/composition/server/auth';
+import { getServerAdminAuthServices } from '~/composition/server/auth.server';
 
 function createAdminAccessResponse(reason: 'FORBIDDEN' | 'UNAUTHORIZED'): Response {
   return Response.json(

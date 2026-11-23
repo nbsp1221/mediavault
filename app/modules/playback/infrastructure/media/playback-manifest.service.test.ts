@@ -107,7 +107,6 @@ describe('PlaybackManifestService', () => {
     ).rejects.toMatchObject({
       message: 'Invalid video ID format',
       name: 'ValidationError',
-      statusCode: 400,
     });
   });
 });

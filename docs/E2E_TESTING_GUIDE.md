@@ -33,6 +33,8 @@ pnpm test:e2e tests/e2e/player-browser-playback.spec.ts
 
 Both entrypoints always allocate a temporary [runtime workspace](../tests/support/create-runtime-test-workspace.ts), seed accounts/metadata from shared fixture authorities, copy tracked playback assets, build/start the Node server, and clean up test-owned state. [Playwright configuration](../playwright.config.ts) uses one worker, explicit locale/timezone, no server reuse, and tracing off. Do not add a flag that switches the normal suite to a developer's vault.
 
+Run browser smoke and Docker Compose smoke sequentially on the same host. `pnpm check:runtime` already uses that order. Chromium can interrupt even loopback requests with `ERR_NETWORK_CHANGED` during host network interface changes. If it occurs, preserve the console diagnostic, check host network events, and rerun in a stable or dedicated environment. [Chromium network change issue](https://issues.chromium.org/issues/41465264)
+
 Vitest, runtime, and browser runners scrub public runtime overrides and disable Vite environment-file loading. Tests must seed their own explicit environment rather than depend on shell secrets or the real local environment file. Shared fixture secrets belong in [runtime-test-env](../tests/support/runtime-test-env.ts); do not print or duplicate their values in guides or reports.
 
 ## Fixtures and maintenance are different

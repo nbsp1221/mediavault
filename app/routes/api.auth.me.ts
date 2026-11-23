@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from 'react-router';
-import { getOptionalSiteViewer } from '~/composition/server/auth';
+import { getOptionalSiteViewer } from '~/routes/.server/auth-session-http';
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<Response> {
   try {

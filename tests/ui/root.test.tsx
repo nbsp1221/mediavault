@@ -2,8 +2,11 @@ import type * as ReactRouter from 'react-router';
 import { render, screen } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router';
 import { describe, expect, test, vi } from 'vitest';
-import App, { ErrorBoundary, Layout, links } from '../../app/root';
+import App, { ErrorBoundary, Layout } from '../../app/root';
 
+vi.mock('~/routes/.server/auth-session-http', () => ({
+  getOptionalSiteViewer: vi.fn(),
+}));
 vi.mock('~/shared/ui/sonner', () => ({
   Toaster: () => <div data-testid="toaster" />,
 }));
@@ -21,21 +24,6 @@ vi.mock('react-router', async () => {
 });
 
 describe('root UI shell', () => {
-  test('declares the approved font resource hints and stylesheet links', () => {
-    expect(links()).toEqual([
-      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-      {
-        rel: 'preconnect',
-        href: 'https://fonts.gstatic.com',
-        crossOrigin: 'anonymous',
-      },
-      {
-        rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=Outfit:wght@100;200;300;400;500;600;700;800;900&display=swap',
-      },
-    ]);
-  });
-
   test('layout renders children and the shared toaster host', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 

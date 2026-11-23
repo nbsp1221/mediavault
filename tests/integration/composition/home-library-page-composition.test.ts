@@ -24,7 +24,7 @@ describe('home library page composition root', () => {
 
   test('composes canonical library data through library services only', async () => {
     const { createHomeLibraryPageServices } =
-      await import('../../../app/composition/server/home-library-page');
+      await import('../../../app/composition/server/home-library-page.server');
     const services = createHomeLibraryPageServices({
       libraryServices: {
         loadLibraryCatalogSnapshot: {
@@ -81,7 +81,7 @@ describe('home library page composition root', () => {
 
   test('maps public non-owner videos to read-only home DTO permissions', async () => {
     const { createHomeLibraryPageServices } =
-      await import('../../../app/composition/server/home-library-page');
+      await import('../../../app/composition/server/home-library-page.server');
     const services = createHomeLibraryPageServices({
       libraryServices: {
         loadLibraryCatalogSnapshot: {
@@ -148,7 +148,7 @@ describe('home library page composition root', () => {
 
   test('returns an explicit failure when catalog data is unavailable', async () => {
     const { createHomeLibraryPageServices } =
-      await import('../../../app/composition/server/home-library-page');
+      await import('../../../app/composition/server/home-library-page.server');
     const catalogExecute = vi.fn().mockResolvedValue({
       ok: false as const,
       reason: 'CATALOG_SOURCE_UNAVAILABLE' as const,

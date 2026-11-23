@@ -20,11 +20,11 @@ describe('Playlist HTTP validation and authorization adapters', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.doMock('~/composition/server/auth', () => ({
+    vi.doMock('~/routes/.server/auth-session-http', () => ({
       requireProtectedApiSessionValue: requireSession,
       resolvePublicVideoAccess: resolveViewer,
     }));
-    vi.doMock('~/composition/server/playlist', () => ({
+    vi.doMock('~/composition/server/playlist.server', () => ({
       getServerPlaylistServices: () => services,
     }));
     requireSession.mockResolvedValue({ userId: 'owner-1', id: 'session-1' });
@@ -34,14 +34,14 @@ describe('Playlist HTTP validation and authorization adapters', () => {
     });
   });
   afterEach(() => {
-    vi.doUnmock('~/composition/server/auth');
-    vi.doUnmock('~/composition/server/playlist');
+    vi.doUnmock('~/routes/.server/auth-session-http');
+    vi.doUnmock('~/composition/server/playlist.server');
     vi.resetModules();
   });
 
   test('public list forwards validated functional filters, paging and sort values and is non-cacheable', async () => {
     services.findPlaylists.execute.mockResolvedValue({
-      success: true,
+      ok: true,
       data: { playlists: [], hasMore: false, totalCount: 0 },
     });
     const { loader } = await import('../../../app/routes/api.playlists');
@@ -79,7 +79,7 @@ describe('Playlist HTTP validation and authorization adapters', () => {
   });
   test('anonymous reads use an anonymous subject but owner-only choices require login', async () => {
     resolveViewer.mockResolvedValue({ headers: headers(), viewer: { type: 'anonymous' } });
-    services.findPlaylists.execute.mockResolvedValue({ success: true, data: { playlists: [] } });
+    services.findPlaylists.execute.mockResolvedValue({ ok: true, data: { playlists: [] } });
     const { loader } = await import('../../../app/routes/api.playlists');
     expect(
       (await loader(routeArgs({ request: new Request('http://localhost/api/playlists') }))).status,
@@ -111,7 +111,7 @@ describe('Playlist HTTP validation and authorization adapters', () => {
   });
   test('creates using the trusted session identity and a 201 response', async () => {
     services.createPlaylist.execute.mockResolvedValue({
-      success: true,
+      ok: true,
       data: { playlistId: 'created', message: 'Created' },
     });
     const { action } = await import('../../../app/routes/api.playlists');
@@ -159,10 +159,9 @@ describe('Playlist HTTP validation and authorization adapters', () => {
   });
   test('detail reads preserve paging and strip internal failure reasons', async () => {
     services.getPlaylistDetails.execute.mockResolvedValue({
-      success: false,
-      status: 404,
+      ok: false,
       reason: 'PLAYLIST_NOT_FOUND',
-      error: 'Playlist not found',
+      message: 'Playlist not found',
     });
     const { loader } = await import('../../../app/routes/api.playlists.$id');
     const response = await loader(
@@ -262,10 +261,9 @@ describe('Playlist HTTP validation and authorization adapters', () => {
   test('maps command failures and rejects unsupported methods', async () => {
     const { action } = await import('../../../app/routes/api.playlists.$id');
     services.updatePlaylist.execute.mockResolvedValue({
-      success: false,
-      error: 'Denied',
+      ok: false,
+      message: 'Denied',
       reason: 'PLAYLIST_PERMISSION_DENIED',
-      status: 403,
     });
     const response = await action(
       routeArgs({

@@ -99,15 +99,6 @@ describe('PlaybackClearKeyService', () => {
     ).rejects.toMatchObject({
       message: 'Invalid video ID format',
       name: 'ValidationError',
-      statusCode: 400,
     });
-  });
-
-  test('preserves the canonical playback key-id derivation algorithm', async () => {
-    const { generatePlaybackKeyId } = await import('./generate-playback-key-id');
-
-    expect(generatePlaybackKeyId('video-1')).toBe(
-      crypto.createHash('sha256').update('video-1').digest().subarray(0, 16).toString('hex'),
-    );
   });
 });

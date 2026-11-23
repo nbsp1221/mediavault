@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { generatePlaybackKeyId } from '~/modules/media-assets/infrastructure/crypto/generate-playback-key-id.server';
 import { getStoragePaths } from '~/shared/config/app-config.server';
 import type { PlaybackClearKeyService as PlaybackClearKeyServicePort } from '../../application/ports/playback-clearkey-service.port';
 import { assertValidPlaybackVideoId } from '../../domain/playback-video-id';
-import { generatePlaybackKeyId } from './generate-playback-key-id';
 
 export class PlaybackClearKeyService implements PlaybackClearKeyServicePort {
   async serveLicense(input: Parameters<PlaybackClearKeyServicePort['serveLicense']>[0]) {

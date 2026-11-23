@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { createRuntimeReadinessServices } from '../../../app/composition/server/runtime-readiness';
+import { createRuntimeReadinessServices } from '../../../app/composition/server/runtime-readiness.server';
 import { createProductionRuntimeTestEnv } from '../../support/runtime-test-env';
 
 const tempRoots: string[] = [];

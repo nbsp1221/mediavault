@@ -13,7 +13,7 @@ const ORIGINAL_AUTH_CLIENT_COOKIE_SECRET = process.env.MEDIAVAULT_AUTH_CLIENT_CO
 
 type RuntimeWorkspace = Awaited<ReturnType<typeof createRuntimeTestWorkspace>>;
 
-function createLoaderArgs(request: Request, params: { videoId?: string }) {
+function createLoaderArgs(request: Request, params: { videoId: string }) {
   return routeArgs({ params, request });
 }
 

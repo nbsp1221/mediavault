@@ -1,12 +1,12 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { getStoragePaths } from '~/shared/config/app-config.server';
-import type { Pbkdf2ThumbnailKeyManager } from '../security/pbkdf2-thumbnail-key-manager';
 import {
   decryptThumbnailEnvelope,
   encryptThumbnailEnvelope,
   looksLikeJpeg,
-} from '../crypto/thumbnail-crypto.utils';
+} from '~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server';
+import { getStoragePaths } from '~/shared/config/app-config.server';
+import type { Pbkdf2ThumbnailKeyManager } from '../security/pbkdf2-thumbnail-key-manager';
 
 interface EncryptThumbnailInput {
   thumbnailPath: string;

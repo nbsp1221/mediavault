@@ -1,64 +1,15 @@
-import type { HeadersFunction, LoaderFunctionArgs } from 'react-router';
 import { AlertTriangle } from 'lucide-react';
 import { useMemo } from 'react';
-import { isRouteErrorResponse, useLoaderData, useRouteError, useSearchParams } from 'react-router';
-import type { HomeLibraryVideo } from '~/entities/library-video/model/library-video';
-import type { VideoTaxonomyItem } from '~/modules/library/domain/video-taxonomy';
-import { resolvePublicVideoAccess } from '~/composition/server/auth';
-import { getHomeLibraryPageServices } from '~/composition/server/home-library-page';
+import { data, isRouteErrorResponse, useRouteError, useSearchParams } from 'react-router';
+import { getHomeLibraryPageServices } from '~/composition/server/home-library-page.server';
 import { videoTagsSchema } from '~/modules/library/domain/video-tag';
 import { createHomeLibraryFilters } from '~/pages/home/model/home-library-filters';
 import { HomePage } from '~/pages/home/ui/HomePage';
+import { resolvePublicVideoAccess } from '~/routes/.server/auth-session-http';
 import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
+import type { Route } from './+types/_index';
 
-interface LoaderData {
-  contentTypes: VideoTaxonomyItem[];
-  genres: VideoTaxonomyItem[];
-  videos: SerializedHomeLibraryVideo[];
-}
-
-interface SerializedHomeLibraryVideo extends Omit<HomeLibraryVideo, 'createdAt'> {
-  createdAt: string;
-}
-
-function serializeHomeLibraryVideo(video: {
-  contentTypeSlug?: string;
-  createdAt: Date;
-  description?: string;
-  duration: number;
-  genreSlugs?: string[];
-  id: string;
-  isPrivate: boolean;
-  permissions: HomeLibraryVideo['permissions'];
-  tags: string[];
-  thumbnailUrl?: string;
-  title: string;
-  videoUrl: string;
-}): SerializedHomeLibraryVideo {
-  return {
-    contentTypeSlug: video.contentTypeSlug,
-    createdAt: video.createdAt.toISOString(),
-    description: video.description,
-    duration: video.duration,
-    genreSlugs: [...(video.genreSlugs ?? [])],
-    id: video.id,
-    isPrivate: video.isPrivate,
-    permissions: { ...video.permissions },
-    tags: [...video.tags],
-    thumbnailUrl: video.thumbnailUrl,
-    title: video.title,
-    videoUrl: video.videoUrl,
-  };
-}
-
-function deserializeHomeLibraryVideo(video: SerializedHomeLibraryVideo): HomeLibraryVideo {
-  return {
-    ...video,
-    createdAt: new Date(video.createdAt),
-  };
-}
-
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   const publicRouteViewer = await resolvePublicVideoAccess(request);
   const params = new URL(request.url).searchParams;
   for (const key of ['tag', 'notTag']) {
@@ -78,19 +29,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw new Response('Unable to load home library', { status: 500 });
   }
 
-  return Response.json(
-    {
-      contentTypes: result.data.contentTypes,
-      genres: result.data.genres,
-      videos: result.data.videos.map(serializeHomeLibraryVideo),
-    } satisfies LoaderData,
-    {
-      headers: publicRouteViewer.headers,
-    },
-  );
+  return data(result.data, { headers: publicRouteViewer.headers });
 }
 
-export const headers: HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
+export const headers: Route.HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
 
 export function shouldRevalidate({
   currentUrl,
@@ -119,10 +61,8 @@ export function meta() {
   ];
 }
 
-export default function HomeRoute() {
-  const data = useLoaderData<LoaderData>();
+export default function HomeRoute({ loaderData }: Route.ComponentProps) {
   const [searchParams] = useSearchParams();
-  const videos = useMemo(() => data.videos.map(deserializeHomeLibraryVideo), [data.videos]);
   const initialFilters = useMemo(
     () =>
       createHomeLibraryFilters({
@@ -137,10 +77,10 @@ export default function HomeRoute() {
 
   return (
     <HomePage
-      contentTypes={data.contentTypes}
-      genres={data.genres}
+      contentTypes={loaderData.contentTypes}
+      genres={loaderData.genres}
       initialFilters={initialFilters}
-      videos={videos}
+      videos={loaderData.videos}
     />
   );
 }

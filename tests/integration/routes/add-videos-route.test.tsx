@@ -2,8 +2,8 @@ import type * as ReactRouter from 'react-router';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { requireProtectedPageSession } from '~/composition/server/auth';
 import type { LoadVideoMetadataVocabularyUseCase } from '~/modules/library/application/use-cases/load-video-metadata-vocabulary.usecase';
+import type { requireProtectedPageSession } from '~/routes/.server/auth-session-http';
 import { routeArgs } from '../../helpers/route-args';
 
 const requireProtectedPageSessionMock = vi.fn<typeof requireProtectedPageSession>();
@@ -27,11 +27,11 @@ vi.mock('react-router', async () => {
   };
 });
 
-vi.mock('~/composition/server/auth', () => ({
+vi.mock('~/routes/.server/auth-session-http', () => ({
   requireProtectedPageSession: requireProtectedPageSessionMock,
 }));
 
-vi.mock('~/composition/server/library', () => ({
+vi.mock('~/composition/server/library.server', () => ({
   getServerLibraryServices: () => ({
     loadVideoMetadataVocabulary: {
       execute: loadVideoMetadataVocabularyMock,

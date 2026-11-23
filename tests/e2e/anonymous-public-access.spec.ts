@@ -285,6 +285,33 @@ test.describe('anonymous public access', () => {
   });
 });
 
+test.describe('date hydration in a different timezone', () => {
+  test.use({ timezoneId: 'America/Los_Angeles' });
+
+  test('hydrates the UTC date and then displays the browser-local date', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', () => errors.push('Uncaught browser page error'));
+    page.on('console', (message) => {
+      if (message.type() === 'error' && /hydration|react\.dev\/errors\/418/i.test(message.text())) {
+        errors.push('React hydration error');
+      }
+    });
+
+    const response = await page.goto('/');
+    expect(response?.status()).toBe(200);
+    expect(await response?.text()).toContain('>3/8/2026<');
+
+    await page.waitForFunction(
+      () => document.documentElement.dataset.localStreamerHydrated === 'true',
+    );
+    const card = page.getByRole('article').filter({
+      has: page.getByRole('heading', { name: 'playtime', exact: true }),
+    });
+    await expect(card.getByText('3/7/2026', { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});
+
 async function routeResponseSnapshot(response: APIResponse) {
   const headers = response.headers();
   expect(response.status()).toBe(404);

@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import type { PlaylistDetails } from '~/features/playlist-management/api/playlist-api';
 import { playlistPlaybackHref } from '~/entities/playlist/model/playlist';
 import { PlaylistEditorDialog } from '~/features/playlist-management/ui/PlaylistEditorDialog';
-import { formatDisplayDate } from '~/shared/lib/format-display-date';
+import { useDisplayDate } from '~/shared/hooks/use-display-date';
 import { formatDuration } from '~/shared/lib/format-duration';
 import { Alert, AlertDescription } from '~/shared/ui/alert';
 import {
@@ -28,6 +28,7 @@ export function PlaylistDetailPage(props: PlaylistDetails) {
   const { playlist, permissions, videoPagination, relatedPlaylists } = view.data;
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const updatedDate = useDisplayDate(playlist.updatedAt);
   const firstVideo = playlist.videoIds[0];
   const loadedDuration = playlist.videos.reduce((sum, video) => sum + video.duration, 0);
 
@@ -62,9 +63,7 @@ export function PlaylistDetailPage(props: PlaylistDetails) {
             {formatDuration(loadedDuration)}
             {videoPagination?.hasMore ? ' loaded' : ' total'}
           </span>
-          <span className="text-sm text-muted-foreground">
-            Updated {formatDisplayDate(new Date(playlist.updatedAt))}
-          </span>
+          <span className="text-sm text-muted-foreground">Updated {updatedDate}</span>
         </div>
         <p className="text-sm text-muted-foreground">
           Playlist visibility does not change access to individual videos.

@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from 'react-router';
-import { requireProtectedApiSessionValue } from '~/composition/server/auth';
-import { getServerPlaylistServices } from '~/composition/server/playlist';
+import { getServerPlaylistServices } from '~/composition/server/playlist.server';
+import { requireProtectedApiSessionValue } from '~/routes/.server/auth-session-http';
+import { playlistFailureResponse } from '~/routes/.server/playlist-http';
 
 export async function action({ request, params }: ActionFunctionArgs) {
   if (request.method !== 'DELETE') {
@@ -24,7 +25,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     playlistId: params.id,
     videoId: params.videoId,
   });
-  return result.success
+  return result.ok
     ? Response.json({ ...result.data, success: true })
-    : Response.json({ success: false, error: result.error }, { status: result.status });
+    : playlistFailureResponse(result);
 }

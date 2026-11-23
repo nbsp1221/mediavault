@@ -1,5 +1,8 @@
-import { startServerIngestJobs, stopServerIngestJobs } from './composition/server/ingest-jobs';
-import { assertProductionStartupPreflight } from './composition/server/runtime-readiness';
+import {
+  startServerIngestJobs,
+  stopServerIngestJobs,
+} from './composition/server/ingest-jobs.server';
+import { assertProductionStartupPreflight } from './composition/server/runtime-readiness.server';
 
 /** Reject production startup before accepting requests when the vault is unusable. */
 export async function initializeServer(): Promise<void> {

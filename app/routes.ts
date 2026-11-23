@@ -1,4 +1,4 @@
-import { type RouteConfig, index, route } from '@react-router/dev/routes';
+import { type RouteConfig, index, prefix, route } from '@react-router/dev/routes';
 
 export default [
   index('routes/_index.tsx'),
@@ -6,7 +6,7 @@ export default [
   route('add-videos', 'routes/add-videos.tsx'),
   route('player/:id', 'routes/player.$id.tsx'),
   route('videos/:videoId/edit', 'routes/videos.$videoId.edit.tsx'),
-  route('playlists', 'routes/playlists.tsx', [
+  ...prefix('playlists', [
     index('routes/playlists._index.tsx'),
     route(':id', 'routes/playlists.$id.tsx'),
   ]),

@@ -9,11 +9,11 @@ const getServerLibraryServicesMock = vi.fn(() => ({
   },
 }));
 
-vi.mock('~/composition/server/auth', () => ({
+vi.mock('~/routes/.server/auth-session-http', () => ({
   resolveRequestViewer: resolveRequestViewerMock,
 }));
 
-vi.mock('~/composition/server/library', () => ({
+vi.mock('~/composition/server/library.server', () => ({
   getServerLibraryServices: getServerLibraryServicesMock,
 }));
 
@@ -85,7 +85,7 @@ describe('video details route library slice adapter', () => {
       genres: [{ active: true, label: 'Action', slug: 'action', sortOrder: 10 }],
       redirectTo: '/?q=Action&tag=Neo',
       video: {
-        createdAt: '2026-03-11T00:00:00.000Z',
+        createdAt: new Date('2026-03-11T00:00:00.000Z'),
         id: 'video-1',
         isPrivate: true,
         permissions: {
@@ -104,7 +104,7 @@ describe('video details route library slice adapter', () => {
     await expect(
       loader(
         routeArgs({
-          params: {},
+          params: { videoId: '' },
           request: new Request('http://localhost/videos//edit'),
         }),
       ),
@@ -125,7 +125,7 @@ describe('video details route library slice adapter', () => {
       video: {
         id: 'video-1',
         title: 'Catalog Fixture',
-        createdAt: '2026-03-11T00:00:00.000Z',
+        createdAt: new Date('2026-03-11T00:00:00.000Z'),
         duration: 180,
         isPrivate: true,
         permissions: { canEdit: true, canDelete: true, canManageVisibility: true },

@@ -4,8 +4,8 @@ import { promises as fsPromises, readFileSync } from 'node:fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as ThumbnailCryptoUtils from '~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server';
 import { backfillBrowserCompatiblePlayback } from '~/modules/playback/infrastructure/backfill/browser-compatible-playback-backfill';
-import * as ThumbnailCryptoUtils from '~/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
 
 const VALID_JPEG_BUFFER = readFileSync(
   join(process.cwd(), 'public', 'images', 'video-placeholder.jpg'),

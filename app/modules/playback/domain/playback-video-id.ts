@@ -29,7 +29,6 @@ export function assertValidPlaybackVideoId(videoId: string): asserts videoId is 
   if (!isValidPlaybackVideoId(videoId)) {
     throw Object.assign(new Error('Invalid video ID format'), {
       name: 'ValidationError',
-      statusCode: 400,
     });
   }
 }

@@ -53,14 +53,14 @@ async function importThumbnailComposition() {
     },
   }));
 
-  return import('../../../app/composition/server/thumbnails');
+  return import('../../../app/composition/server/thumbnails.server');
 }
 
 async function importRealThumbnailComposition() {
   vi.resetModules();
   vi.doUnmock('~/modules/thumbnail/infrastructure/decryption/thumbnail-decryption.service');
 
-  return import('../../../app/composition/server/thumbnails');
+  return import('../../../app/composition/server/thumbnails.server');
 }
 
 afterEach(() => {

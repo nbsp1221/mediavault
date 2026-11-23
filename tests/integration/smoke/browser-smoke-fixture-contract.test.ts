@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   decryptThumbnailEnvelope,
   looksLikeJpeg,
-} from '../../../app/modules/thumbnail/infrastructure/crypto/thumbnail-crypto.utils';
+} from '~/modules/media-assets/infrastructure/crypto/thumbnail-envelope.server';
 
 const REQUIRED_PLAYBACK_FIXTURE_IDS = [
   '68e5f819-15e8-41ef-90ee-8a96769311b7',

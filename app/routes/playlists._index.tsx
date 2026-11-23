@@ -1,8 +1,9 @@
 import type { HeadersFunction, LoaderFunctionArgs, MetaFunction } from 'react-router';
 import { data, useLoaderData } from 'react-router';
-import { resolvePublicVideoAccess } from '~/composition/server/auth';
-import { getServerPlaylistServices } from '~/composition/server/playlist';
+import { getServerPlaylistServices } from '~/composition/server/playlist.server';
 import { PlaylistsPage } from '~/pages/playlists/ui/PlaylistsPage';
+import { resolvePublicVideoAccess } from '~/routes/.server/auth-session-http';
+import { getPlaylistFailureStatus } from '~/routes/.server/playlist-http';
 import { ProductRouteErrorView } from '~/widgets/product-shell/ui/ProductRouteErrorView';
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -20,10 +21,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     sortOrder: 'desc',
     ownerId: access.viewer.type === 'authenticated' ? access.viewer.userId : undefined,
   });
-  if (!result.success) {
+  if (!result.ok) {
     throw new Response('Unable to load playlists', {
       headers: access.headers,
-      status: result.status,
+      status: getPlaylistFailureStatus(result.reason),
     });
   }
   return data(

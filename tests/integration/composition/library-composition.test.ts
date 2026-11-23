@@ -46,7 +46,8 @@ describe('server library composition root', () => {
   });
 
   test('creates prewired library catalog services from injected adapters', async () => {
-    const { createServerLibraryServices } = await import('../../../app/composition/server/library');
+    const { createServerLibraryServices } =
+      await import('../../../app/composition/server/library.server');
     const listLibraryVideos = vi.fn(async () => [createCatalogVideo()]);
 
     const services = createServerLibraryServices({
@@ -121,7 +122,8 @@ describe('server library composition root', () => {
     });
     vi.resetModules();
 
-    const { getServerLibraryServices } = await import('../../../app/composition/server/library');
+    const { getServerLibraryServices } =
+      await import('../../../app/composition/server/library.server');
     const first = getServerLibraryServices();
     const second = getServerLibraryServices();
 

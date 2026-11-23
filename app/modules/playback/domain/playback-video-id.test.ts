@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 
 describe('playback video id contract', () => {
+  test('accepts the maximum identifier length and rejects longer identifiers', async () => {
+    const { isValidPlaybackVideoId } = await import('./playback-video-id');
+    expect(isValidPlaybackVideoId('v'.repeat(255))).toBe(true);
+    expect(isValidPlaybackVideoId('v'.repeat(256))).toBe(false);
+  });
+
   test('accepts existing active playback ids', async () => {
     const { isValidPlaybackVideoId } = await import('./playback-video-id');
 

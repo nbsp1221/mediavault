@@ -2,13 +2,13 @@ import type * as Router from 'react-router';
 import { render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import type HomeRoute from '~/routes/_index';
 import type { HomePageProps } from '../../../app/pages/home/ui/HomePage';
 import {
   createHomeLibraryFilters,
   writeHomeLibraryFiltersToSearchParams,
 } from '../../../app/pages/home/model/home-library-filters';
 
-const useLoaderDataMock = vi.fn<() => unknown>();
 const useSearchParamsMock = vi.fn(
   () =>
     [
@@ -23,10 +23,12 @@ vi.mock('react-router', async () => {
   const actual = await vi.importActual<typeof Router>('react-router');
   return {
     ...actual,
-    useLoaderData: () => useLoaderDataMock(),
     useSearchParams: () => useSearchParamsMock(),
   };
 });
+vi.mock('~/routes/.server/auth-session-http', () => ({
+  resolvePublicVideoAccess: vi.fn(),
+}));
 vi.mock('~/pages/home/ui/HomePage', () => ({
   HomePage: (props: HomePageProps) => homePageMock(props),
 }));
@@ -38,7 +40,7 @@ function snapshot() {
     videos: [
       {
         contentTypeSlug: 'movie',
-        createdAt: '2026-03-11T00:00:00.000Z',
+        createdAt: new Date('2026-03-11T00:00:00.000Z'),
         duration: 180,
         genreSlugs: ['drama'],
         id: 'video-1',
@@ -52,18 +54,29 @@ function snapshot() {
   };
 }
 
+function routeProps(loaderData = snapshot()): Parameters<typeof HomeRoute>[0] {
+  const params = {};
+  return {
+    loaderData,
+    matches: [
+      { id: 'root', params, pathname: '/', loaderData: { user: null }, handle: undefined },
+      { id: 'routes/_index', params, pathname: '/', loaderData, handle: undefined },
+    ],
+    params,
+  };
+}
+
 describe('Home URL and loader-data adaptation', () => {
   beforeEach(() => {
     homePageMock.mockClear();
-    useLoaderDataMock.mockReturnValue(snapshot());
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('q=Action&tag=Good%20Boy-comedy&notTag=Spoiler&type=movie&genre=Drama'),
       vi.fn(),
     ] as const);
   });
-  test('normalizes taxonomy and URL tags and revives dates for the page', async () => {
+  test('normalizes URL filters and forwards dates to the page', async () => {
     const route = await import('../../../app/routes/_index');
-    render(createElement(route.default));
+    render(createElement(route.default, routeProps()));
     expect(screen.getByTestId('mock-home-page')).toBeInTheDocument();
     const props = homePageMock.mock.lastCall?.[0];
     expect(props).toMatchObject({
@@ -84,7 +97,7 @@ describe('Home URL and loader-data adaptation', () => {
       vi.fn(),
     ] as const);
     const route = await import('../../../app/routes/_index');
-    render(createElement(route.default));
+    render(createElement(route.default, routeProps()));
     expect(homePageMock.mock.lastCall?.[0]).toMatchObject({
       initialFilters: {
         excludeTags: ['___', 'spoiler'],
@@ -110,15 +123,16 @@ describe('Home URL and loader-data adaptation', () => {
     ]);
     useSearchParamsMock.mockReturnValue([url.searchParams, vi.fn()] as const);
     const route = await import('../../../app/routes/_index');
-    render(createElement(route.default));
+    render(createElement(route.default, routeProps()));
     expect(homePageMock.mock.lastCall?.[0]?.initialFilters).toEqual(filters);
   });
 
-  test('retains revived video references while the loader snapshot is unchanged', async () => {
+  test('retains video references while the loader snapshot is unchanged', async () => {
     const route = await import('../../../app/routes/_index');
-    const { rerender } = render(createElement(route.default));
+    const props = routeProps();
+    const { rerender } = render(createElement(route.default, props));
     const first = homePageMock.mock.lastCall?.[0];
-    rerender(createElement(route.default));
+    rerender(createElement(route.default, props));
     const second = homePageMock.mock.lastCall?.[0];
     expect(first?.videos).toHaveLength(1);
     expect(first?.videos).toBe(second?.videos);

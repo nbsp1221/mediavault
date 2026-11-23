@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 async function importAuthClientIdentity() {
-  return import('../../../app/composition/server/auth-client-identity');
+  return import('../../../app/routes/.server/auth-client-identity');
 }
 
 describe('auth-client identity helpers', () => {

@@ -1,9 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, test, vi } from 'vitest';
+import { VideoMetadataForm } from '~/pages/video-details/ui/VideoMetadataForm';
 import type { HomeLibraryVideo } from '../../../app/entities/library-video/model/library-video';
 import type { VideoTaxonomyItem } from '../../../app/modules/library/domain/video-taxonomy';
-import { VideoMetadataForm } from '../../../app/features/video-metadata/ui/VideoMetadataForm';
 
 const contentTypes: VideoTaxonomyItem[] = [
   { active: true, label: 'Movie', slug: 'movie', sortOrder: 10 },
